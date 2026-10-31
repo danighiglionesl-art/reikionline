@@ -129,10 +129,10 @@ export function Footer({ onOpenAccess }: FooterProps) {
 
             <div className="mt-4 flex flex-wrap gap-2.5">
               <a
-                href="https://www.instagram.com"
+                href="https://www.instagram.com/reikionline.ar/"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Instagram de Reiki Online"
+                aria-label="Instagram oficial de Reiki Online (@reikionline.ar)"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:border-[#F3D791] hover:text-[#F3D791]"
               >
                 <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
@@ -142,10 +142,10 @@ export function Footer({ onOpenAccess }: FooterProps) {
               </a>
 
               <a
-                href="https://www.facebook.com"
+                href="https://www.facebook.com/reikionline.ar"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Facebook de Reiki Online"
+                aria-label="Facebook oficial de Reiki Online (reikionline.ar)"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:border-[#F3D791] hover:text-[#F3D791]"
               >
                 <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">

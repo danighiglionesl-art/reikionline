@@ -82,6 +82,10 @@ export default function RootLayout({
     description:
       "Plataforma digital que reúne profesionales de terapias alternativas, prácticas de bienestar y disciplinas de autoconocimiento.",
     inLanguage: "es-AR",
+    sameAs: [
+      "https://www.instagram.com/reikionline.ar/",
+      "https://www.facebook.com/reikionline.ar",
+    ],
   };
 
   return (
