@@ -1,0 +1,45 @@
+{
+  "name": "Reiki Online — Conectando bienestar",
+  "short_name": "Reiki Online",
+  "description": "Un espacio para conectar personas y experiencias. Plataforma digital de terapias alternativas, prácticas de bienestar y disciplinas de autoconocimiento.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#836DAD",
+  "theme_color": "#836DAD",
+  "orientation": "portrait-primary",
+  "lang": "es-AR",
+  "categories": ["lifestyle", "health", "wellness"],
+  "icons": [
+    {
+      "src": "/brand/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/brand/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/brand/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/brand/Reiki_Icono_Lavanda_Unificado.png",
+      "sizes": "1254x1254",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

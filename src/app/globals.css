@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+:root {
+  --color-lavanda: #836DAD;
+  --color-champan: #F3D791;
+  --color-blanco: #FFFFFF;
+  --color-texto: #2B1F42;
+  --color-superficie: #F6F3FA;
+  --in-oklab: ;
+  --in-oklch: ;
+}
+
+@supports (linear-gradient(in oklab, white, black)) {
+  :root {
+    --in-oklab: in oklab;
+    --in-oklch: in oklch;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: var(--color-blanco);
+  color: var(--color-texto);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background-color: var(--color-blanco);
+  color: var(--color-texto);
+  font-family: var(--font-montserrat), system-ui, -apple-system, sans-serif;
+  font-weight: 400;
+  overflow-x: hidden;
+}
+
+::selection {
+  background-color: var(--color-lavanda);
+  color: var(--color-blanco);
+}
+
+/* Tipografía de acompañamiento (Manual de Marca pág. 7):
+   Montserrat Semibold (600) para encabezados y Regular (400) para lectura,
+   con text-wrap: balance y pretty (improve-text-layout-and-legibility) */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-montserrat), system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+p, li, blockquote {
+  text-wrap: pretty;
+}
+
+/* Foco accesible con los colores oficiales */
+:focus-visible {
+  outline: 2px solid var(--color-lavanda);
+  outline-offset: 3px;
+}
+
+/* Contención de scroll en <dialog> modal nativo (dialog & prevent-page-scroll-under-modal-dialog) */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: color-mix(in oklab, #2B1F42 75%, transparent);
+  backdrop-filter: blur(5px);
+}
+
+/* Validación después de la interacción (validate-input-after-interaction) */
+.ro-input:user-invalid,
+.ro-input.user-invalid-fallback {
+  border-color: var(--color-lavanda);
+  background-color: color-mix(in oklab, var(--color-lavanda) 8%, white);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-lavanda) 25%, transparent);
+}
+
+.ro-input:user-invalid + .ro-error-msg,
+.ro-input.user-invalid-fallback + .ro-error-msg {
+  display: flex;
+}
+
+.ro-input:user-valid,
+.ro-input.user-valid-fallback {
+  border-color: var(--color-lavanda);
+}
+
+/* Estilizado limpio para acordeón nativo <details> (search-hidden-content) */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
