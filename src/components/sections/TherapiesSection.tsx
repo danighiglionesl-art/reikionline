@@ -106,32 +106,9 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
                 <div>
                   <h3 className="text-xl font-semibold text-[#2B1F42]">{cat.title}</h3>
                   <p className="mt-1.5 text-sm font-medium text-[#836DAD]">{cat.shortSubtitle}</p>
-                  <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-[#2B1F42]/75">
+                  <p className="mt-3 text-xs sm:text-sm leading-relaxed text-[#2B1F42]/75">
                     {cat.description}
                   </p>
-
-                  {/* Chips rápidos vinculados con las opciones del catálogo */}
-                  <div className="mt-3.5 flex flex-wrap gap-1.5">
-                    {cat.specialties.slice(0, 6).map((spec) => (
-                      <button
-                        key={spec.name}
-                        type="button"
-                        onClick={() => onRequestBooking(spec.name)}
-                        className="cursor-pointer rounded-lg border border-[#836DAD]/20 bg-white px-2.5 py-1 text-[11px] font-medium text-[#2B1F42] transition-colors hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white"
-                      >
-                        {spec.name}
-                      </button>
-                    ))}
-                    {cat.specialties.length > 6 && (
-                      <button
-                        type="button"
-                        onClick={() => setActiveCategoryId(cat.id)}
-                        className="cursor-pointer rounded-lg bg-[#836DAD]/12 px-2.5 py-1 text-[11px] font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD]/22"
-                      >
-                        +{cat.specialties.length - 6} más
-                      </button>
-                    )}
-                  </div>
                 </div>
 
                 <div className="mt-5 flex items-center justify-between border-t border-[#836DAD]/15 pt-4">
