@@ -35,6 +35,7 @@ import {
 } from "@/lib/geoData";
 import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
 import UserProfilePanel from "@/components/profile/UserProfilePanel";
+import ModalityWorkflowPanel from "@/components/auth/ModalityWorkflowPanel";
 
 export type AccessTab = "login" | "register" | "recover" | "role-select";
 export type ActiveRole = "Consultante" | "Terapeuta";
@@ -553,6 +554,10 @@ export function TerapiasAccessPanel({
   };
 
   const handleBackToRoleSelect = () => {
+    if (selectedModality) {
+      setSelectedModality(null);
+      return;
+    }
     if (therapiesConfirmed) {
       setTherapiesConfirmed(false);
       setSelectedModality(null);
@@ -1511,6 +1516,16 @@ export function TerapiasAccessPanel({
                       );
                     })}
                   </div>
+
+                  {selectedModality && activeUserProfile && (
+                    <ModalityWorkflowPanel
+                      role={selectedRole}
+                      modality={selectedModality}
+                      userProfile={activeUserProfile}
+                      selectedTherapies={activeSelections}
+                      onChangeModality={(next) => setSelectedModality(next)}
+                    />
+                  )}
                 </div>
               )}
 
