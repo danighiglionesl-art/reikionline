@@ -82,7 +82,7 @@ export function TerapiasAccessModal({
       ref={dialogRef}
       {...({ closedby: "any" } as React.DialogHTMLAttributes<HTMLDialogElement>)}
       aria-label="Acceso a Terapias Online"
-      className="m-auto max-h-[92dvh] w-[calc(100%-1.5rem)] max-w-2xl overflow-y-auto rounded-3xl border-0 bg-transparent p-0 shadow-none backdrop:bg-[#2B1F42]/75 backdrop:backdrop-blur-sm"
+      className="m-auto max-h-[92dvh] w-[calc(100%-1.25rem)] max-w-4xl overflow-y-auto rounded-3xl border-0 bg-transparent p-0 shadow-none backdrop:bg-[#2B1F42]/75 backdrop:backdrop-blur-sm"
     >
       <div className="relative">
         <button

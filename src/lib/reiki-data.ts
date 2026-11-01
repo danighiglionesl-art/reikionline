@@ -46,6 +46,137 @@ export interface LegalDocument {
   sections: { heading: string; body: string }[];
 }
 
+export interface RoleTherapyCategory {
+  id: string;
+  number: number;
+  title: string;
+  options: string[];
+}
+
+export const ROLE_THERAPY_CATEGORIES: RoleTherapyCategory[] = [
+  {
+    id: "terapias-energeticas",
+    number: 1,
+    title: "Terapias energéticas",
+    options: [
+      "Reiki Usui",
+      "Reiki Karuna",
+      "Reiki Kundalini",
+      "Reiki con cristales",
+      "Sanación pránica",
+      "Magnified Healing",
+      "Terapia con péndulo",
+      "Radiestesia",
+      "Biomagnetismo",
+      "Alineación de chakras",
+      "Limpieza y armonización energética",
+      "Terapia de cristales (cristaloterapia)",
+      "Terapia de ángeles",
+      "Sanación cuántica",
+    ],
+  },
+  {
+    id: "terapias-emocionales-autoconocimiento",
+    number: 2,
+    title: "Terapias emocionales y de autoconocimiento",
+    options: [
+      "Constelaciones familiares",
+      "Constelaciones individuales",
+      "Terapia de vidas pasadas",
+      "Regresión espiritual",
+      "Limpieza de memoria celular",
+      "Biodescodificación",
+      "Bioneuroemoción",
+      "Flores de Bach",
+      "EFT (técnica de liberación emocional)",
+      "Hipnosis regresiva",
+      "Terapia transpersonal",
+      "Liberación de creencias limitantes",
+      "Coaching espiritual",
+    ],
+  },
+  {
+    id: "meditacion-conexion-interior",
+    number: 3,
+    title: "Meditación y conexión interior",
+    options: [
+      "Meditación guiada",
+      "Meditación mindfulness",
+      "Meditación trascendental",
+      "Yoga Nidra",
+      "Respiración consciente (breathwork)",
+      "Visualización creativa",
+      "Relajación profunda",
+      "Meditación con mantras",
+      "Meditación de chakras",
+      "Baños sonoros",
+      "Sonoterapia con cuencos tibetanos",
+      "Sonoterapia con cuencos de cuarzo",
+    ],
+  },
+  {
+    id: "consultas-espirituales-esotericas",
+    number: 4,
+    title: "Consultas espirituales y esotéricas",
+    options: [
+      "Tarot",
+      "Videncia",
+      "Astrología",
+      "Carta natal",
+      "Revolución solar",
+      "Numerología",
+      "Lectura de registros akáshicos",
+      "Canalización espiritual",
+      "Mediumnidad",
+      "Lectura de aura",
+      "Oráculos",
+      "Runas",
+      "Lectura de péndulo",
+      "Interpretación de sueños",
+      "Lectura de manos (quiromancia)",
+      "I Ching",
+    ],
+  },
+  {
+    id: "terapias-holisticas-corporales",
+    number: 5,
+    title: "Terapias holísticas y corporales",
+    options: [
+      "Aromaterapia",
+      "Reflexología",
+      "Acupresión",
+      "Shiatsu",
+      "Masoterapia",
+      "Ayurveda",
+      "Yoga terapéutico",
+      "Terapia de sonido",
+      "Cromoterapia",
+      "Musicoterapia",
+      "Arteterapia",
+      "Movimiento consciente",
+      "Tai Chi",
+      "Qi Gong",
+    ],
+  },
+  {
+    id: "armonizacion-espacios-rituales",
+    number: 6,
+    title: "Armonización de espacios y rituales",
+    options: [
+      "Limpieza energética de hogares",
+      "Armonización de ambientes",
+      "Feng Shui",
+      "Geobiología",
+      "Limpieza energética a distancia",
+      "Rituales de luna nueva y luna llena",
+      "Ceremonias de intención",
+      "Protección energética",
+      "Armonización con cristales",
+      "Bendición de espacios",
+    ],
+  },
+];
+
 export const NAV_ITEMS: NavItem[] = [
   { label: "Inicio", href: "#inicio" },
   { label: "Quiénes somos", href: "#quienes-somos" },
