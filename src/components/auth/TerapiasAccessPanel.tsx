@@ -715,77 +715,125 @@ export function TerapiasAccessPanel({
 
   return (
     <div className="rounded-3xl border border-[#836DAD]/25 bg-white p-6 sm:p-8 text-[#2B1F42] shadow-xl shadow-[#836DAD]/10">
-      {/* Cabecera limpia y simple */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-4">
-        <div className="flex items-center gap-3">
-          <div className="shrink-0 overflow-hidden rounded-2xl bg-[#836DAD] p-1.5 shadow-sm">
-            <img
-              src="/brand/Reiki_Icono_Lavanda_Unificado.png"
-              alt="Reiki Online"
-              width={40}
-              height={40}
-              className="h-10 w-10 object-contain"
-            />
+      {/* BORDE SUPERIOR FIJO Y SIEMPRE VISIBLE (Cabecera + Barra Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera) */}
+      <div
+        className={`${
+          idPrefix === "modal" ? "sticky top-0" : "sticky top-16 sm:top-20"
+        } z-20 -mx-6 -mt-6 sm:-mx-8 sm:-mt-8 rounded-t-3xl border-b border-[#836DAD]/15 bg-white/95 px-6 pt-5 pb-4 sm:px-8 sm:pt-6 sm:pb-4 backdrop-blur-md shadow-xs`}
+      >
+        <div
+          className={`flex flex-wrap items-center justify-between gap-3 ${
+            idPrefix === "modal" ? "pr-10" : ""
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="shrink-0 overflow-hidden rounded-2xl bg-[#836DAD] p-1.5 shadow-sm">
+              <img
+                src="/brand/Reiki_Icono_Lavanda_Unificado.png"
+                alt="Reiki Online"
+                width={40}
+                height={40}
+                className="h-10 w-10 object-contain"
+              />
+            </div>
+            <div>
+              <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
+                {authenticatedUser
+                  ? !isWhatsAppVerified
+                    ? "Verificación de WhatsApp"
+                    : "¿Cómo Ingresas?"
+                  : mode === "register"
+                  ? "Registrarme"
+                  : mode === "recover"
+                  ? "Recuperar contraseña"
+                  : "Ingresar"}
+              </h3>
+              {authenticatedUser && activeUserProfile && (
+                <p className="text-xs font-medium text-[#836DAD]">
+                  {isWhatsAppVerified
+                    ? `WhatsApp verificado (${activeUserProfile.whatsappE164})`
+                    : "Estado: WhatsApp sin verificar"}
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
-              {authenticatedUser
-                ? !isWhatsAppVerified
-                  ? "Verificación de WhatsApp"
-                  : "¿Cómo Ingresas?"
-                : mode === "register"
-                ? "Registrarme"
-                : mode === "recover"
-                ? "Recuperar contraseña"
-                : "Ingresar"}
-            </h3>
-            {authenticatedUser && activeUserProfile && (
-              <p className="text-xs font-medium text-[#836DAD]">
-                {isWhatsAppVerified
-                  ? `WhatsApp verificado (${activeUserProfile.whatsappE164})`
-                  : "Estado: WhatsApp sin verificar"}
-              </p>
+
+          <div className="flex items-center gap-2">
+            {/* Botón / Indicador de Alerta al Administrador */}
+            {(pendingAdminAlerts.length > 0 || authenticatedUser?.isAdmin) && (
+              <button
+                type="button"
+                onClick={() => setShowAdminPanel((prev) => !prev)}
+                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
+                  pendingAdminAlerts.length > 0
+                    ? "border-[#836DAD] bg-[#F3D791] text-[#2B1F42] shadow-sm"
+                    : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#836DAD]"
+                }`}
+                title="Ver panel y alertas del Administrador"
+              >
+                <BellRing className="h-3.5 w-3.5 text-[#836DAD]" />
+                <span>
+                  Admin
+                  {pendingAdminAlerts.length > 0
+                    ? ` (${pendingAdminAlerts.length} alerta${
+                        pendingAdminAlerts.length === 1 ? "" : "s"
+                      })`
+                    : ""}
+                </span>
+              </button>
+            )}
+
+            {authenticatedUser && (
+              <button
+                type="button"
+                onClick={handleResetSession}
+                title="Salir"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD]/10"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span>Salir</span>
+              </button>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Botón / Indicador de Alerta al Administrador */}
-          {(pendingAdminAlerts.length > 0 || authenticatedUser?.isAdmin) && (
-            <button
-              type="button"
-              onClick={() => setShowAdminPanel((prev) => !prev)}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
-                pendingAdminAlerts.length > 0
-                  ? "border-[#836DAD] bg-[#F3D791] text-[#2B1F42] shadow-sm"
-                  : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#836DAD]"
-              }`}
-              title="Ver panel y alertas del Administrador"
-            >
-              <BellRing className="h-3.5 w-3.5 text-[#836DAD]" />
-              <span>
-                Admin
-                {pendingAdminAlerts.length > 0
-                  ? ` (${pendingAdminAlerts.length} alerta${
-                      pendingAdminAlerts.length === 1 ? "" : "s"
-                    })`
-                  : ""}
-              </span>
-            </button>
-          )}
-
-          {authenticatedUser && (
-            <button
-              type="button"
-              onClick={handleResetSession}
-              title="Salir"
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD]/10"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Salir</span>
-            </button>
-          )}
-        </div>
+        {/* BARRA SUPERIOR SIEMPRE FIJA Y VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera */}
+        {authenticatedUser && isWhatsAppVerified && (
+          <nav
+            aria-label="Accesos permanentes del usuario"
+            className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-4"
+          >
+            {(
+              [
+                { label: "Mi Perfil", icon: User },
+                { label: "Mi Credencial", icon: IdCard },
+                { label: "Mis Consultas", icon: Calendar },
+                { label: "Mi Billetera", icon: Wallet },
+              ] as const
+            ).map(({ label, icon: Icon }) => {
+              const isActive = activeSection === label;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() =>
+                    setActiveSection((prev) =>
+                      prev === label ? null : label
+                    )
+                  }
+                  className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                    isActive
+                      ? "bg-[#836DAD] text-white shadow-sm"
+                      : "bg-white text-[#2B1F42] hover:bg-[#836DAD]/12"
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        )}
       </div>
 
       {/* ALERTA AL ADMINISTRADOR: Nueva categoría / opción ofrecida + Estado de Verificación WhatsApp */}
@@ -1657,42 +1705,6 @@ export function TerapiasAccessPanel({
                   )}
                 </div>
               )}
-
-              {/* BARRA INFERIOR SIEMPRE VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera */}
-              <nav
-                aria-label="Accesos permanentes del usuario"
-                className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-4"
-              >
-                {(
-                  [
-                    { label: "Mi Perfil", icon: User },
-                    { label: "Mi Credencial", icon: IdCard },
-                    { label: "Mis Consultas", icon: Calendar },
-                    { label: "Mi Billetera", icon: Wallet },
-                  ] as const
-                ).map(({ label, icon: Icon }) => {
-                  const isActive = activeSection === label;
-                  return (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() =>
-                        setActiveSection((prev) =>
-                          prev === label ? null : label
-                        )
-                      }
-                      className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
-                        isActive
-                          ? "bg-[#836DAD] text-white shadow-sm"
-                          : "bg-white text-[#2B1F42] hover:bg-[#836DAD]/12"
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span>{label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
             </>
           )}
         </div>

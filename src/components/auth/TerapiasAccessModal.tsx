@@ -85,14 +85,16 @@ export function TerapiasAccessModal({
       className="m-auto max-h-[92dvh] w-[calc(100%-1.25rem)] max-w-4xl overflow-y-auto rounded-3xl border-0 bg-transparent p-0 shadow-none backdrop:bg-[#2B1F42]/75 backdrop:backdrop-blur-sm"
     >
       <div className="relative">
-        <button
-          type="button"
-          onClick={() => dialogRef.current?.close()}
-          aria-label="Cerrar ventana de acceso"
-          className="absolute top-4 right-4 z-10 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-[#F6F3FA] text-[#2B1F42] transition-colors hover:bg-[#836DAD] hover:text-white"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="pointer-events-none sticky top-0 z-30 flex h-0 justify-end overflow-visible">
+          <button
+            type="button"
+            onClick={() => dialogRef.current?.close()}
+            aria-label="Cerrar ventana de acceso"
+            className="pointer-events-auto mt-4 mr-4 inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#F6F3FA] text-[#2B1F42] shadow-xs transition-colors hover:bg-[#836DAD] hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
         <TerapiasAccessPanel
           idPrefix="modal"
