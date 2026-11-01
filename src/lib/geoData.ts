@@ -101,7 +101,7 @@ export interface ReikiUserProfile {
   username?: string;
   isAdmin?: boolean;
   role: "consultante" | "terapeuta" | "pendiente";
-  // Datos personales obligatorios (paridad exacta con bibliotecaroncedo.ar)
+  // Datos personales obligatorios
   nombre: string;
   apellido: string;
   dni: string;

@@ -161,7 +161,7 @@ export function TerapiasAccessPanel({
     null
   );
 
-  // Perfiles de usuarios (incluyendo Mi Perfil con datos de bibliotecaroncedo.ar + Maps + Verificación WhatsApp)
+  // Perfiles de usuarios (incluyendo Mi Perfil + Maps + Verificación WhatsApp)
   const [profilesByEmail, setProfilesByEmail] = useState<
     Record<string, ReikiUserProfile>
   >({
@@ -177,6 +177,10 @@ export function TerapiasAccessPanel({
   const [searchFilter, setSearchFilter] = useState("");
   const [selectionSavedFeedback, setSelectionSavedFeedback] = useState<
     string | null
+  >(null);
+  const [therapiesConfirmed, setTherapiesConfirmed] = useState(false);
+  const [selectedModality, setSelectedModality] = useState<
+    "Presencial con turno" | "Online con turno" | "Online ahora" | null
   >(null);
 
   // Estado "Otra" -> "¿Cuál?......" por categoría (exclusivo Terapeuta)
@@ -535,6 +539,8 @@ export function TerapiasAccessPanel({
     setSelectedRole(role);
     setActiveSection(null);
     setSelectionSavedFeedback(null);
+    setTherapiesConfirmed(false);
+    setSelectedModality(null);
     try {
       window.localStorage.setItem(SELECTED_ROLE_STORAGE_KEY, role);
       notifySync();
@@ -544,6 +550,11 @@ export function TerapiasAccessPanel({
   };
 
   const handleBackToRoleSelect = () => {
+    if (therapiesConfirmed) {
+      setTherapiesConfirmed(false);
+      setSelectedModality(null);
+      return;
+    }
     setSelectedRole(null);
     setActiveSection(null);
     setSelectionSavedFeedback(null);
@@ -559,6 +570,8 @@ export function TerapiasAccessPanel({
     setAuthenticatedUser(null);
     setSelectedRole(null);
     setActiveSection(null);
+    setTherapiesConfirmed(false);
+    setSelectedModality(null);
     setPassword("");
     setAuthError(null);
     setShowAdminPanel(false);
@@ -1411,7 +1424,7 @@ export function TerapiasAccessPanel({
                 </div>
               )}
 
-              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI PERFIL (bibliotecaroncedo.ar + Geoposición Satelital + Maps) */}
+              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI PERFIL (Geoposición Satelital + Maps) */}
               {activeSection === "Mi Perfil" && (
                 <UserProfilePanel
                   profile={activeUserProfile}
@@ -1439,8 +1452,42 @@ export function TerapiasAccessPanel({
                 </div>
               )}
 
+              {/* NUEVA VENTANA LIMPIA TRAS CONFIRMAR/GUARDAR TERAPIAS:
+                  - Presencial con turno
+                  - Online con turno
+                  - Online ahora */}
+              {selectedRole && !activeSection && therapiesConfirmed && (
+                <div className="rounded-2xl border border-[#836DAD]/25 bg-white p-6 sm:p-8 space-y-5 shadow-xs">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {(
+                      [
+                        "Presencial con turno",
+                        "Online con turno",
+                        "Online ahora",
+                      ] as const
+                    ).map((optionLabel) => {
+                      const isSelected = selectedModality === optionLabel;
+                      return (
+                        <button
+                          key={optionLabel}
+                          type="button"
+                          onClick={() => setSelectedModality(optionLabel)}
+                          className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 px-5 py-7 text-center text-base sm:text-lg font-semibold transition-all ${
+                            isSelected
+                              ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
+                              : "border-[#836DAD]/30 bg-[#FAF8FC] text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md"
+                          }`}
+                        >
+                          <span>{optionLabel}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* SELECTOR MÚLTIPLE DE TERAPIAS SEGÚN ROL ELEGIDO (sin "(podés combinar opciones)" ni números redundantes) */}
-              {selectedRole && !activeSection && (
+              {selectedRole && !activeSection && !therapiesConfirmed && (
                 <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4 sm:p-6 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
                     <div>
@@ -1700,19 +1747,9 @@ export function TerapiasAccessPanel({
                             }
                           }
                         }
-                        setSelectionSavedFeedback(
-                          selectedRole === "Consultante"
-                            ? `Selección guardada (${activeSelections.length} terapia${
-                                activeSelections.length === 1 ? "" : "s"
-                              } elegida${
-                                activeSelections.length === 1 ? "" : "s"
-                              }).`
-                            : `Oferta profesional actualizada (${activeSelections.length} terapia${
-                                activeSelections.length === 1 ? "" : "s"
-                              } seleccionada${
-                                activeSelections.length === 1 ? "" : "s"
-                              }).`
-                        );
+                        setSelectionSavedFeedback(null);
+                        setSelectedModality(null);
+                        setTherapiesConfirmed(true);
                       }}
                       className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#836DAD] px-5 py-3 text-xs sm:text-sm font-semibold text-white shadow-md shadow-[#836DAD]/20 transition-all hover:bg-[#6F599B]"
                     >
@@ -1724,15 +1761,6 @@ export function TerapiasAccessPanel({
                       </span>
                     </button>
                   </div>
-
-                  {selectionSavedFeedback && (
-                    <div
-                      role="status"
-                      className="rounded-xl border border-[#836DAD]/30 bg-white px-4 py-2.5 text-xs font-semibold text-[#836DAD]"
-                    >
-                      {selectionSavedFeedback}
-                    </div>
-                  )}
                 </div>
               )}
             </>

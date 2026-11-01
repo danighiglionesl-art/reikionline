@@ -400,28 +400,19 @@ export default function UserProfilePanel({
 
   return (
     <div className="space-y-6">
-      {/* Encabezado de Mi Perfil con estado de verificación WhatsApp */}
+      {/* Encabezado de Mi Perfil */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E6E0F0] bg-[#FAF8FC] px-4 py-3.5">
         <div>
           <h4 className="text-base font-bold text-[#2E2344]">
-            Mi Perfil Institucional • Reiki Online
+            Mi Perfil • Reiki Online
           </h4>
           <p className="text-xs text-[#2E2344]/70">
-            Mismos campos obligatorios y padrón oficial de localidades que{" "}
-            <span className="font-semibold text-[#5E4B8B]">
-              bibliotecaroncedo.ar
-            </span>{" "}
-            + Geoposición Satelital Maps.
+            Datos personales, domicilio y ubicación en el mapa.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          {!phoneChangedSinceVerification && whatsappVerified ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              WhatsApp verificado ({verifiedE164})
-            </span>
-          ) : (
+        {(phoneChangedSinceVerification || !whatsappVerified) && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowReverifyModal(true)}
@@ -430,8 +421,8 @@ export default function UserProfilePanel({
               <span className="h-2 w-2 rounded-full bg-amber-600 animate-ping" />
               WhatsApp sin verificar • Clic para verificar
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Modal/Sección de reverificación de WhatsApp cuando cambia el número */}
@@ -514,7 +505,7 @@ export default function UserProfilePanel({
         </div>
       )}
 
-      {/* Formulario principal idéntico a la captura de bibliotecaroncedo.ar */}
+      {/* Formulario principal de Mi Perfil */}
       <form onSubmit={handleSaveSubmit} className="space-y-4">
         <div className="rounded-2xl border border-[#DCE6F5] bg-[#F2F7FF] p-4 sm:p-5 space-y-4 shadow-inner">
           {/* Fila 1: Nombre * | Apellido * */}
