@@ -1727,13 +1727,7 @@ export function TerapiasAccessPanel({
                   </div>
 
                   {/* Botón de confirmación de combinación */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                    <p className="text-xs text-[#2B1F42]/75">
-                      Podés elegir más de una opción para{" "}
-                      {selectedRole === "Consultante"
-                        ? "buscar terapias."
-                        : "ofrecer terapias."}
-                    </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => {
