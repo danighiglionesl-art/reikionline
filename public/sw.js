@@ -1,7 +1,6 @@
-const CACHE_NAME = "reiki-online-pwa-v1";
+const CACHE_NAME = "reiki-online-pwa-v2";
 
 const STATIC_ASSETS = [
-  "/",
   "/manifest.json",
   "/brand/Reiki_Online_Lavanda_Unificado.png",
   "/brand/Reiki_Icono_Lavanda_Unificado.png",
