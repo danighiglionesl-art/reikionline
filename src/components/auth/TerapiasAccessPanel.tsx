@@ -774,18 +774,16 @@ export function TerapiasAccessPanel({
                     ? "Verificación de WhatsApp"
                     : selectedRole
                     ? `Espacio de ${selectedRole}`
-                    : "¿Cómo Ingresas?"
+                    : "Reiki Online"
                   : mode === "register"
                   ? "Registrarme"
                   : mode === "recover"
                   ? "Recuperar contraseña"
                   : "Ingresar"}
               </h3>
-              {authenticatedUser && activeUserProfile && (
+              {authenticatedUser && activeUserProfile && !isWhatsAppVerified && (
                 <p className="text-xs font-medium text-[#836DAD]">
-                  {isWhatsAppVerified
-                    ? `WhatsApp verificado (${activeUserProfile.whatsappE164})`
-                    : "Estado: WhatsApp sin verificar"}
+                  Estado: WhatsApp sin verificar
                 </p>
               )}
             </div>
@@ -1381,30 +1379,35 @@ export function TerapiasAccessPanel({
             />
           ) : (
             <>
-              {/* Opciones principales: Consultante | Terapeuta (solo se muestran antes de elegir rol o al tocar "Volver atrás") */}
+              {/* Opciones principales debajo de la línea de Mi Perfil: ¿Cómo ingresas? + Consultante | Terapeuta */}
               {!selectedRole && !activeSection && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => handleChooseRole("Consultante")}
-                    className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-6 text-center text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md group"
-                  >
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#836DAD] text-[#F3D791] group-hover:bg-white/20">
-                      <HeartHandshake className="h-6 w-6" />
-                    </span>
-                    <span className="text-lg font-semibold">Consultante</span>
-                  </button>
+                <div className="space-y-4">
+                  <h4 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
+                    ¿Cómo ingresas?
+                  </h4>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => handleChooseRole("Consultante")}
+                      className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-6 text-center text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md group"
+                    >
+                      <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#836DAD] text-[#F3D791] group-hover:bg-white/20">
+                        <HeartHandshake className="h-6 w-6" />
+                      </span>
+                      <span className="text-lg font-semibold">Consultante</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleChooseRole("Terapeuta")}
-                    className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-6 text-center text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md group"
-                  >
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F3D791] text-[#836DAD] group-hover:text-[#2B1F42]">
-                      <UserCheck className="h-6 w-6" />
-                    </span>
-                    <span className="text-lg font-semibold">Terapeuta</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChooseRole("Terapeuta")}
+                      className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-6 text-center text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md group"
+                    >
+                      <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F3D791] text-[#836DAD] group-hover:text-[#2B1F42]">
+                        <UserCheck className="h-6 w-6" />
+                      </span>
+                      <span className="text-lg font-semibold">Terapeuta</span>
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1431,8 +1434,7 @@ export function TerapiasAccessPanel({
                     </button>
                   </div>
                   <p className="mt-2 text-xs text-[#2B1F42]/75">
-                    Sección {activeSection} vinculada a tu cuenta verificada (
-                    {activeUserProfile.whatsappE164}).
+                    Sección {activeSection} vinculada a tu cuenta.
                   </p>
                 </div>
               )}
