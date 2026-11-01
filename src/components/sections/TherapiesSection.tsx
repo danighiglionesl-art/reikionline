@@ -1,16 +1,71 @@
 "use client";
 
-import React, { useState } from "react";
-import { THERAPY_CATEGORIES, TherapyCategory } from "@/lib/reiki-data";
+import React, { useState, useEffect, useMemo } from "react";
+import { THERAPY_CATEGORIES, TherapyCategory, TherapySpecialty } from "@/lib/reiki-data";
 import { Sparkles, ChevronRight, Clock, Globe2, CalendarCheck, X } from "lucide-react";
+
+const CUSTOM_OPTIONS_STORAGE_KEY = "reiki_online_custom_therapy_options_v1";
+const SYNC_EVENT_NAME = "reiki-online-catalog-sync";
 
 interface TherapiesSectionProps {
   onRequestBooking: (specialtyLabel: string) => void;
 }
 
 export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
-  const [activeCategory, setActiveCategory] = useState<TherapyCategory | null>(null);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [showAllExplorer, setShowAllExplorer] = useState(false);
+  const [approvedCustomOptions, setApprovedCustomOptions] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const loadCustomOptions = () => {
+      try {
+        const saved = window.localStorage.getItem(CUSTOM_OPTIONS_STORAGE_KEY);
+        if (saved) {
+          setApprovedCustomOptions(JSON.parse(saved) as Record<string, string[]>);
+        }
+      } catch {
+        // Ignore storage read errors
+      }
+    };
+
+    loadCustomOptions();
+    window.addEventListener(SYNC_EVENT_NAME, loadCustomOptions);
+    window.addEventListener("storage", loadCustomOptions);
+
+    return () => {
+      window.removeEventListener(SYNC_EVENT_NAME, loadCustomOptions);
+      window.removeEventListener("storage", loadCustomOptions);
+    };
+  }, []);
+
+  const categoriesWithCustom: TherapyCategory[] = useMemo(() => {
+    return THERAPY_CATEGORIES.map((cat) => {
+      const extraNames = approvedCustomOptions[cat.id] ?? [];
+      if (extraNames.length === 0) return cat;
+
+      const existingSet = new Set(cat.specialties.map((s) => s.name));
+      const extraSpecialties: TherapySpecialty[] = extraNames
+        .filter((name) => !existingSet.has(name))
+        .map((name) => ({
+          name,
+          modality: "Presencial y Online",
+          duration: "45 a 60 min",
+          summary: `Sesión personalizada de ${name} disponible en modalidad online a distancia o presencial.`,
+        }));
+
+      return {
+        ...cat,
+        specialties: [...cat.specialties, ...extraSpecialties],
+      };
+    });
+  }, [approvedCustomOptions]);
+
+  const activeCategory = useMemo(
+    () => categoriesWithCustom.find((c) => c.id === activeCategoryId) ?? null,
+    [categoriesWithCustom, activeCategoryId]
+  );
 
   return (
     <section id="terapias" className="border-t border-[#836DAD]/15 bg-white py-16 sm:py-24">
@@ -25,14 +80,13 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
             Seis grandes categorías para descubrir tu experiencia
           </h2>
           <p className="mt-3 text-sm sm:text-base leading-relaxed text-[#2B1F42]/80">
-            Cada categoría permite descubrir sus especialidades sin necesidad de registro previo;
-            la reserva se gestiona de forma simple y segura dentro de la plataforma.
+            Vinculadas con el catálogo oficial de Consultante y Terapeuta. Explorá todas las especialidades y hacé clic en cualquiera para ingresar o seleccionarla directamente.
           </p>
         </div>
 
-        {/* Grilla de las 6 categorías oficiales con sus fotografías ilustrativas */}
+        {/* Grilla de las 6 categorías oficiales vinculadas con el panel de usuario */}
         <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {THERAPY_CATEGORIES.map((cat) => (
+          {categoriesWithCustom.map((cat) => (
             <article
               key={cat.id}
               className="group flex flex-col overflow-hidden rounded-3xl border border-[#836DAD]/20 bg-[#F6F3FA] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#836DAD]/45 hover:shadow-lg"
@@ -52,15 +106,38 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
                 <div>
                   <h3 className="text-xl font-semibold text-[#2B1F42]">{cat.title}</h3>
                   <p className="mt-1.5 text-sm font-medium text-[#836DAD]">{cat.shortSubtitle}</p>
-                  <p className="mt-3 text-xs sm:text-sm leading-relaxed text-[#2B1F42]/75">
+                  <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-[#2B1F42]/75">
                     {cat.description}
                   </p>
+
+                  {/* Chips rápidos vinculados con las opciones del catálogo */}
+                  <div className="mt-3.5 flex flex-wrap gap-1.5">
+                    {cat.specialties.slice(0, 6).map((spec) => (
+                      <button
+                        key={spec.name}
+                        type="button"
+                        onClick={() => onRequestBooking(spec.name)}
+                        className="cursor-pointer rounded-lg border border-[#836DAD]/20 bg-white px-2.5 py-1 text-[11px] font-medium text-[#2B1F42] transition-colors hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white"
+                      >
+                        {spec.name}
+                      </button>
+                    ))}
+                    {cat.specialties.length > 6 && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveCategoryId(cat.id)}
+                        className="cursor-pointer rounded-lg bg-[#836DAD]/12 px-2.5 py-1 text-[11px] font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD]/22"
+                      >
+                        +{cat.specialties.length - 6} más
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-5 flex items-center justify-between border-t border-[#836DAD]/15 pt-4">
                   <button
                     type="button"
-                    onClick={() => setActiveCategory(cat)}
+                    onClick={() => setActiveCategoryId(cat.id)}
                     className="inline-flex cursor-pointer items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#836DAD] transition-colors hover:text-[#5E4987]"
                   >
                     <span>Descubrir especialidades</span>
@@ -96,11 +173,10 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
             <div className="flex items-center justify-between gap-4 border-b border-[#836DAD]/15 pb-4">
               <div>
                 <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
-                  Explorador completo de terapias y especialidades
+                  Explorador completo de las 6 categorías y especialidades
                 </h3>
                 <p className="text-xs sm:text-sm text-[#2B1F42]/75">
-                  Consultá libremente cada especialidad y seleccioná «Reservar turno» cuando desees
-                  gestionar tu sesión en la plataforma.
+                  Seleccioná cualquier especialidad para abrir tu acceso con esa terapia ya marcada.
                 </p>
               </div>
               <button
@@ -114,7 +190,7 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
             </div>
 
             <div className="mt-6 space-y-8">
-              {THERAPY_CATEGORIES.map((cat) => (
+              {categoriesWithCustom.map((cat) => (
                 <div key={cat.id} className="rounded-2xl bg-white p-5 sm:p-6 shadow-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#836DAD]/12 pb-3">
                     <div>
@@ -123,41 +199,35 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
                       </h4>
                       <p className="text-xs text-[#2B1F42]/70">{cat.shortSubtitle}</p>
                     </div>
+                    <span className="rounded-full bg-[#F6F3FA] px-3 py-1 text-xs font-semibold text-[#836DAD]">
+                      {cat.specialties.length} opciones
+                    </span>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {cat.specialties.map((spec) => (
                       <div
                         key={spec.name}
-                        className="flex flex-col justify-between rounded-2xl border border-[#836DAD]/15 bg-[#FAF8FC] p-4"
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-[#836DAD]/15 bg-[#FAF8FC] p-3.5"
                       >
-                        <div>
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <h5 className="text-sm font-semibold text-[#2B1F42]">{spec.name}</h5>
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#836DAD]/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-                              <Globe2 className="h-3 w-3" />
-                              {spec.modality}
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xs leading-relaxed text-[#2B1F42]/80">
-                            {spec.summary}
-                          </p>
+                        <div className="min-w-0">
+                          <h5 className="truncate text-sm font-semibold text-[#2B1F42]">
+                            {spec.name}
+                          </h5>
+                          <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-[#2B1F42]/65">
+                            <Globe2 className="h-3 w-3 text-[#836DAD]" />
+                            {spec.modality} · {spec.duration}
+                          </span>
                         </div>
 
-                        <div className="mt-4 flex items-center justify-between border-t border-[#836DAD]/10 pt-3">
-                          <span className="inline-flex items-center gap-1 text-xs text-[#2B1F42]/70">
-                            <Clock className="h-3.5 w-3.5 text-[#836DAD]" />
-                            {spec.duration}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => onRequestBooking(`${cat.title} — ${spec.name}`)}
-                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#6E5898]"
-                          >
-                            <CalendarCheck className="h-3.5 w-3.5 text-[#F3D791]" />
-                            <span>Reservar turno</span>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => onRequestBooking(spec.name)}
+                          className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#6E5898]"
+                        >
+                          <CalendarCheck className="h-3.5 w-3.5 text-[#F3D791]" />
+                          <span>Elegir</span>
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -177,7 +247,7 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
             <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[#836DAD]/25 bg-white p-6 sm:p-8 text-[#2B1F42] shadow-2xl">
               <button
                 type="button"
-                onClick={() => setActiveCategory(null)}
+                onClick={() => setActiveCategoryId(null)}
                 aria-label="Cerrar detalle de categoría"
                 className="absolute top-4 right-4 rounded-full bg-[#F6F3FA] p-2 text-[#2B1F42] transition-colors hover:bg-[#836DAD] hover:text-white"
               >
@@ -194,7 +264,7 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
                 />
                 <div>
                   <span className="inline-block rounded-full bg-[#836DAD]/12 px-2.5 py-0.5 text-xs font-semibold text-[#836DAD]">
-                    Categoría oficial
+                    {activeCategory.specialties.length} especialidades disponibles
                   </span>
                   <h3 className="mt-1 text-xl sm:text-2xl font-semibold text-[#2B1F42]">
                     {activeCategory.title}
@@ -209,35 +279,32 @@ export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
                 {activeCategory.description}
               </p>
 
-              <div className="mt-5 space-y-3">
+              <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {activeCategory.specialties.map((spec) => (
                   <div
                     key={spec.name}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-4"
+                    className="flex items-center justify-between gap-2.5 rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-3.5"
                   >
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="text-sm font-semibold text-[#2B1F42]">{spec.name}</h4>
-                        <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-                          {spec.modality} · {spec.duration}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-xs leading-relaxed text-[#2B1F42]/75">
-                        {spec.summary}
-                      </p>
+                    <div className="min-w-0">
+                      <h4 className="text-xs sm:text-sm font-semibold text-[#2B1F42]">
+                        {spec.name}
+                      </h4>
+                      <span className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-[#836DAD]">
+                        <Clock className="h-3 w-3" />
+                        {spec.modality}
+                      </span>
                     </div>
 
                     <button
                       type="button"
                       onClick={() => {
-                        const label = `${activeCategory.title} — ${spec.name}`;
-                        setActiveCategory(null);
-                        onRequestBooking(label);
+                        setActiveCategoryId(null);
+                        onRequestBooking(spec.name);
                       }}
-                      className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#836DAD] px-4 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-[#6E5898]"
+                      className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1 rounded-xl bg-[#836DAD] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#6E5898]"
                     >
                       <CalendarCheck className="h-3.5 w-3.5 text-[#F3D791]" />
-                      <span>Reservar en la plataforma</span>
+                      <span>Elegir</span>
                     </button>
                   </div>
                 ))}

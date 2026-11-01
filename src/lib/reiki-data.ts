@@ -186,188 +186,84 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Contacto", href: "#contacto" },
 ];
 
-export const THERAPY_CATEGORIES: TherapyCategory[] = [
+const CATEGORY_VISUAL_META: Record<
+  string,
   {
-    id: "energia-armonizacion",
-    title: "Energía y armonización",
-    shortSubtitle: "Reiki, chakras, cristales y péndulo.",
+    shortSubtitle: string;
+    image: string;
+    galleryImage: string;
+    description: string;
+  }
+> = {
+  "terapias-energeticas": {
+    shortSubtitle: "Reiki Usui, Karuna, Kundalini, chakras, péndulo y cristales.",
     image: "/images/cat-energia-armonizacion.png",
     galleryImage: "/images/galeria-cristales.png",
     description:
-      "Sesiones orientadas al equilibrio energético integral, alineación de centros vitales y acompañamiento con técnicas tradicionales y complementarias, disponibles de forma presencial o a distancia.",
-    specialties: [
-      {
-        name: "Reiki Usui y Reiki a distancia",
-        modality: "Presencial y Online",
-        duration: "45 a 60 min",
-        summary: "Canalización de energía vital universal para acompañar procesos de calma, descanso y armonización.",
-      },
-      {
-        name: "Alineación y armonización de chakras",
-        modality: "Presencial y Online",
-        duration: "50 min",
-        summary: "Equilibrio de los centros energéticos principales mediante técnicas vibracionales y visualización guiada.",
-      },
-      {
-        name: "Gemoterapia y cristales",
-        modality: "Presencial y Online",
-        duration: "45 min",
-        summary: "Aplicación de cuarzos y cristales seleccionados según el momento personal de cada consultante.",
-      },
-      {
-        name: "Radiestesia y péndulo hebreo / integrativo",
-        modality: "Online a distancia",
-        duration: "45 min",
-        summary: "Lectura energética y limpieza vibracional mediante péndulo con devolución detallada al finalizar.",
-      },
-    ],
+      "Sesiones orientadas al equilibrio energético integral, alineación de centros vitales y acompañamiento con técnicas tradicionales y cuánticas, disponibles de forma presencial o a distancia.",
   },
-  {
-    id: "meditacion-bienestar",
-    title: "Meditación y bienestar",
-    shortSubtitle: "Meditación, mindfulness y relajación.",
-    image: "/images/cat-meditacion-bienestar.png",
-    galleryImage: "/images/galeria-meditacion.png",
-    description:
-      "Prácticas guiadas para cultivar la presencia plena, reducir la tensión cotidiana, mejorar la respiración consciente y construir hábitos sostenibles de serenidad.",
-    specialties: [
-      {
-        name: "Meditación guiada personalizada",
-        modality: "Online a distancia",
-        duration: "45 min",
-        summary: "Encuentros individuales en vivo adaptados al ritmo y necesidad emocional del consultante.",
-      },
-      {
-        name: "Mindfulness y atención plena",
-        modality: "Presencial y Online",
-        duration: "50 min",
-        summary: "Entrenamiento práctico de observación consciente para gestionar el estrés diario con claridad.",
-      },
-      {
-        name: "Relajación profunda y respiración consciente",
-        modality: "Online a distancia",
-        duration: "40 min",
-        summary: "Técnicas respiratorias y relajación progresiva para favorecer el descanso reparador.",
-      },
-    ],
-  },
-  {
-    id: "espiritualidad-orientacion",
-    title: "Espiritualidad y orientación",
-    shortSubtitle: "Tarot, videncia, astrología y oráculos.",
-    image: "/images/cat-espiritualidad-orientacion.png",
-    galleryImage: "/images/galeria-tarot.png",
-    description:
-      "Lenguajes simbólicos y lecturas orientativas que invitan a la reflexión personal, brindando perspectiva sobre ciclos vitales, decisiones e inquietudes presentes.",
-    specialties: [
-      {
-        name: "Tarot evolutivo y terapéutico",
-        modality: "Presencial y Online",
-        duration: "60 min",
-        summary: "Lectura reflexiva centrada en el presente del consultante para clarificar caminos y bloqueos.",
-      },
-      {
-        name: "Carta natal y astrología",
-        modality: "Online a distancia",
-        duration: "60 a 75 min",
-        summary: "Interpretación de carta natal, revolución solar y tránsitos planetarios actuales.",
-      },
-      {
-        name: "Oráculos y orientación intuitiva",
-        modality: "Online a distancia",
-        duration: "45 min",
-        summary: "Sesiones de consulta simbólica mediante diferentes mazos oraculares y escucha atenta.",
-      },
-    ],
-  },
-  {
-    id: "autoconocimiento",
-    title: "Autoconocimiento",
-    shortSubtitle: "Constelaciones, vidas pasadas y otras prácticas.",
+  "terapias-emocionales-autoconocimiento": {
+    shortSubtitle: "Constelaciones, vidas pasadas, biodescodificación y Flores de Bach.",
     image: "/images/cat-autoconocimiento.png",
     galleryImage: "/images/galeria-lavanda.png",
     description:
-      "Experiencias profundas de exploración interior orientadas a comprender vínculos familiares, patrones repetitivos e historia personal desde una mirada integradora.",
-    specialties: [
-      {
-        name: "Constelaciones familiares individuales",
-        modality: "Presencial y Online",
-        duration: "60 min",
-        summary: "Abordaje sistémico individual con figuras o anclajes visuales para ordenar vínculos y dinámicas familiares.",
-      },
-      {
-        name: "Exploración de memorias y vidas pasadas",
-        modality: "Presencial y Online",
-        duration: "75 min",
-        summary: "Acompañamiento guiado de introspección simbólica y reconocimiento de aprendizajes personales.",
-      },
-      {
-        name: "Biodecodificación e indagación personal",
-        modality: "Online a distancia",
-        duration: "60 min",
-        summary: "Espacio de escucha y reflexión sobre el sentido emocional de vivencias y etapas de cambio.",
-      },
-    ],
+      "Experiencias profundas de exploración interior orientadas a comprender vínculos familiares, patrones emocionales, memoria celular y creencias desde una mirada integradora.",
   },
-  {
-    id: "terapias-holisticas",
-    title: "Terapias holísticas",
-    shortSubtitle: "Sonoterapia, aromaterapia y flores de Bach.",
+  "meditacion-conexion-interior": {
+    shortSubtitle: "Meditación guiada, mindfulness, breathwork y cuencos sonoros.",
+    image: "/images/cat-meditacion-bienestar.png",
+    galleryImage: "/images/galeria-meditacion.png",
+    description:
+      "Prácticas guiadas para cultivar la presencia plena, reducir la tensión cotidiana, mejorar la respiración consciente y armonizar mediante baños sonoros y cuencos.",
+  },
+  "consultas-espirituales-esotericas": {
+    shortSubtitle: "Tarot, astrología, registros akáshicos, numerología y oráculos.",
+    image: "/images/cat-espiritualidad-orientacion.png",
+    galleryImage: "/images/galeria-tarot.png",
+    description:
+      "Lenguajes simbólicos, canalizaciones y lecturas orientativas que invitan a la reflexión personal, brindando perspectiva sobre ciclos vitales, decisiones e inquietudes presentes.",
+  },
+  "terapias-holisticas-corporales": {
+    shortSubtitle: "Aromaterapia, reflexología, ayurveda, yoga terapéutico y sonido.",
     image: "/images/cat-terapias-holisticas.png",
     galleryImage: "/images/galeria-cuencos.png",
     description:
-      "Disciplinas vibracionales y naturales que acompañan el bienestar emocional y físico a través del sonido, las esencias florales y los aromas naturales.",
-    specialties: [
-      {
-        name: "Sonoterapia y cuencos tibetanos",
-        modality: "Presencial y Online",
-        duration: "50 min",
-        summary: "Armonización mediante frecuencias sonoras de cuencos, diapasones e instrumentos ancestrales.",
-      },
-      {
-        name: "Terapia floral y Flores de Bach",
-        modality: "Presencial y Online",
-        duration: "45 min",
-        summary: "Entrevista personalizada para identificar emociones presentes y sugerir la fórmula floral adecuada.",
-      },
-      {
-        name: "Aromaterapia holística",
-        modality: "Presencial y Online",
-        duration: "45 min",
-        summary: "Asesoramiento en aceites esenciales puros y rutinas olfativas para el hogar y el descanso.",
-      },
-    ],
+      "Disciplinas holísticas, corporales y vibracionales que acompañan el bienestar integral a través del movimiento consciente, los aromas naturales y la armonización física.",
   },
-  {
-    id: "armonizacion-espacios",
-    title: "Armonización de espacios",
-    shortSubtitle: "Feng Shui, armonización y rituales.",
+  "armonizacion-espacios-rituales": {
+    shortSubtitle: "Limpieza de hogares, Feng Shui, geobiología y rituales conscientes.",
     image: "/images/cat-armonizacion-espacios.png",
     galleryImage: "/images/galeria-espacio.png",
     description:
-      "Asesoramiento y limpieza energética para hogares, estudios y lugares de trabajo, buscando que cada ambiente acompañe en armonía a quienes lo habitan.",
-    specialties: [
-      {
-        name: "Asesoría integral de Feng Shui",
-        modality: "Presencial y Online",
-        duration: "60 min",
-        summary: "Análisis de distribución, luz, colores y circulación energética sobre plano o mediante videollamada.",
-      },
-      {
-        name: "Limpieza y armonización energética de ambientes",
-        modality: "Presencial y Online",
-        duration: "50 min",
-        summary: "Protocolos de renovación ambiental para mudanzas, aperturas de espacios o cierres de etapa.",
-      },
-      {
-        name: "Rituales conscientes del hogar",
-        modality: "Online a distancia",
-        duration: "45 min",
-        summary: "Guía práctica de sahumado respetuoso, orden intencional y creación de rincones de calma.",
-      },
-    ],
+      "Asesoramiento, protección y limpieza energética para hogares, estudios y lugares de trabajo, buscando que cada ambiente acompañe en armonía a quienes lo habitan.",
   },
-];
+};
+
+export const THERAPY_CATEGORIES: TherapyCategory[] = ROLE_THERAPY_CATEGORIES.map(
+  (roleCat) => {
+    const meta = CATEGORY_VISUAL_META[roleCat.id] ?? {
+      shortSubtitle: roleCat.options.slice(0, 4).join(", "),
+      image: "/images/cat-energia-armonizacion.png",
+      galleryImage: "/images/galeria-cristales.png",
+      description: `Especialidades de ${roleCat.title} disponibles de forma online a distancia y presencial.`,
+    };
+
+    return {
+      id: roleCat.id,
+      title: roleCat.title,
+      shortSubtitle: meta.shortSubtitle,
+      image: meta.image,
+      galleryImage: meta.galleryImage,
+      description: meta.description,
+      specialties: roleCat.options.map((optionName) => ({
+        name: optionName,
+        modality: "Presencial y Online",
+        duration: "45 a 60 min",
+        summary: `Sesión personalizada de ${optionName} dentro de ${roleCat.title}, disponible en modalidad online a distancia o presencial.`,
+      })),
+    };
+  }
+);
 
 export const ILLUSTRATIVE_PROFESSIONALS: IllustrativeProfessional[] = [
   {

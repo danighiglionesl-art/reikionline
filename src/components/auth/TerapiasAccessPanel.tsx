@@ -26,6 +26,12 @@ import {
   ROLE_THERAPY_CATEGORIES,
   RoleTherapyCategory,
 } from "@/lib/reiki-data";
+import {
+  DEFAULT_ADMIN_PROFILE,
+  ReikiUserProfile,
+} from "@/lib/geoData";
+import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
+import UserProfilePanel from "@/components/profile/UserProfilePanel";
 
 export type AccessTab = "login" | "register" | "recover" | "role-select";
 export type ActiveRole = "Consultante" | "Terapeuta";
@@ -95,7 +101,41 @@ const SESSION_STORAGE_KEY = "reiki_online_session_v1";
 const CUSTOM_OPTIONS_STORAGE_KEY = "reiki_online_custom_therapy_options_v1";
 const ADMIN_ALERTS_STORAGE_KEY = "reiki_online_admin_therapy_alerts_v1";
 const SELECTIONS_STORAGE_KEY = "reiki_online_role_selections_v1";
+const PROFILES_STORAGE_KEY = "reiki_online_user_profiles_v1";
 const SYNC_EVENT_NAME = "reiki-online-catalog-sync";
+
+function buildDefaultProfileForUser(user: AuthenticatedUser): ReikiUserProfile {
+  const lowerEmail = user.email.toLowerCase();
+  if (
+    user.isAdmin ||
+    lowerEmail === "reikionline" ||
+    lowerEmail === "danighiglione@gmail.com" ||
+    lowerEmail === "admin@reikionline.com.ar"
+  ) {
+    return {
+      ...DEFAULT_ADMIN_PROFILE,
+      isAdmin: true,
+    };
+  }
+
+  const parts = (user.name || "Usuario").trim().split(" ");
+  const nombre = parts[0] || "Usuario";
+  const apellido = parts.slice(1).join(" ") || "";
+
+  return {
+    ...DEFAULT_ADMIN_PROFILE,
+    id: `usr-${lowerEmail.replace(/[^a-z0-9]/g, "-")}`,
+    username: lowerEmail,
+    isAdmin: false,
+    role: "pendiente",
+    nombre: nombre || DEFAULT_ADMIN_PROFILE.nombre,
+    apellido: apellido || DEFAULT_ADMIN_PROFILE.apellido,
+    email: user.email.includes("@") ? user.email : "danighiglione@gmail.com",
+    // Nuevos usuarios comienzan en estado «WhatsApp sin verificar» hasta completar Twilio Verify
+    whatsappVerified: false,
+    whatsappVerifiedAt: null,
+  };
+}
 
 export function TerapiasAccessPanel({
   idPrefix = "inline",
@@ -119,6 +159,14 @@ export function TerapiasAccessPanel({
   const [activeSection, setActiveSection] = useState<PersistentSection | null>(
     null
   );
+
+  // Perfiles de usuarios (incluyendo Mi Perfil con datos de bibliotecaroncedo.ar + Maps + Verificación WhatsApp)
+  const [profilesByEmail, setProfilesByEmail] = useState<
+    Record<string, ReikiUserProfile>
+  >({
+    reikionline: DEFAULT_ADMIN_PROFILE,
+    "danighiglione@gmail.com": DEFAULT_ADMIN_PROFILE,
+  });
 
   // Selecciones múltiples por rol (combinaciones de terapias)
   const [consultanteSelections, setConsultanteSelections] = useState<string[]>(
@@ -153,6 +201,22 @@ export function TerapiasAccessPanel({
 
   const loadSyncedData = () => {
     if (typeof window === "undefined") return;
+
+    try {
+      const savedProfilesRaw = window.localStorage.getItem(PROFILES_STORAGE_KEY);
+      if (savedProfilesRaw) {
+        const parsedProfiles = JSON.parse(savedProfilesRaw) as Record<
+          string,
+          ReikiUserProfile
+        >;
+        setProfilesByEmail((prev) => ({
+          ...prev,
+          ...parsedProfiles,
+        }));
+      }
+    } catch {
+      // Ignore
+    }
 
     try {
       const savedSession = window.localStorage.getItem(SESSION_STORAGE_KEY);
@@ -248,6 +312,35 @@ export function TerapiasAccessPanel({
     }
   };
 
+  const currentProfileKey = authenticatedUser?.email?.toLowerCase() || "";
+  const activeUserProfile: ReikiUserProfile | null = authenticatedUser
+    ? profilesByEmail[currentProfileKey] ||
+      buildDefaultProfileForUser(authenticatedUser)
+    : null;
+
+  const saveUserProfile = (updated: ReikiUserProfile) => {
+    if (!authenticatedUser) return;
+    const key = authenticatedUser.email.toLowerCase();
+    const nextMap: Record<string, ReikiUserProfile> = {
+      ...profilesByEmail,
+      [key]: updated,
+    };
+    if (authenticatedUser.isAdmin) {
+      nextMap["reikionline"] = updated;
+      nextMap["danighiglione@gmail.com"] = updated;
+    }
+    setProfilesByEmail(nextMap);
+    try {
+      window.localStorage.setItem(
+        PROFILES_STORAGE_KEY,
+        JSON.stringify(nextMap)
+      );
+      notifySync();
+    } catch {
+      // Ignore
+    }
+  };
+
   const persistSelections = (
     nextConsultante: string[],
     nextTerapeuta: string[]
@@ -275,6 +368,25 @@ export function TerapiasAccessPanel({
     if (user.isAdmin) {
       setShowAdminPanel(true);
     }
+
+    const key = user.email.toLowerCase();
+    if (!profilesByEmail[key]) {
+      const initialProfile = buildDefaultProfileForUser(user);
+      const nextMap = {
+        ...profilesByEmail,
+        [key]: initialProfile,
+      };
+      setProfilesByEmail(nextMap);
+      try {
+        window.localStorage.setItem(
+          PROFILES_STORAGE_KEY,
+          JSON.stringify(nextMap)
+        );
+      } catch {
+        // Ignore
+      }
+    }
+
     try {
       window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
       notifySync();
@@ -311,12 +423,12 @@ export function TerapiasAccessPanel({
       password === "Reiki2026";
 
     const derivedName = isAdminLogin
-      ? "Administrador Reiki Online"
+      ? "Daniel Alejandro Ghiglione"
       : cleanEmail.split("@")[0].replace(/[._-]/g, " ");
 
     persistUserSession({
       name: derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
-      email: cleanEmail,
+      email: isAdminLogin ? "danighiglione@gmail.com" : cleanEmail,
       provider: "Correo",
       isAdmin: isAdminLogin,
     });
@@ -409,6 +521,7 @@ export function TerapiasAccessPanel({
 
   const handleChooseRole = (role: ActiveRole) => {
     setSelectedRole(role);
+    setActiveSection(null);
     setSelectionSavedFeedback(null);
   };
 
@@ -528,7 +641,7 @@ export function TerapiasAccessPanel({
 
       setOtherAlertSentByCat((prev) => ({
         ...prev,
-        [cat.id]: `Se sumó «${formattedOption}» a tus terapias ofrecidas y se envió una alerta al Administrador para evaluar su incorporación a «${cat.number}. ${cat.title}».`,
+        [cat.id]: `Se sumó «${formattedOption}» a tus terapias ofrecidas y se envió una alerta al Administrador para evaluar su incorporación a «${cat.title}».`,
       }));
       setShowAdminPanel(true);
     } else {
@@ -564,7 +677,7 @@ export function TerapiasAccessPanel({
     setApprovedCustomOptions(nextCustomMap);
     setPendingAdminAlerts(nextAlerts);
     setAdminFeedback(
-      `Se agregó «${alertItem.proposedOption}» como opción válida en «${alertItem.categoryNumber}. ${alertItem.categoryTitle}».`
+      `Se agregó «${alertItem.proposedOption}» como opción válida en «${alertItem.categoryTitle}».`
     );
 
     try {
@@ -598,6 +711,8 @@ export function TerapiasAccessPanel({
     }
   };
 
+  const isWhatsAppVerified = Boolean(activeUserProfile?.whatsappVerified);
+
   return (
     <div className="rounded-3xl border border-[#836DAD]/25 bg-white p-6 sm:p-8 text-[#2B1F42] shadow-xl shadow-[#836DAD]/10">
       {/* Cabecera limpia y simple */}
@@ -612,15 +727,26 @@ export function TerapiasAccessPanel({
               className="h-10 w-10 object-contain"
             />
           </div>
-          <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
-            {authenticatedUser
-              ? "¿Cómo Ingresas?"
-              : mode === "register"
-              ? "Registrarme"
-              : mode === "recover"
-              ? "Recuperar contraseña"
-              : "Ingresar"}
-          </h3>
+          <div>
+            <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
+              {authenticatedUser
+                ? !isWhatsAppVerified
+                  ? "Verificación de WhatsApp"
+                  : "¿Cómo Ingresas?"
+                : mode === "register"
+                ? "Registrarme"
+                : mode === "recover"
+                ? "Recuperar contraseña"
+                : "Ingresar"}
+            </h3>
+            {authenticatedUser && activeUserProfile && (
+              <p className="text-xs font-medium text-[#836DAD]">
+                {isWhatsAppVerified
+                  ? `WhatsApp verificado (${activeUserProfile.whatsappE164})`
+                  : "Estado: WhatsApp sin verificar"}
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -634,7 +760,7 @@ export function TerapiasAccessPanel({
                   ? "border-[#836DAD] bg-[#F3D791] text-[#2B1F42] shadow-sm"
                   : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#836DAD]"
               }`}
-              title="Ver alertas del Administrador sobre nuevas terapias ofrecidas"
+              title="Ver panel y alertas del Administrador"
             >
               <BellRing className="h-3.5 w-3.5 text-[#836DAD]" />
               <span>
@@ -662,12 +788,12 @@ export function TerapiasAccessPanel({
         </div>
       </div>
 
-      {/* ALERTA AL ADMINISTRADOR: Nueva categoría / opción ofrecida dentro del PWA */}
+      {/* ALERTA AL ADMINISTRADOR: Nueva categoría / opción ofrecida + Estado de Verificación WhatsApp */}
       {(pendingAdminAlerts.length > 0 || showAdminPanel) && (
         <div
           role="alert"
           aria-live="polite"
-          className="mt-4 rounded-2xl border-2 border-[#836DAD] bg-[#F6F3FA] p-4 sm:p-5 shadow-md"
+          className="mt-4 rounded-2xl border-2 border-[#836DAD] bg-[#F6F3FA] p-4 sm:p-5 shadow-md space-y-4"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -676,36 +802,33 @@ export function TerapiasAccessPanel({
               </span>
               <div>
                 <h4 className="text-xs sm:text-sm font-semibold text-[#2B1F42]">
-                  Alerta al Administrador · Nuevas opciones ofrecidas en el PWA
+                  Panel de Administrador · Nuevas opciones y Verificación WhatsApp
                 </h4>
                 <p className="text-[11px] sm:text-xs text-[#2B1F42]/75">
-                  Se está ofreciendo una nueva terapia/categoría que no figura
-                  en las listas actuales. Si lo considerás necesario, podés
-                  agregarla a las listas existentes como una opción más válida.
+                  Gestión de terapias propuestas en el PWA y estado de
+                  verificación de WhatsApp (Twilio Verify E.164).
                 </p>
               </div>
             </div>
 
-            {pendingAdminAlerts.length === 0 && (
-              <button
-                type="button"
-                onClick={() => setShowAdminPanel(false)}
-                className="cursor-pointer text-xs font-semibold text-[#836DAD] underline"
-              >
-                Ocultar
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowAdminPanel(false)}
+              className="cursor-pointer text-xs font-semibold text-[#836DAD] underline"
+            >
+              Ocultar
+            </button>
           </div>
 
           {adminFeedback && (
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#836DAD]/25 bg-white px-3 py-2 text-xs font-semibold text-[#836DAD]">
+            <div className="flex items-center gap-2 rounded-xl border border-[#836DAD]/25 bg-white px-3 py-2 text-xs font-semibold text-[#836DAD]">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
               <span>{adminFeedback}</span>
             </div>
           )}
 
           {pendingAdminAlerts.length > 0 ? (
-            <ul className="mt-3 space-y-2.5">
+            <ul className="space-y-2.5">
               {pendingAdminAlerts.map((alertItem) => (
                 <li
                   key={alertItem.id}
@@ -713,7 +836,7 @@ export function TerapiasAccessPanel({
                 >
                   <div className="space-y-0.5">
                     <span className="inline-block rounded-full bg-[#836DAD]/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-                      {alertItem.categoryNumber}. {alertItem.categoryTitle}
+                      Categoría {alertItem.categoryNumber}: {alertItem.categoryTitle}
                     </span>
                     <p className="text-sm font-semibold text-[#2B1F42]">
                       Nueva opción ofrecida: «{alertItem.proposedOption}»
@@ -745,9 +868,72 @@ export function TerapiasAccessPanel({
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-xs text-[#2B1F42]/70">
-              No hay alertas pendientes de aprobación en este momento.
+            <p className="text-xs text-[#2B1F42]/70">
+              No hay alertas pendientes de nuevas terapias en este momento.
             </p>
+          )}
+
+          {/* Resumen de estado de verificación WhatsApp para herramientas del Administrador */}
+          {authenticatedUser?.isAdmin && (
+            <div className="rounded-xl border border-[#836DAD]/20 bg-white p-3.5 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-bold text-[#2B1F42]">
+                  Usuarios registrados y Estado de Verificación WhatsApp (Twilio Verify)
+                </span>
+                <span className="rounded-full bg-[#F6F3FA] px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
+                  Formato E.164 activo
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b border-[#836DAD]/15 text-[#836DAD]">
+                    <tr>
+                      <th className="py-1.5 pr-3">Nombre</th>
+                      <th className="py-1.5 pr-3">WhatsApp (E.164)</th>
+                      <th className="py-1.5 pr-3">Estado</th>
+                      <th className="py-1.5 pr-3">Fecha Verificación</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#836DAD]/10">
+                    {Object.values(
+                      Object.values(profilesByEmail).reduce<
+                        Record<string, ReikiUserProfile>
+                      >((acc, prof) => {
+                        acc[prof.id] = prof;
+                        return acc;
+                      }, {})
+                    ).map((prof) => (
+                      <tr key={prof.id}>
+                        <td className="py-1.5 pr-3 font-medium">
+                          {prof.nombre} {prof.apellido}
+                        </td>
+                        <td className="py-1.5 pr-3 font-mono">
+                          {prof.whatsappE164 || "Sin cargar"}
+                        </td>
+                        <td className="py-1.5 pr-3">
+                          {prof.whatsappVerified ? (
+                            <span className="text-emerald-700 font-semibold">
+                              WhatsApp verificado
+                            </span>
+                          ) : (
+                            <span className="text-amber-700 font-semibold">
+                              WhatsApp sin verificar
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-3 text-[#2B1F42]/70">
+                          {prof.whatsappVerifiedAt
+                            ? new Date(prof.whatsappVerifiedAt).toLocaleString(
+                                "es-AR"
+                              )
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -1071,381 +1257,444 @@ export function TerapiasAccessPanel({
       )}
 
       {/* 4. PANTALLA POST-LOGIN:
-          Arriba: «Consultante» | «Terapeuta»
-          Al elegir rol: Las 6 categorías con selección múltiple (y "Otra" "¿Cuál?......" para Terapeuta)
-          Abajo: Barra fija «Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera» */}
-      {authenticatedUser && (
+          - Si WhatsApp NO está verificado: muestra primero Verificación obligatoria de WhatsApp (Twilio Verify)
+          - Si WhatsApp está verificado:
+            Arriba: «Consultante» | «Terapeuta»
+            Al elegir rol: Las 6 categorías sin números duplicados ni "(podés combinar opciones)"
+            Abajo: Barra fija «Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera» */}
+      {authenticatedUser && activeUserProfile && (
         <div className="mt-6 space-y-6">
-          {/* Opciones principales arriba: Consultante | Terapeuta */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => handleChooseRole("Consultante")}
-              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 text-center transition-all ${
-                selectedRole === "Consultante"
-                  ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
-                  : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#F6F3FA]"
-              }`}
-            >
-              <span
-                className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
-                  selectedRole === "Consultante"
-                    ? "bg-white/20 text-[#F3D791]"
-                    : "bg-[#836DAD] text-[#F3D791]"
-                }`}
-              >
-                <HeartHandshake className="h-6 w-6" />
-              </span>
-              <span className="text-lg font-semibold">Consultante</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleChooseRole("Terapeuta")}
-              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 text-center transition-all ${
-                selectedRole === "Terapeuta"
-                  ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
-                  : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#F6F3FA]"
-              }`}
-            >
-              <span
-                className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
-                  selectedRole === "Terapeuta"
-                    ? "bg-[#F3D791] text-[#2B1F42]"
-                    : "bg-[#F3D791] text-[#836DAD]"
-                }`}
-              >
-                <UserCheck className="h-6 w-6" />
-              </span>
-              <span className="text-lg font-semibold">Terapeuta</span>
-            </button>
-          </div>
-
-          {/* SELECTOR MÚLTIPLE DE TERAPIAS Y COMBINACIONES SEGÚN ROL ELEGIDO */}
-          {selectedRole && (
-            <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4 sm:p-6 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
-                <div>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#836DAD]/15 px-3 py-0.5 text-xs font-semibold text-[#836DAD]">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    <span>
-                      {selectedRole === "Consultante"
-                        ? "Búsqueda de terapias (Consultante)"
-                        : "Oferta de terapias (Terapeuta)"}
-                    </span>
-                  </span>
-                  <h4 className="mt-1.5 text-base sm:text-lg font-semibold text-[#2B1F42]">
-                    {selectedRole === "Consultante"
-                      ? "Elegí una o más terapias (podés combinar opciones)"
-                      : "Seleccioná las terapias que ofrecés (podés combinar varias o sumar «Otra»)"}
-                  </h4>
-                </div>
-
-                {/* Buscador rápido */}
-                <div className="relative w-full sm:w-64">
-                  <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#836DAD]" />
-                  <input
-                    type="search"
-                    value={searchFilter}
-                    onChange={(e) => setSearchFilter(e.target.value)}
-                    placeholder="Filtrar terapia..."
-                    aria-label="Filtrar opciones de terapias"
-                    className="w-full rounded-xl border border-[#836DAD]/30 bg-white py-2 pr-3 pl-9 text-xs sm:text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/45 focus:border-[#836DAD] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Resumen de combinación elegida */}
-              <div className="rounded-xl border border-[#836DAD]/20 bg-white p-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-[#2B1F42]">
-                    {selectedRole === "Consultante"
-                      ? `Terapias seleccionadas para tu búsqueda (${activeSelections.length}):`
-                      : `Terapias seleccionadas que ofrecés (${activeSelections.length}):`}
-                  </span>
-                  {activeSelections.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={clearCurrentRoleSelections}
-                      className="cursor-pointer text-xs font-semibold text-[#836DAD] underline hover:text-[#5E4987]"
-                    >
-                      Limpiar selección
-                    </button>
-                  )}
-                </div>
-
-                {activeSelections.length > 0 ? (
-                  <div className="mt-2.5 flex flex-wrap gap-1.5">
-                    {activeSelections.map((item) => (
-                      <span
-                        key={item}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-[#836DAD] px-3 py-1 text-xs font-semibold text-white"
-                      >
-                        <span>{item}</span>
-                        <button
-                          type="button"
-                          onClick={() => toggleTherapyOption(item)}
-                          aria-label={`Quitar ${item}`}
-                          className="cursor-pointer rounded-full bg-white/20 px-1.5 text-[11px] leading-none text-[#F3D791] hover:bg-white/35"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-1.5 text-xs text-[#2B1F42]/60">
-                    Tocá una o más opciones en las 6 categorías de abajo para
-                    armar tu combinación.
-                  </p>
-                )}
-              </div>
-
-              {/* Listado de las 6 categorías usando <details open> nativo accesible y buscable */}
-              <div className="space-y-3">
-                {ROLE_THERAPY_CATEGORIES.map((cat) => {
-                  const allOptions = getCategoryOptions(cat);
-                  const cleanQuery = searchFilter.trim().toLowerCase();
-                  const visibleOptions = cleanQuery
-                    ? allOptions.filter(
-                        (opt) =>
-                          opt.toLowerCase().includes(cleanQuery) ||
-                          cat.title.toLowerCase().includes(cleanQuery)
-                      )
-                    : allOptions;
-
-                  if (
-                    cleanQuery &&
-                    visibleOptions.length === 0 &&
-                    selectedRole !== "Terapeuta"
-                  ) {
-                    return null;
-                  }
-
-                  const selectedCountInCat = allOptions.filter((opt) =>
-                    activeSelections.includes(opt)
-                  ).length;
-
-                  const isOtherChecked = Boolean(otherCheckedByCat[cat.id]);
-
-                  return (
-                    <details
-                      key={cat.id}
-                      open
-                      className="group rounded-2xl border border-[#836DAD]/20 bg-white p-4 shadow-xs"
-                    >
-                      <summary className="flex cursor-pointer items-center justify-between gap-2 select-none">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-[#836DAD] text-xs font-semibold text-[#F3D791]">
-                            {cat.number}
-                          </span>
-                          <span className="text-sm sm:text-base font-semibold text-[#2B1F42]">
-                            {cat.number}. {cat.title}
-                          </span>
-                          {selectedCountInCat > 0 && (
-                            <span className="rounded-full bg-[#836DAD]/15 px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-                              {selectedCountInCat} seleccionada
-                              {selectedCountInCat === 1 ? "" : "s"}
-                            </span>
-                          )}
-                        </div>
-                        <ChevronDown className="h-4 w-4 shrink-0 text-[#836DAD] transition-transform group-open:rotate-180" />
-                      </summary>
-
-                      <div className="mt-3.5 border-t border-[#836DAD]/10 pt-3.5">
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                          {visibleOptions.map((optionLabel) => {
-                            const isChecked =
-                              activeSelections.includes(optionLabel);
-                            return (
-                              <label
-                                key={optionLabel}
-                                className="ro-choice-label flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#836DAD]/25 bg-[#FAF8FC] px-3 py-2.5 text-xs sm:text-sm font-medium text-[#2B1F42] hover:border-[#836DAD]"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() =>
-                                    toggleTherapyOption(optionLabel)
-                                  }
-                                  className="h-4 w-4 shrink-0 cursor-pointer rounded border-[#836DAD]"
-                                />
-                                <span className="leading-snug">
-                                  {optionLabel}
-                                </span>
-                              </label>
-                            );
-                          })}
-
-                          {/* En modo Terapeuta, en cada categoría se agrega "Otra" */}
-                          {selectedRole === "Terapeuta" && (
-                            <label className="ro-choice-label flex cursor-pointer items-center gap-2.5 rounded-xl border border-dashed border-[#836DAD]/50 bg-[#F3D791]/20 px-3 py-2.5 text-xs sm:text-sm font-semibold text-[#2B1F42] hover:border-[#836DAD]">
-                              <input
-                                type="checkbox"
-                                checked={isOtherChecked}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setOtherCheckedByCat((prev) => ({
-                                    ...prev,
-                                    [cat.id]: checked,
-                                  }));
-                                  if (!checked) {
-                                    setOtherAlertSentByCat((prev) => ({
-                                      ...prev,
-                                      [cat.id]: null,
-                                    }));
-                                  }
-                                }}
-                                className="h-4 w-4 shrink-0 cursor-pointer rounded border-[#836DAD]"
-                              />
-                              <span>Otra</span>
-                            </label>
-                          )}
-                        </div>
-
-                        {/* Campo "¿Cuál?......" cuando el Terapeuta marca "Otra" en esta categoría */}
-                        {selectedRole === "Terapeuta" && isOtherChecked && (
-                          <div className="mt-3 rounded-xl border border-[#836DAD]/30 bg-[#F6F3FA] p-3">
-                            <label
-                              htmlFor={`${baseId}-other-${cat.id}`}
-                              className="block text-xs font-semibold text-[#2B1F42]"
-                            >
-                              ¿Cuál?......{" "}
-                              <span className="font-normal text-[#2B1F42]/70">
-                                ({cat.number}. {cat.title})
-                              </span>
-                            </label>
-                            <div className="mt-1.5 flex flex-col sm:flex-row gap-2">
-                              <input
-                                id={`${baseId}-other-${cat.id}`}
-                                type="text"
-                                value={otherInputByCat[cat.id] || ""}
-                                onChange={(e) =>
-                                  setOtherInputByCat((prev) => ({
-                                    ...prev,
-                                    [cat.id]: e.target.value,
-                                  }))
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleProposeOtherOption(cat);
-                                  }
-                                }}
-                                placeholder="¿Cuál?......"
-                                className="flex-1 rounded-xl border border-[#836DAD]/35 bg-white px-3.5 py-2 text-xs sm:text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/45 focus:border-[#836DAD] focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleProposeOtherOption(cat)}
-                                className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#836DAD] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#6F599B]"
-                              >
-                                <PlusCircle className="h-3.5 w-3.5 text-[#F3D791]" />
-                                <span>Sumar y notificar al Administrador</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        {selectedRole === "Terapeuta" &&
-                          otherAlertSentByCat[cat.id] && (
-                            <p className="mt-2.5 rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-3 py-2 text-xs font-medium text-[#836DAD]">
-                              {otherAlertSentByCat[cat.id]}
-                            </p>
-                          )}
-                      </div>
-                    </details>
-                  );
-                })}
-              </div>
-
-              {/* Botón de confirmación de combinación */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                <p className="text-xs text-[#2B1F42]/75">
-                  Podés elegir más de una opción para{" "}
-                  {selectedRole === "Consultante"
-                    ? "buscar combinaciones de terapias."
-                    : "ofrecer combinaciones de terapias."}
-                </p>
+          {!isWhatsAppVerified ? (
+            <WhatsAppVerificationStep
+              initialPrefijo={activeUserProfile.prefijoTelefono}
+              initialTelefono={activeUserProfile.telefono}
+              initialConsents={activeUserProfile.consents}
+              userEmail={activeUserProfile.email}
+              onVerified={(res) => {
+                const updated: ReikiUserProfile = {
+                  ...activeUserProfile,
+                  prefijoTelefono: res.prefijoTelefono,
+                  telefono: res.telefono,
+                  whatsappE164: res.whatsappE164,
+                  whatsappVerified: true,
+                  whatsappVerifiedAt: res.whatsappVerifiedAt,
+                  whatsappChannel: res.channel,
+                  consents: res.consents,
+                  updatedAt: new Date().toISOString(),
+                };
+                saveUserProfile(updated);
+              }}
+            />
+          ) : (
+            <>
+              {/* Opciones principales arriba: Consultante | Terapeuta */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    // Si algún campo "¿Cuál?......" quedó con texto sin apretar el botón, procesarlo también
-                    if (selectedRole === "Terapeuta") {
-                      for (const cat of ROLE_THERAPY_CATEGORIES) {
-                        if (
-                          otherCheckedByCat[cat.id] &&
-                          (otherInputByCat[cat.id] || "").trim()
-                        ) {
-                          handleProposeOtherOption(cat);
-                        }
-                      }
-                    }
-                    setSelectionSavedFeedback(
-                      selectedRole === "Consultante"
-                        ? `Combinación guardada (${activeSelections.length} terapia${
-                            activeSelections.length === 1 ? "" : "s"
-                          } elegida${activeSelections.length === 1 ? "" : "s"}).`
-                        : `Oferta profesional actualizada (${activeSelections.length} terapia${
-                            activeSelections.length === 1 ? "" : "s"
-                          } seleccionada${
-                            activeSelections.length === 1 ? "" : "s"
-                          }).`
-                    );
-                  }}
-                  className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#836DAD] px-5 py-3 text-xs sm:text-sm font-semibold text-white shadow-md shadow-[#836DAD]/20 transition-all hover:bg-[#6F599B]"
-                >
-                  <CheckCircle2 className="h-4 w-4 text-[#F3D791]" />
-                  <span>
-                    {selectedRole === "Consultante"
-                      ? "Confirmar terapias buscadas"
-                      : "Guardar terapias ofrecidas"}
-                  </span>
-                </button>
-              </div>
-
-              {selectionSavedFeedback && (
-                <div
-                  role="status"
-                  className="rounded-xl border border-[#836DAD]/30 bg-white px-4 py-2.5 text-xs font-semibold text-[#836DAD]"
-                >
-                  {selectionSavedFeedback}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* BARRA INFERIOR SIEMPRE VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera */}
-          <nav
-            aria-label="Accesos permanentes del usuario"
-            className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-4"
-          >
-            {(
-              [
-                { label: "Mi Perfil", icon: User },
-                { label: "Mi Credencial", icon: IdCard },
-                { label: "Mis Consultas", icon: Calendar },
-                { label: "Mi Billetera", icon: Wallet },
-              ] as const
-            ).map(({ label, icon: Icon }) => {
-              const isActive = activeSection === label;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => setActiveSection(label)}
-                  className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
-                    isActive
-                      ? "bg-[#836DAD] text-white shadow-sm"
-                      : "bg-white text-[#2B1F42] hover:bg-[#836DAD]/12"
+                  onClick={() => handleChooseRole("Consultante")}
+                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 text-center transition-all ${
+                    selectedRole === "Consultante" && !activeSection
+                      ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
+                      : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#F6F3FA]"
                   }`}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span>{label}</span>
+                  <span
+                    className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
+                      selectedRole === "Consultante" && !activeSection
+                        ? "bg-white/20 text-[#F3D791]"
+                        : "bg-[#836DAD] text-[#F3D791]"
+                    }`}
+                  >
+                    <HeartHandshake className="h-6 w-6" />
+                  </span>
+                  <span className="text-lg font-semibold">Consultante</span>
                 </button>
-              );
-            })}
-          </nav>
+
+                <button
+                  type="button"
+                  onClick={() => handleChooseRole("Terapeuta")}
+                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 text-center transition-all ${
+                    selectedRole === "Terapeuta" && !activeSection
+                      ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
+                      : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#F6F3FA]"
+                  }`}
+                >
+                  <span
+                    className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
+                      selectedRole === "Terapeuta" && !activeSection
+                        ? "bg-[#F3D791] text-[#2B1F42]"
+                        : "bg-[#F3D791] text-[#836DAD]"
+                    }`}
+                  >
+                    <UserCheck className="h-6 w-6" />
+                  </span>
+                  <span className="text-lg font-semibold">Terapeuta</span>
+                </button>
+              </div>
+
+              {/* SECCIÓN ACTIVA DE LA BARRA INFERIOR: MI PERFIL (bibliotecaroncedo.ar + Geoposición Satelital + Maps) */}
+              {activeSection === "Mi Perfil" && (
+                <UserProfilePanel
+                  profile={activeUserProfile}
+                  onSaveProfile={(updated) => saveUserProfile(updated)}
+                />
+              )}
+
+              {activeSection && activeSection !== "Mi Perfil" && (
+                <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 text-sm text-[#2B1F42]">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-[#836DAD]">
+                      {activeSection}
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => setActiveSection(null)}
+                      className="text-xs font-semibold text-[#836DAD] underline cursor-pointer"
+                    >
+                      Volver a categorías de terapias
+                    </button>
+                  </div>
+                  <p className="mt-2 text-xs text-[#2B1F42]/75">
+                    Sección {activeSection} vinculada a tu cuenta verificada (
+                    {activeUserProfile.whatsappE164}).
+                  </p>
+                </div>
+              )}
+
+              {/* SELECTOR MÚLTIPLE DE TERAPIAS SEGÚN ROL ELEGIDO (sin "(podés combinar opciones)" ni números redundantes) */}
+              {selectedRole && !activeSection && (
+                <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4 sm:p-6 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
+                    <div>
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#836DAD]/15 px-3 py-0.5 text-xs font-semibold text-[#836DAD]">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>
+                          {selectedRole === "Consultante"
+                            ? "Búsqueda de terapias (Consultante)"
+                            : "Oferta de terapias (Terapeuta)"}
+                        </span>
+                      </span>
+                      <h4 className="mt-1.5 text-base sm:text-lg font-semibold text-[#2B1F42]">
+                        {selectedRole === "Consultante"
+                          ? "Elegí una o más terapias"
+                          : "Seleccioná las terapias que ofrecés"}
+                      </h4>
+                    </div>
+
+                    {/* Buscador rápido */}
+                    <div className="relative w-full sm:w-64">
+                      <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#836DAD]" />
+                      <input
+                        type="search"
+                        value={searchFilter}
+                        onChange={(e) => setSearchFilter(e.target.value)}
+                        placeholder="Filtrar terapia..."
+                        aria-label="Filtrar opciones de terapias"
+                        className="w-full rounded-xl border border-[#836DAD]/30 bg-white py-2 pr-3 pl-9 text-xs sm:text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/45 focus:border-[#836DAD] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Resumen de combinación elegida */}
+                  <div className="rounded-xl border border-[#836DAD]/20 bg-white p-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-[#2B1F42]">
+                        {selectedRole === "Consultante"
+                          ? `Terapias seleccionadas para tu búsqueda (${activeSelections.length}):`
+                          : `Terapias seleccionadas que ofrecés (${activeSelections.length}):`}
+                      </span>
+                      {activeSelections.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={clearCurrentRoleSelections}
+                          className="cursor-pointer text-xs font-semibold text-[#836DAD] underline hover:text-[#5E4987]"
+                        >
+                          Limpiar selección
+                        </button>
+                      )}
+                    </div>
+
+                    {activeSelections.length > 0 ? (
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
+                        {activeSelections.map((item) => (
+                          <span
+                            key={item}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[#836DAD] px-3 py-1 text-xs font-semibold text-white"
+                          >
+                            <span>{item}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleTherapyOption(item)}
+                              aria-label={`Quitar ${item}`}
+                              className="cursor-pointer rounded-full bg-white/20 px-1.5 text-[11px] leading-none text-[#F3D791] hover:bg-white/35"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-1.5 text-xs text-[#2B1F42]/60">
+                        Tocá una o más opciones en las 6 categorías de abajo
+                        para armar tu combinación.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Listado de las 6 categorías usando <details open> nativo accesible y buscable */}
+                  <div className="space-y-3">
+                    {ROLE_THERAPY_CATEGORIES.map((cat) => {
+                      const allOptions = getCategoryOptions(cat);
+                      const cleanQuery = searchFilter.trim().toLowerCase();
+                      const visibleOptions = cleanQuery
+                        ? allOptions.filter(
+                            (opt) =>
+                              opt.toLowerCase().includes(cleanQuery) ||
+                              cat.title.toLowerCase().includes(cleanQuery)
+                          )
+                        : allOptions;
+
+                      if (
+                        cleanQuery &&
+                        visibleOptions.length === 0 &&
+                        selectedRole !== "Terapeuta"
+                      ) {
+                        return null;
+                      }
+
+                      const selectedCountInCat = allOptions.filter((opt) =>
+                        activeSelections.includes(opt)
+                      ).length;
+
+                      const isOtherChecked = Boolean(otherCheckedByCat[cat.id]);
+
+                      return (
+                        <details
+                          key={cat.id}
+                          open
+                          className="group rounded-2xl border border-[#836DAD]/20 bg-white p-4 shadow-xs"
+                        >
+                          <summary className="flex cursor-pointer items-center justify-between gap-2 select-none">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-[#836DAD] text-xs font-semibold text-[#F3D791]">
+                                {cat.number}
+                              </span>
+                              <span className="text-sm sm:text-base font-semibold text-[#2B1F42]">
+                                {cat.title}
+                              </span>
+                              {selectedCountInCat > 0 && (
+                                <span className="rounded-full bg-[#836DAD]/15 px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
+                                  {selectedCountInCat} seleccionada
+                                  {selectedCountInCat === 1 ? "" : "s"}
+                                </span>
+                              )}
+                            </div>
+                            <ChevronDown className="h-4 w-4 shrink-0 text-[#836DAD] transition-transform group-open:rotate-180" />
+                          </summary>
+
+                          <div className="mt-3.5 border-t border-[#836DAD]/10 pt-3.5">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              {visibleOptions.map((optionLabel) => {
+                                const isChecked =
+                                  activeSelections.includes(optionLabel);
+                                return (
+                                  <label
+                                    key={optionLabel}
+                                    className="ro-choice-label flex cursor-pointer items-center gap-2.5 rounded-xl border border-[#836DAD]/25 bg-[#FAF8FC] px-3 py-2.5 text-xs sm:text-sm font-medium text-[#2B1F42] hover:border-[#836DAD]"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() =>
+                                        toggleTherapyOption(optionLabel)
+                                      }
+                                      className="h-4 w-4 shrink-0 cursor-pointer rounded border-[#836DAD]"
+                                    />
+                                    <span className="leading-snug">
+                                      {optionLabel}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+
+                              {/* En modo Terapeuta, en cada categoría se agrega "Otra" */}
+                              {selectedRole === "Terapeuta" && (
+                                <label className="ro-choice-label flex cursor-pointer items-center gap-2.5 rounded-xl border border-dashed border-[#836DAD]/50 bg-[#F3D791]/20 px-3 py-2.5 text-xs sm:text-sm font-semibold text-[#2B1F42] hover:border-[#836DAD]">
+                                  <input
+                                    type="checkbox"
+                                    checked={isOtherChecked}
+                                    onChange={(e) => {
+                                      const checked = e.target.checked;
+                                      setOtherCheckedByCat((prev) => ({
+                                        ...prev,
+                                        [cat.id]: checked,
+                                      }));
+                                      if (!checked) {
+                                        setOtherAlertSentByCat((prev) => ({
+                                          ...prev,
+                                          [cat.id]: null,
+                                        }));
+                                      }
+                                    }}
+                                    className="h-4 w-4 shrink-0 cursor-pointer rounded border-[#836DAD]"
+                                  />
+                                  <span>Otra</span>
+                                </label>
+                              )}
+                            </div>
+
+                            {/* Campo "¿Cuál?......" cuando el Terapeuta marca "Otra" en esta categoría */}
+                            {selectedRole === "Terapeuta" && isOtherChecked && (
+                              <div className="mt-3 rounded-xl border border-[#836DAD]/30 bg-[#F6F3FA] p-3">
+                                <label
+                                  htmlFor={`${baseId}-other-${cat.id}`}
+                                  className="block text-xs font-semibold text-[#2B1F42]"
+                                >
+                                  ¿Cuál?......{" "}
+                                  <span className="font-normal text-[#2B1F42]/70">
+                                    ({cat.title})
+                                  </span>
+                                </label>
+                                <div className="mt-1.5 flex flex-col sm:flex-row gap-2">
+                                  <input
+                                    id={`${baseId}-other-${cat.id}`}
+                                    type="text"
+                                    value={otherInputByCat[cat.id] || ""}
+                                    onChange={(e) =>
+                                      setOtherInputByCat((prev) => ({
+                                        ...prev,
+                                        [cat.id]: e.target.value,
+                                      }))
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        handleProposeOtherOption(cat);
+                                      }
+                                    }}
+                                    placeholder="¿Cuál?......"
+                                    className="flex-1 rounded-xl border border-[#836DAD]/35 bg-white px-3.5 py-2 text-xs sm:text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/45 focus:border-[#836DAD] focus:outline-none"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleProposeOtherOption(cat)}
+                                    className="inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#836DAD] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#6F599B]"
+                                  >
+                                    <PlusCircle className="h-3.5 w-3.5 text-[#F3D791]" />
+                                    <span>
+                                      Sumar y notificar al Administrador
+                                    </span>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {selectedRole === "Terapeuta" &&
+                              otherAlertSentByCat[cat.id] && (
+                                <p className="mt-2.5 rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-3 py-2 text-xs font-medium text-[#836DAD]">
+                                  {otherAlertSentByCat[cat.id]}
+                                </p>
+                              )}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+
+                  {/* Botón de confirmación de combinación */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                    <p className="text-xs text-[#2B1F42]/75">
+                      Podés elegir más de una opción para{" "}
+                      {selectedRole === "Consultante"
+                        ? "buscar terapias."
+                        : "ofrecer terapias."}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedRole === "Terapeuta") {
+                          for (const cat of ROLE_THERAPY_CATEGORIES) {
+                            if (
+                              otherCheckedByCat[cat.id] &&
+                              (otherInputByCat[cat.id] || "").trim()
+                            ) {
+                              handleProposeOtherOption(cat);
+                            }
+                          }
+                        }
+                        setSelectionSavedFeedback(
+                          selectedRole === "Consultante"
+                            ? `Selección guardada (${activeSelections.length} terapia${
+                                activeSelections.length === 1 ? "" : "s"
+                              } elegida${
+                                activeSelections.length === 1 ? "" : "s"
+                              }).`
+                            : `Oferta profesional actualizada (${activeSelections.length} terapia${
+                                activeSelections.length === 1 ? "" : "s"
+                              } seleccionada${
+                                activeSelections.length === 1 ? "" : "s"
+                              }).`
+                        );
+                      }}
+                      className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#836DAD] px-5 py-3 text-xs sm:text-sm font-semibold text-white shadow-md shadow-[#836DAD]/20 transition-all hover:bg-[#6F599B]"
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-[#F3D791]" />
+                      <span>
+                        {selectedRole === "Consultante"
+                          ? "Confirmar terapias buscadas"
+                          : "Guardar terapias ofrecidas"}
+                      </span>
+                    </button>
+                  </div>
+
+                  {selectionSavedFeedback && (
+                    <div
+                      role="status"
+                      className="rounded-xl border border-[#836DAD]/30 bg-white px-4 py-2.5 text-xs font-semibold text-[#836DAD]"
+                    >
+                      {selectionSavedFeedback}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* BARRA INFERIOR SIEMPRE VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera */}
+              <nav
+                aria-label="Accesos permanentes del usuario"
+                className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-4"
+              >
+                {(
+                  [
+                    { label: "Mi Perfil", icon: User },
+                    { label: "Mi Credencial", icon: IdCard },
+                    { label: "Mis Consultas", icon: Calendar },
+                    { label: "Mi Billetera", icon: Wallet },
+                  ] as const
+                ).map(({ label, icon: Icon }) => {
+                  const isActive = activeSection === label;
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() =>
+                        setActiveSection((prev) =>
+                          prev === label ? null : label
+                        )
+                      }
+                      className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                        isActive
+                          ? "bg-[#836DAD] text-white shadow-sm"
+                          : "bg-white text-[#2B1F42] hover:bg-[#836DAD]/12"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </>
+          )}
         </div>
       )}
     </div>

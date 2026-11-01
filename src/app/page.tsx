@@ -44,7 +44,7 @@ export default function HomePage() {
         {/* 05. Nuestras terapias (6 grandes categorías + Explorar todas las terapias) */}
         <TherapiesSection
           onRequestBooking={(specialtyLabel) =>
-            handleOpenAccess(`Reservar sesión: ${specialtyLabel}`, "login")
+            handleOpenAccess(specialtyLabel, "login")
           }
         />
 
