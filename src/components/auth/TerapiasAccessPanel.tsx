@@ -13,9 +13,10 @@ import {
   Clock,
   ShieldCheck,
   LogOut,
+  Lock,
 } from "lucide-react";
 
-export type AccessTab = "login" | "register" | "recover" | "role-select" | "workspace";
+export type AccessTab = "login" | "register" | "recover" | "role-select" | "workspace" | "admin";
 export type ActiveRole = "Consultante" | "Terapeuta";
 
 interface TerapiasAccessPanelProps {
@@ -37,11 +38,13 @@ export function TerapiasAccessPanel({
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [recoverySent, setRecoverySent] = useState(false);
   const [authenticatedUser, setAuthenticatedUser] = useState<{
     name: string;
     email: string;
-    provider: "Google" | "Correo";
+    provider: "Google" | "Correo" | "Admin";
+    isAdmin?: boolean;
   } | null>(null);
   const [selectedRole, setSelectedRole] = useState<ActiveRole | null>(null);
 
@@ -53,14 +56,34 @@ export function TerapiasAccessPanel({
       try {
         el.setAttribute("aria-invalid", el.matches(":user-invalid") ? "true" : "false");
       } catch {
-        el.setAttribute("aria-invalid", !el. validity.valid ? "true" : "false");
+        el.setAttribute("aria-invalid", !el.validity.valid ? "true" : "false");
       }
     }
   };
 
   const handleLoginSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const cleanEmail = email.trim() || "usuario@reikionline.com.ar";
+    setLoginError(null);
+    const identifier = email.trim();
+
+    // Validación silenciosa del usuario Administrador (no aparece como opción visible en la PWA)
+    if (identifier.toLowerCase() === "reikionline") {
+      if (password === "Reiki2026") {
+        setAuthenticatedUser({
+          name: "Administrador Reiki Online",
+          email: "ReikiOnline",
+          provider: "Admin",
+          isAdmin: true,
+        });
+        setMode("admin");
+        return;
+      } else {
+        setLoginError("Contraseña incorrecta para el usuario ReikiOnline.");
+        return;
+      }
+    }
+
+    const cleanEmail = identifier || "usuario@reikionline.com.ar";
     const derivedName = cleanEmail.split("@")[0].replace(/[._-]/g, " ");
     setAuthenticatedUser({
       name: derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
@@ -72,6 +95,7 @@ export function TerapiasAccessPanel({
 
   const handleRegisterSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setLoginError(null);
     const cleanEmail = email.trim() || "nuevo@reikionline.com.ar";
     setAuthenticatedUser({
       name: fullName.trim() || "Nuevo Usuario",
@@ -82,6 +106,7 @@ export function TerapiasAccessPanel({
   };
 
   const handleGoogleContinue = () => {
+    setLoginError(null);
     setAuthenticatedUser({
       name: "Cuenta Google Verificada",
       email: email.trim() || "conectando@gmail.com",
@@ -104,6 +129,7 @@ export function TerapiasAccessPanel({
     setAuthenticatedUser(null);
     setSelectedRole(null);
     setPassword("");
+    setLoginError(null);
     setMode("login");
   };
 
@@ -127,7 +153,9 @@ export function TerapiasAccessPanel({
               Plataforma Reiki Online
             </span>
             <h3 className="mt-0.5 text-lg sm:text-xl font-semibold text-[#2B1F42]">
-              {mode === "role-select"
+              {mode === "admin"
+                ? "Panel de Administración · Reiki Online"
+                : mode === "role-select"
                 ? "¿Cómo deseás continuar hoy?"
                 : mode === "workspace"
                 ? `Espacio de ${selectedRole}`
@@ -153,7 +181,7 @@ export function TerapiasAccessPanel({
         )}
       </div>
 
-      {preselectedContext && mode !== "workspace" && (
+      {preselectedContext && mode !== "workspace" && mode !== "admin" && (
         <div className="mt-4 rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3 text-xs sm:text-sm text-[#2B1F42]">
           <span className="font-semibold text-[#836DAD]">Selección activa:</span>{" "}
           {preselectedContext}
@@ -166,40 +194,44 @@ export function TerapiasAccessPanel({
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div className="ro-field">
               <label
-                htmlFor={`${baseId}-email`}
+                htmlFor={`${baseId}-username`}
                 className="block text-xs sm:text-sm font-semibold text-[#2B1F42]"
               >
                 Usuario o correo electrónico
               </label>
               <span
-                id={`${baseId}-email-hint`}
+                id={`${baseId}-username-hint`}
                 className="mt-0.5 block text-xs text-[#2B1F42]/65"
               >
-                Ingresá el correo electrónico asociado a tu cuenta (ej. nombre@correo.com)
+                Ingresá tu nombre de usuario o el correo electrónico asociado a tu cuenta
               </span>
               <input
-                type="email"
-                id={`${baseId}-email`}
-                name="email"
+                type="text"
+                id={`${baseId}-username`}
+                name="username"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (loginError) setLoginError(null);
+                }}
                 onBlur={syncAriaInvalid}
                 onInput={syncAriaInvalid}
                 required
                 autoComplete="username"
                 spellCheck={false}
+                autoCorrect="off"
+                autoCapitalize="none"
                 enterKeyHint="next"
-                aria-describedby={`${baseId}-email-hint`}
-                aria-errormessage={`${baseId}-email-error`}
+                aria-describedby={`${baseId}-username-hint`}
+                aria-errormessage={`${baseId}-username-error`}
                 placeholder="tucorreo@ejemplo.com"
                 className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/40 focus:border-[#836DAD] focus:bg-white focus:outline-none"
               />
               <div
-                id={`${baseId}-email-error`}
+                id={`${baseId}-username-error`}
                 className="ro-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[#836DAD]"
               >
-                <span aria-hidden="true">⚠</span> Ingresá una dirección de correo electrónico
-                válida.
+                <span aria-hidden="true">⚠</span> Ingresá tu usuario o correo electrónico.
               </div>
             </div>
 
@@ -228,7 +260,10 @@ export function TerapiasAccessPanel({
                   id={`${baseId}-current-password`}
                   name="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (loginError) setLoginError(null);
+                  }}
                   onBlur={syncAriaInvalid}
                   onInput={syncAriaInvalid}
                   required
@@ -261,6 +296,15 @@ export function TerapiasAccessPanel({
                 <span aria-hidden="true">⚠</span> Ingresá tu contraseña (mínimo 6 caracteres).
               </div>
             </div>
+
+            {loginError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-[#836DAD]/40 bg-[#F6F3FA] px-3.5 py-2.5 text-xs font-semibold text-[#2B1F42]"
+              >
+                {loginError}
+              </div>
+            )}
 
             {/* Botón «Ingresar» */}
             <button
@@ -641,6 +685,34 @@ export function TerapiasAccessPanel({
             <ArrowLeft className="h-3.5 w-3.5" />
             <span>Volver a la selección de rol («Consultante» / «Terapeuta»)</span>
           </button>
+        </div>
+      )}
+
+      {/* 6. PANEL DE ADMINISTRADOR (Acceso exclusivo con User: ReikiOnline / Pass: Reiki2026) */}
+      {mode === "admin" && authenticatedUser?.isAdmin && (
+        <div className="mt-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#836DAD] px-4 py-3 text-white">
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <Lock className="h-4 w-4 text-[#F3D791]" />
+              <span>
+                Sesión activa: <strong>Administrador</strong> (Usuario:{" "}
+                <code className="rounded bg-white/15 px-1.5 py-0.5 text-xs">ReikiOnline</code>)
+              </span>
+            </div>
+            <span className="rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-semibold text-[#2B1F42]">
+              Acceso Maestro
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-5">
+            <h4 className="text-sm sm:text-base font-semibold text-[#2B1F42]">
+              Consola de Administración lista para configurar módulos
+            </h4>
+            <p className="mt-1.5 text-xs sm:text-sm leading-relaxed text-[#2B1F42]/80">
+              El acceso silencioso para <strong>ReikiOnline</strong> ya se encuentra activo (sin
+              mostrarse como opción visible para el público general en la PWA).
+            </p>
+          </div>
         </div>
       )}
     </div>

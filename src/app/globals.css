@@ -74,6 +74,12 @@ dialog::backdrop {
 }
 
 /* Validación después de la interacción (validate-input-after-interaction) */
+input,
+select,
+textarea {
+  accent-color: var(--color-lavanda);
+}
+
 .ro-input:user-invalid,
 .ro-input.user-invalid-fallback {
   border-color: var(--color-lavanda);
@@ -89,6 +95,52 @@ dialog::backdrop {
 .ro-input:user-valid,
 .ro-input.user-valid-fallback {
   border-color: var(--color-lavanda);
+}
+
+/* Auto-ajuste vertical en <textarea> (form-fields-automatically-fit-contents) */
+.ro-textarea {
+  field-sizing: content;
+  height: auto;
+  width: 100%;
+  min-block-size: 3lh;
+  max-block-size: 10lh;
+  resize: vertical;
+}
+
+/* Chips de selección con <input type="checkbox"|"radio"> nativo dentro de <label> (browser-ui-theming) */
+.ro-choice-label {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.ro-choice-label:has(:checked) {
+  border-color: var(--color-lavanda);
+  background-color: color-mix(in oklab, var(--color-lavanda) 12%, white);
+  color: var(--color-texto);
+  box-shadow: 0 0 0 1px var(--color-lavanda);
+}
+
+.ro-choice-label:has(:focus-visible) {
+  outline: 2px solid var(--color-lavanda);
+  outline-offset: 2px;
+}
+
+/* Botón nativo de carga de foto de perfil (browser-ui-theming) */
+.ro-file-input::file-selector-button {
+  margin-inline-end: 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--color-lavanda) 35%, transparent);
+  border-radius: 0.75rem;
+  background-color: var(--color-superficie);
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-texto);
+  cursor: pointer;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.ro-file-input::file-selector-button:hover {
+  background-color: var(--color-lavanda);
+  color: var(--color-blanco);
 }
 
 /* Estilizado limpio para acordeón nativo <details> (search-hidden-content) */
