@@ -1,23 +1,22 @@
 "use client";
 
-import React, { useState, useId } from "react";
+import React, { useState, useId, useEffect } from "react";
 import {
   Eye,
   EyeOff,
-  CheckCircle2,
-  Sparkles,
   UserCheck,
   HeartHandshake,
   ArrowLeft,
-  Calendar,
-  Clock,
-  ShieldCheck,
   LogOut,
-  Lock,
+  User,
+  Calendar,
+  Wallet,
+  Loader2,
 } from "lucide-react";
 
-export type AccessTab = "login" | "register" | "recover" | "role-select" | "workspace" | "admin";
+export type AccessTab = "login" | "register" | "recover" | "role-select";
 export type ActiveRole = "Consultante" | "Terapeuta";
+export type PersistentSection = "Mi Perfil" | "Mis consultas" | "Mi Billetera";
 
 interface TerapiasAccessPanelProps {
   idPrefix?: string;
@@ -25,10 +24,50 @@ interface TerapiasAccessPanelProps {
   preselectedContext?: string | null;
 }
 
+interface AuthenticatedUser {
+  name: string;
+  email: string;
+  picture?: string;
+  provider: "Google" | "Correo";
+}
+
+interface GoogleTokenResponse {
+  access_token?: string;
+  error?: string;
+  error_description?: string;
+}
+
+interface GoogleTokenClient {
+  requestAccessToken: (overrideConfig?: { prompt?: string }) => void;
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        oauth2?: {
+          initTokenClient: (config: {
+            client_id: string;
+            scope: string;
+            prompt?: string;
+            callback: (response: GoogleTokenResponse) => void;
+            error_callback?: (err: { type?: string; message?: string }) => void;
+          }) => GoogleTokenClient;
+        };
+      };
+    };
+  }
+}
+
+const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+  "384115038053-8ej767ghcer6qklevc4onqtav29ppape.apps.googleusercontent.com";
+
+const SESSION_STORAGE_KEY = "reiki_online_session_v1";
+
 export function TerapiasAccessPanel({
   idPrefix = "inline",
   initialMode = "login",
-  preselectedContext = null,
 }: TerapiasAccessPanelProps) {
   const uniqueId = useId();
   const baseId = `${idPrefix}-${uniqueId}`;
@@ -38,15 +77,54 @@ export function TerapiasAccessPanel({
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [loginError, setLoginError] = useState<string | null>(null);
   const [recoverySent, setRecoverySent] = useState(false);
-  const [authenticatedUser, setAuthenticatedUser] = useState<{
-    name: string;
-    email: string;
-    provider: "Google" | "Correo" | "Admin";
-    isAdmin?: boolean;
-  } | null>(null);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const [authenticatedUser, setAuthenticatedUser] = useState<AuthenticatedUser | null>(null);
   const [selectedRole, setSelectedRole] = useState<ActiveRole | null>(null);
+  const [activeSection, setActiveSection] = useState<PersistentSection | null>(null);
+
+  // Cargar script oficial de Google Identity Services y restaurar sesión activa
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const saved = window.localStorage.getItem(SESSION_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as AuthenticatedUser;
+        if (parsed && parsed.email) {
+          setAuthenticatedUser(parsed);
+          setMode("role-select");
+        }
+      }
+    } catch {
+      // Ignore storage read errors
+    }
+
+    const existingScript = document.getElementById("google-gsi-client-script");
+    if (!existingScript) {
+      const script = document.createElement("script");
+      script.id = "google-gsi-client-script";
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  const persistUserSession = (user: AuthenticatedUser) => {
+    setAuthenticatedUser(user);
+    setSelectedRole(null);
+    setActiveSection(null);
+    setAuthError(null);
+    setMode("role-select");
+    try {
+      window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
+    } catch {
+      // Ignore storage write errors
+    }
+  };
 
   const syncAriaInvalid = (
     e: React.FocusEvent<HTMLInputElement> | React.FormEvent<HTMLInputElement>
@@ -63,56 +141,89 @@ export function TerapiasAccessPanel({
 
   const handleLoginSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoginError(null);
-    const identifier = email.trim();
-
-    // Validación silenciosa del usuario Administrador (no aparece como opción visible en la PWA)
-    if (identifier.toLowerCase() === "reikionline") {
-      if (password === "Reiki2026") {
-        setAuthenticatedUser({
-          name: "Administrador Reiki Online",
-          email: "ReikiOnline",
-          provider: "Admin",
-          isAdmin: true,
-        });
-        setMode("admin");
-        return;
-      } else {
-        setLoginError("Contraseña incorrecta para el usuario ReikiOnline.");
-        return;
-      }
-    }
-
-    const cleanEmail = identifier || "usuario@reikionline.com.ar";
+    const cleanEmail = email.trim();
+    if (!cleanEmail) return;
     const derivedName = cleanEmail.split("@")[0].replace(/[._-]/g, " ");
-    setAuthenticatedUser({
+    persistUserSession({
       name: derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
       email: cleanEmail,
       provider: "Correo",
     });
-    setMode("role-select");
   };
 
   const handleRegisterSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setLoginError(null);
-    const cleanEmail = email.trim() || "nuevo@reikionline.com.ar";
-    setAuthenticatedUser({
-      name: fullName.trim() || "Nuevo Usuario",
+    const cleanEmail = email.trim();
+    if (!cleanEmail) return;
+    persistUserSession({
+      name: fullName.trim() || cleanEmail.split("@")[0],
       email: cleanEmail,
       provider: "Correo",
     });
-    setMode("role-select");
   };
 
   const handleGoogleContinue = () => {
-    setLoginError(null);
-    setAuthenticatedUser({
-      name: "Cuenta Google Verificada",
-      email: email.trim() || "conectando@gmail.com",
-      provider: "Google",
-    });
-    setMode("role-select");
+    setAuthError(null);
+
+    const oauth2 = window.google?.accounts?.oauth2;
+    if (!oauth2) {
+      setAuthError("Cargando servicios de Google, intentá nuevamente en un segundo.");
+      return;
+    }
+
+    setGoogleLoading(true);
+
+    try {
+      const tokenClient = oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: "openid email profile",
+        prompt: "select_account",
+        callback: async (tokenResponse: GoogleTokenResponse) => {
+          if (tokenResponse.error || !tokenResponse.access_token) {
+            setGoogleLoading(false);
+            setAuthError("No se completó el acceso con Google.");
+            return;
+          }
+
+          try {
+            const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+              headers: {
+                Authorization: `Bearer ${tokenResponse.access_token}`,
+              },
+            });
+
+            if (!res.ok) {
+              throw new Error("No se pudo verificar el perfil de Google");
+            }
+
+            const profile = (await res.json()) as {
+              name?: string;
+              email?: string;
+              picture?: string;
+            };
+
+            persistUserSession({
+              name: profile.name || profile.email || "Usuario Google",
+              email: profile.email || "",
+              picture: profile.picture,
+              provider: "Google",
+            });
+          } catch {
+            setAuthError("Error al obtener los datos de tu cuenta de Google.");
+          } finally {
+            setGoogleLoading(false);
+          }
+        },
+        error_callback: () => {
+          setGoogleLoading(false);
+        },
+      });
+
+      tokenClient.requestAccessToken({ prompt: "select_account" });
+    } catch {
+      setGoogleLoading(false);
+      setAuthError("No se pudo abrir la ventana de Google.");
+    }
   };
 
   const handleRecoverSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -122,117 +233,128 @@ export function TerapiasAccessPanel({
 
   const handleChooseRole = (role: ActiveRole) => {
     setSelectedRole(role);
-    setMode("workspace");
   };
 
   const handleResetSession = () => {
     setAuthenticatedUser(null);
     setSelectedRole(null);
+    setActiveSection(null);
     setPassword("");
-    setLoginError(null);
+    setAuthError(null);
     setMode("login");
+    try {
+      window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors
+    }
   };
 
   return (
     <div className="rounded-3xl border border-[#836DAD]/25 bg-white p-6 sm:p-8 text-[#2B1F42] shadow-xl shadow-[#836DAD]/10">
-      {/* Cabecera compacta con ícono oficial R con punto */}
-      <div className="flex items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-5">
-        <div className="flex items-center gap-3.5">
+      {/* Cabecera limpia y simple */}
+      <div className="flex items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-4">
+        <div className="flex items-center gap-3">
           <div className="shrink-0 overflow-hidden rounded-2xl bg-[#836DAD] p-1.5 shadow-sm">
             <img
               src="/brand/Reiki_Icono_Lavanda_Unificado.png"
               alt="Reiki Online"
-              width={44}
-              height={44}
-              className="h-11 w-11 object-contain"
+              width={40}
+              height={40}
+              className="h-10 w-10 object-contain"
             />
           </div>
-          <div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#836DAD]/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-              <Sparkles className="h-3 w-3" />
-              Plataforma Reiki Online
-            </span>
-            <h3 className="mt-0.5 text-lg sm:text-xl font-semibold text-[#2B1F42]">
-              {mode === "admin"
-                ? "Panel de Administración · Reiki Online"
-                : mode === "role-select"
-                ? "¿Cómo deseás continuar hoy?"
-                : mode === "workspace"
-                ? `Espacio de ${selectedRole}`
-                : mode === "register"
-                ? "Crear cuenta en Terapias Online"
-                : mode === "recover"
-                ? "Recuperación automática de contraseña"
-                : "Ingreso a Terapias Online"}
-            </h3>
-          </div>
+          <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
+            {authenticatedUser
+              ? "¿Cómo Ingresas?"
+              : mode === "register"
+              ? "Registrarme"
+              : mode === "recover"
+              ? "Recuperar contraseña"
+              : "Ingresar"}
+          </h3>
         </div>
 
         {authenticatedUser && (
           <button
             type="button"
             onClick={handleResetSession}
-            title="Cerrar sesión"
+            title="Salir"
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD]/10"
           >
             <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Salir</span>
+            <span>Salir</span>
           </button>
         )}
       </div>
 
-      {preselectedContext && mode !== "workspace" && mode !== "admin" && (
-        <div className="mt-4 rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3 text-xs sm:text-sm text-[#2B1F42]">
-          <span className="font-semibold text-[#836DAD]">Selección activa:</span>{" "}
-          {preselectedContext}
+      {/* BARRA SIEMPRE VISIBLE: Mi Perfil · Mis consultas · Mi Billetera */}
+      {authenticatedUser && (
+        <nav
+          aria-label="Accesos permanentes del usuario"
+          className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5"
+        >
+          {(
+            [
+              { label: "Mi Perfil", icon: User },
+              { label: "Mis consultas", icon: Calendar },
+              { label: "Mi Billetera", icon: Wallet },
+            ] as const
+          ).map(({ label, icon: Icon }) => {
+            const isActive = activeSection === label;
+            return (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setActiveSection(label)}
+                className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                  isActive
+                    ? "bg-[#836DAD] text-white shadow-sm"
+                    : "bg-white text-[#2B1F42] hover:bg-[#836DAD]/12"
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
+
+      {authError && (
+        <div
+          role="alert"
+          className="mt-4 rounded-xl border border-[#836DAD]/30 bg-[#F6F3FA] px-3.5 py-2.5 text-xs font-semibold text-[#836DAD]"
+        >
+          {authError}
         </div>
       )}
 
-      {/* 1. MODO LOGIN (Por defecto, según sección 08 del documento oficial) */}
-      {mode === "login" && (
-        <div className="mt-6">
+      {/* 1. MODO LOGIN */}
+      {!authenticatedUser && mode === "login" && (
+        <div className="mt-5">
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div className="ro-field">
               <label
-                htmlFor={`${baseId}-username`}
+                htmlFor={`${baseId}-email`}
                 className="block text-xs sm:text-sm font-semibold text-[#2B1F42]"
               >
-                Usuario o correo electrónico
+                Correo electrónico
               </label>
-              <span
-                id={`${baseId}-username-hint`}
-                className="mt-0.5 block text-xs text-[#2B1F42]/65"
-              >
-                Ingresá tu nombre de usuario o el correo electrónico asociado a tu cuenta
-              </span>
               <input
-                type="text"
-                id={`${baseId}-username`}
-                name="username"
+                type="email"
+                id={`${baseId}-email`}
+                name="email"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (loginError) setLoginError(null);
-                }}
+                onChange={(e) => setEmail(e.target.value)}
                 onBlur={syncAriaInvalid}
                 onInput={syncAriaInvalid}
                 required
                 autoComplete="username"
                 spellCheck={false}
-                autoCorrect="off"
-                autoCapitalize="none"
                 enterKeyHint="next"
-                aria-describedby={`${baseId}-username-hint`}
-                aria-errormessage={`${baseId}-username-error`}
                 placeholder="tucorreo@ejemplo.com"
-                className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/40 focus:border-[#836DAD] focus:bg-white focus:outline-none"
+                className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-base sm:text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/40 focus:border-[#836DAD] focus:bg-white focus:outline-none"
               />
-              <div
-                id={`${baseId}-username-error`}
-                className="ro-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[#836DAD]"
-              >
-                <span aria-hidden="true">⚠</span> Ingresá tu usuario o correo electrónico.
-              </div>
             </div>
 
             <div className="ro-field">
@@ -249,7 +371,7 @@ export function TerapiasAccessPanel({
                     setRecoverySent(false);
                     setMode("recover");
                   }}
-                  className="cursor-pointer text-xs font-semibold text-[#836DAD] underline underline-offset-4 transition-colors hover:text-[#5E4987]"
+                  className="cursor-pointer text-xs font-semibold text-[#836DAD] underline underline-offset-4 hover:text-[#5E4987]"
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
@@ -260,10 +382,7 @@ export function TerapiasAccessPanel({
                   id={`${baseId}-current-password`}
                   name="password"
                   value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (loginError) setLoginError(null);
-                  }}
+                  onChange={(e) => setPassword(e.target.value)}
                   onBlur={syncAriaInvalid}
                   onInput={syncAriaInvalid}
                   required
@@ -271,13 +390,14 @@ export function TerapiasAccessPanel({
                   autoComplete="current-password"
                   enterKeyHint="done"
                   placeholder="••••••••"
-                  className="ro-input w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] py-3 pr-24 pl-4 text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/40 focus:border-[#836DAD] focus:bg-white focus:outline-none"
+                  className="ro-input w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] py-3 pr-24 pl-4 text-base sm:text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/40 focus:border-[#836DAD] focus:bg-white focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
+                  aria-pressed={showPassword}
                   aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                  className="absolute top-1/2 right-2.5 -translate-y-1/2 inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD]/10"
+                  className="absolute top-1/2 right-2.5 -translate-y-1/2 inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#836DAD] hover:bg-[#836DAD]/10"
                 >
                   {showPassword ? (
                     <>
@@ -292,62 +412,52 @@ export function TerapiasAccessPanel({
                   )}
                 </button>
               </div>
-              <div className="ro-error-msg mt-1.5 hidden items-center gap-1.5 text-xs font-semibold text-[#836DAD]">
-                <span aria-hidden="true">⚠</span> Ingresá tu contraseña (mínimo 6 caracteres).
-              </div>
             </div>
 
-            {loginError && (
-              <div
-                role="alert"
-                className="rounded-xl border border-[#836DAD]/40 bg-[#F6F3FA] px-3.5 py-2.5 text-xs font-semibold text-[#2B1F42]"
-              >
-                {loginError}
-              </div>
-            )}
-
-            {/* Botón «Ingresar» */}
             <button
               type="submit"
-              className="w-full cursor-pointer rounded-xl bg-[#836DAD] px-5 py-3.5 text-sm font-semibold text-white shadow-md shadow-[#836DAD]/25 transition-all hover:bg-[#6F599B] active:scale-[0.99]"
+              className="w-full cursor-pointer rounded-xl bg-[#836DAD] px-5 py-3.5 text-sm font-semibold text-white shadow-md shadow-[#836DAD]/25 transition-all hover:bg-[#6F599B]"
             >
               Ingresar
             </button>
           </form>
 
-          {/* Separador */}
-          <div className="my-5 flex items-center gap-3">
+          <div className="my-4 flex items-center gap-3">
             <div className="h-px flex-1 bg-[#836DAD]/15" />
-            <span className="text-xs font-medium text-[#2B1F42]/60">o accedé con</span>
+            <span className="text-xs font-medium text-[#2B1F42]/60">o</span>
             <div className="h-px flex-1 bg-[#836DAD]/15" />
           </div>
 
-          {/* Opción «Continuar con Google» y Botón «Registrarme» */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={handleGoogleContinue}
-              className="inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-[#836DAD]/30 bg-white px-4 py-3 text-xs sm:text-sm font-semibold text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#F6F3FA]"
+              disabled={googleLoading}
+              className="inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-[#836DAD]/30 bg-white px-4 py-3 text-xs sm:text-sm font-semibold text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#F6F3FA] disabled:opacity-60"
             >
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  fill="#4285F4"
-                  d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
-                />
-              </svg>
-              <span>Continuar con Google</span>
+              {googleLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-[#836DAD]" />
+              ) : (
+                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    fill="#4285F4"
+                    d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
+                  />
+                </svg>
+              )}
+              <span>Google</span>
             </button>
 
             <button
@@ -358,21 +468,14 @@ export function TerapiasAccessPanel({
               <span>Registrarme</span>
             </button>
           </div>
-
-          <p className="mt-5 rounded-2xl bg-[#F6F3FA] p-3.5 text-xs leading-relaxed text-[#2B1F42]/80">
-            <strong className="font-semibold text-[#836DAD]">Elección de rol en cada ingreso:</strong>{" "}
-            Después de autenticarte, podrás elegir si continuás como{" "}
-            <strong>«Consultante»</strong> o como <strong>«Terapeuta»</strong>; estos roles no son
-            excluyentes.
-          </p>
         </div>
       )}
 
       {/* 2. MODO REGISTRO */}
-      {mode === "register" && (
-        <div className="mt-6">
+      {!authenticatedUser && mode === "register" && (
+        <div className="mt-5">
           <form onSubmit={handleRegisterSubmit} className="space-y-4">
-            <div className="ro-field">
+            <div>
               <label
                 htmlFor={`${baseId}-fullname`}
                 className="block text-xs sm:text-sm font-semibold text-[#2B1F42]"
@@ -388,12 +491,12 @@ export function TerapiasAccessPanel({
                 required
                 autoComplete="name"
                 enterKeyHint="next"
-                placeholder="Tu nombre completo"
-                className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/40 focus:border-[#836DAD] focus:bg-white focus:outline-none"
+                placeholder="Tu nombre"
+                className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-base sm:text-sm text-[#2B1F42] focus:border-[#836DAD] focus:bg-white focus:outline-none"
               />
             </div>
 
-            <div className="ro-field">
+            <div>
               <label
                 htmlFor={`${baseId}-reg-email`}
                 className="block text-xs sm:text-sm font-semibold text-[#2B1F42]"
@@ -407,48 +510,51 @@ export function TerapiasAccessPanel({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="username"
                 spellCheck={false}
                 enterKeyHint="next"
                 placeholder="tucorreo@ejemplo.com"
-                className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/40 focus:border-[#836DAD] focus:bg-white focus:outline-none"
+                className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-base sm:text-sm text-[#2B1F42] focus:border-[#836DAD] focus:bg-white focus:outline-none"
               />
             </div>
 
-            <div className="ro-field">
+            <div>
               <label
                 htmlFor={`${baseId}-new-password`}
                 className="block text-xs sm:text-sm font-semibold text-[#2B1F42]"
               >
-                Crear contraseña
+                Contraseña
               </label>
-              <span
-                id={`${baseId}-pwd-rules`}
-                className="mt-0.5 block text-xs text-[#2B1F42]/65"
-              >
-                Mínimo 6 caracteres para proteger tu cuenta
-              </span>
-              <input
-                type={showPassword ? "text" : "password"}
-                id={`${baseId}-new-password`}
-                name="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-                enterKeyHint="done"
-                aria-describedby={`${baseId}-pwd-rules`}
-                placeholder="Mínimo 6 caracteres"
-                className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/40 focus:border-[#836DAD] focus:bg-white focus:outline-none"
-              />
+              <div className="relative mt-1.5">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id={`${baseId}-new-password`}
+                  name="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                  enterKeyHint="done"
+                  placeholder="••••••••"
+                  className="ro-input w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] py-3 pr-24 pl-4 text-base sm:text-sm text-[#2B1F42] focus:border-[#836DAD] focus:bg-white focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-pressed={showPassword}
+                  className="absolute top-1/2 right-2.5 -translate-y-1/2 inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-[#836DAD] hover:bg-[#836DAD]/10"
+                >
+                  {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
             </div>
 
             <button
               type="submit"
               className="w-full cursor-pointer rounded-xl bg-[#836DAD] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#6F599B]"
             >
-              Registrarme y elegir cómo continuar
+              Registrarme
             </button>
           </form>
 
@@ -459,7 +565,7 @@ export function TerapiasAccessPanel({
               className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[#836DAD] hover:underline"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Volver a Ingresar con mi cuenta</span>
+              <span>Volver</span>
             </button>
 
             <button
@@ -467,27 +573,23 @@ export function TerapiasAccessPanel({
               onClick={handleGoogleContinue}
               className="cursor-pointer text-xs font-semibold text-[#2B1F42] underline underline-offset-4 hover:text-[#836DAD]"
             >
-              Continuar con Google
+              Google
             </button>
           </div>
         </div>
       )}
 
-      {/* 3. MODO RECUPERACIÓN AUTOMÁTICA DE CONTRASEÑA */}
-      {mode === "recover" && (
-        <div className="mt-6">
+      {/* 3. MODO RECUPERAR CONTRASEÑA */}
+      {!authenticatedUser && mode === "recover" && (
+        <div className="mt-5 space-y-4">
           {!recoverySent ? (
             <form onSubmit={handleRecoverSubmit} className="space-y-4">
-              <p className="text-xs sm:text-sm leading-relaxed text-[#2B1F42]/80">
-                Ingresá tu correo electrónico y te enviaremos un enlace automático para restablecer
-                tu contraseña de inmediato.
-              </p>
               <div>
                 <label
                   htmlFor={`${baseId}-recover-email`}
                   className="block text-xs sm:text-sm font-semibold text-[#2B1F42]"
                 >
-                  Correo electrónico registrado
+                  Correo electrónico
                 </label>
                 <input
                   type="email"
@@ -499,219 +601,80 @@ export function TerapiasAccessPanel({
                   autoComplete="email"
                   spellCheck={false}
                   placeholder="tucorreo@ejemplo.com"
-                  className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-sm text-[#2B1F42] focus:border-[#836DAD] focus:bg-white focus:outline-none"
+                  className="ro-input mt-1.5 w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3 text-base sm:text-sm text-[#2B1F42] focus:border-[#836DAD] focus:bg-white focus:outline-none"
                 />
               </div>
               <button
                 type="submit"
                 className="w-full cursor-pointer rounded-xl bg-[#836DAD] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-[#6F599B]"
               >
-                Enviar recuperación automática
+                Enviar enlace
               </button>
             </form>
           ) : (
-            <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 text-center">
-              <CheckCircle2 className="mx-auto h-10 w-10 text-[#836DAD]" />
-              <h4 className="mt-2 text-base font-semibold text-[#2B1F42]">
-                Enlace de recuperación enviado
-              </h4>
-              <p className="mt-1 text-xs sm:text-sm text-[#2B1F42]/80">
-                Enviamos las instrucciones automáticas a{" "}
-                <strong>{email || "tu correo electrónico"}</strong>. Revisá tu bandeja de entrada.
-              </p>
+            <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4 text-center text-sm font-semibold text-[#2B1F42]">
+              Enlace enviado a {email || "tu correo"}
             </div>
           )}
 
           <button
             type="button"
             onClick={() => setMode("login")}
-            className="mt-4 inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[#836DAD] hover:underline"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Volver al ingreso</span>
-          </button>
-        </div>
-      )}
-
-      {/* 4. SELECCIÓN DE ROL POST-AUTENTICACIÓN (Regla definida en Sección 08:
-          «después de autenticarse, toda persona elige en cada ingreso si continúa como
-          "Terapeuta" o "Consultante"; estos roles no son excluyentes. El administrador
-          no aparece como una opción visible en la PWA.») */}
-      {mode === "role-select" && authenticatedUser && (
-        <div className="mt-6 space-y-5">
-          <div className="rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] px-4 py-3 text-xs sm:text-sm text-[#2B1F42]">
-            Sesión iniciada como <strong>{authenticatedUser.name}</strong> (
-            {authenticatedUser.email} · vía {authenticatedUser.provider}). Elegí cómo querés
-            continuar en este ingreso:
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Opción 1: Consultante */}
-            <button
-              type="button"
-              onClick={() => handleChooseRole("Consultante")}
-              className="group flex flex-col items-start justify-between rounded-2xl border-2 border-[#836DAD]/30 bg-white p-5 text-left transition-all hover:border-[#836DAD] hover:bg-[#F6F3FA] hover:shadow-md cursor-pointer"
-            >
-              <div>
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#836DAD] text-[#F3D791]">
-                  <HeartHandshake className="h-6 w-6" />
-                </span>
-                <h4 className="mt-3.5 text-base font-semibold text-[#2B1F42]">
-                  Continuar como «Consultante»
-                </h4>
-                <p className="mt-1.5 text-xs leading-relaxed text-[#2B1F42]/75">
-                  Explorá especialidades, consultá disponibilidad de profesionales, reservá tu
-                  turno y gestioná tus sesiones online o presenciales.
-                </p>
-              </div>
-              <span className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-semibold text-white group-hover:bg-[#6F599B]">
-                Ingresar como Consultante →
-              </span>
-            </button>
-
-            {/* Opción 2: Terapeuta */}
-            <button
-              type="button"
-              onClick={() => handleChooseRole("Terapeuta")}
-              className="group flex flex-col items-start justify-between rounded-2xl border-2 border-[#836DAD]/30 bg-white p-5 text-left transition-all hover:border-[#836DAD] hover:bg-[#F6F3FA] hover:shadow-md cursor-pointer"
-            >
-              <div>
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F3D791] text-[#2B1F42]">
-                  <UserCheck className="h-6 w-6 text-[#836DAD]" />
-                </span>
-                <h4 className="mt-3.5 text-base font-semibold text-[#2B1F42]">
-                  Continuar como «Terapeuta»
-                </h4>
-                <p className="mt-1.5 text-xs leading-relaxed text-[#2B1F42]/75">
-                  Completá tu perfil y formación declarada, configurá tus especialidades, tarifas y
-                  horarios, y administrá tus reservas.
-                </p>
-              </div>
-              <span className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#F3D791] px-3.5 py-2 text-xs font-semibold text-[#2B1F42] group-hover:bg-[#836DAD] group-hover:text-white">
-                Ingresar como Terapeuta →
-              </span>
-            </button>
-          </div>
-
-          <p className="text-center text-xs text-[#2B1F42]/65">
-            Ambos roles no son excluyentes: podés cambiar entre <strong>Consultante</strong> y{" "}
-            <strong>Terapeuta</strong> en cualquier momento.
-          </p>
-        </div>
-      )}
-
-      {/* 5. VISTA PREVIA DE LA VENTANA INTERNA SEGÚN EL ROL ELEGIDO */}
-      {mode === "workspace" && authenticatedUser && selectedRole && (
-        <div className="mt-6 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#836DAD] px-4 py-3 text-white">
-            <div className="flex items-center gap-2 text-xs sm:text-sm">
-              <CheckCircle2 className="h-4 w-4 text-[#F3D791]" />
-              <span>
-                Rol activo: <strong>{selectedRole}</strong> ({authenticatedUser.name})
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                setSelectedRole(selectedRole === "Consultante" ? "Terapeuta" : "Consultante")
-              }
-              className="cursor-pointer rounded-xl bg-[#F3D791] px-3 py-1 text-xs font-semibold text-[#2B1F42] transition-colors hover:bg-white"
-            >
-              Cambiar a {selectedRole === "Consultante" ? "Terapeuta" : "Consultante"}
-            </button>
-          </div>
-
-          {selectedRole === "Consultante" ? (
-            <div className="space-y-3 rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-4">
-              <h4 className="text-sm font-semibold text-[#2B1F42]">
-                Panel de Consultante · Próximos pasos
-              </h4>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-white p-3.5 shadow-sm">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#836DAD]">
-                    <Calendar className="h-4 w-4" />
-                    <span>Reservar nueva sesión</span>
-                  </div>
-                  <p className="mt-1 text-xs text-[#2B1F42]/75">
-                    {preselectedContext
-                      ? `Continuar reserva para: ${preselectedContext}`
-                      : "Elegí especialidad, reikista o terapeuta y horario disponible."}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white p-3.5 shadow-sm">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#836DAD]">
-                    <Clock className="h-4 w-4" />
-                    <span>Mis sesiones agendadas</span>
-                  </div>
-                  <p className="mt-1 text-xs text-[#2B1F42]/75">
-                    Accedé al enlace de tus encuentros online o reprogramá con antelación.
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-3 rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-4">
-              <h4 className="text-sm font-semibold text-[#2B1F42]">
-                Panel de Terapeuta · Gestión Profesional
-              </h4>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-white p-3.5 shadow-sm">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#836DAD]">
-                    <ShieldCheck className="h-4 w-4" />
-                    <span>Perfil y formación declarada</span>
-                  </div>
-                  <p className="mt-1 text-xs text-[#2B1F42]/75">
-                    Actualizá tus disciplinas, presentación personal y modalidades de atención.
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white p-3.5 shadow-sm">
-                  <div className="flex items-center gap-2 text-xs font-semibold text-[#836DAD]">
-                    <Calendar className="h-4 w-4" />
-                    <span>Tarifas y disponibilidad</span>
-                  </div>
-                  <p className="mt-1 text-xs text-[#2B1F42]/75">
-                    Configurá tus horarios semanales y administrá las reservas de tus consultantes.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setMode("role-select")}
             className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-[#836DAD] hover:underline"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Volver a la selección de rol («Consultante» / «Terapeuta»)</span>
+            <span>Volver</span>
           </button>
         </div>
       )}
 
-      {/* 6. PANEL DE ADMINISTRADOR (Acceso exclusivo con User: ReikiOnline / Pass: Reiki2026) */}
-      {mode === "admin" && authenticatedUser?.isAdmin && (
+      {/* 4. PRIMERA PANTALLA POST-LOGIN:
+          Pregunta: «¿Cómo Ingresas?»
+          Opciones: «Consultante» | «Terapeuta» (Sin ningún tipo de explicación) */}
+      {authenticatedUser && (
         <div className="mt-6 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#836DAD] px-4 py-3 text-white">
-            <div className="flex items-center gap-2 text-xs sm:text-sm">
-              <Lock className="h-4 w-4 text-[#F3D791]" />
-              <span>
-                Sesión activa: <strong>Administrador</strong> (Usuario:{" "}
-                <code className="rounded bg-white/15 px-1.5 py-0.5 text-xs">ReikiOnline</code>)
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handleChooseRole("Consultante")}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 text-center transition-all ${
+                selectedRole === "Consultante"
+                  ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
+                  : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#F6F3FA]"
+              }`}
+            >
+              <span
+                className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
+                  selectedRole === "Consultante"
+                    ? "bg-white/20 text-[#F3D791]"
+                    : "bg-[#836DAD] text-[#F3D791]"
+                }`}
+              >
+                <HeartHandshake className="h-6 w-6" />
               </span>
-            </div>
-            <span className="rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-semibold text-[#2B1F42]">
-              Acceso Maestro
-            </span>
-          </div>
+              <span className="text-lg font-semibold">Consultante</span>
+            </button>
 
-          <div className="rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-5">
-            <h4 className="text-sm sm:text-base font-semibold text-[#2B1F42]">
-              Consola de Administración lista para configurar módulos
-            </h4>
-            <p className="mt-1.5 text-xs sm:text-sm leading-relaxed text-[#2B1F42]/80">
-              El acceso silencioso para <strong>ReikiOnline</strong> ya se encuentra activo (sin
-              mostrarse como opción visible para el público general en la PWA).
-            </p>
+            <button
+              type="button"
+              onClick={() => handleChooseRole("Terapeuta")}
+              className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 text-center transition-all ${
+                selectedRole === "Terapeuta"
+                  ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
+                  : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#F6F3FA]"
+              }`}
+            >
+              <span
+                className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
+                  selectedRole === "Terapeuta"
+                    ? "bg-[#F3D791] text-[#2B1F42]"
+                    : "bg-[#F3D791] text-[#836DAD]"
+                }`}
+              >
+                <UserCheck className="h-6 w-6" />
+              </span>
+              <span className="text-lg font-semibold">Terapeuta</span>
+            </button>
           </div>
         </div>
       )}
