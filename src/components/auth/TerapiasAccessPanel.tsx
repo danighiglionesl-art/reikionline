@@ -21,6 +21,9 @@ import {
   Search,
   Sparkles,
   ShieldAlert,
+  MapPin,
+  CalendarClock,
+  Video,
 } from "lucide-react";
 import {
   ROLE_THERAPY_CATEGORIES,
@@ -1461,24 +1464,49 @@ export function TerapiasAccessPanel({
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     {(
                       [
-                        "Presencial con turno",
-                        "Online con turno",
-                        "Online ahora",
-                      ] as const
-                    ).map((optionLabel) => {
-                      const isSelected = selectedModality === optionLabel;
+                        {
+                          label: "Presencial con turno" as const,
+                          icon: MapPin,
+                          badgeClass:
+                            "bg-[#836DAD] text-[#F3D791] group-hover:bg-white/20 group-hover:text-[#F3D791]",
+                          selectedBadgeClass: "bg-white/20 text-[#F3D791]",
+                        },
+                        {
+                          label: "Online con turno" as const,
+                          icon: CalendarClock,
+                          badgeClass:
+                            "bg-[#F3D791] text-[#836DAD] group-hover:bg-white/20 group-hover:text-[#F3D791]",
+                          selectedBadgeClass: "bg-white/20 text-[#F3D791]",
+                        },
+                        {
+                          label: "Online ahora" as const,
+                          icon: Video,
+                          badgeClass:
+                            "bg-[#836DAD] text-[#F3D791] group-hover:bg-white/20 group-hover:text-[#F3D791]",
+                          selectedBadgeClass: "bg-white/20 text-[#F3D791]",
+                        },
+                      ]
+                    ).map(({ label, icon: Icon, badgeClass, selectedBadgeClass }) => {
+                      const isSelected = selectedModality === label;
                       return (
                         <button
-                          key={optionLabel}
+                          key={label}
                           type="button"
-                          onClick={() => setSelectedModality(optionLabel)}
-                          className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 px-5 py-7 text-center text-base sm:text-lg font-semibold transition-all ${
+                          onClick={() => setSelectedModality(label)}
+                          className={`group flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 px-5 py-6 text-center text-base sm:text-lg font-semibold transition-all ${
                             isSelected
                               ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
                               : "border-[#836DAD]/30 bg-[#FAF8FC] text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md"
                           }`}
                         >
-                          <span>{optionLabel}</span>
+                          <span
+                            className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl transition-colors ${
+                              isSelected ? selectedBadgeClass : badgeClass
+                            }`}
+                          >
+                            <Icon className="h-6 w-6" />
+                          </span>
+                          <span>{label}</span>
                         </button>
                       );
                     })}
