@@ -101,6 +101,7 @@ const SESSION_STORAGE_KEY = "reiki_online_session_v1";
 const CUSTOM_OPTIONS_STORAGE_KEY = "reiki_online_custom_therapy_options_v1";
 const ADMIN_ALERTS_STORAGE_KEY = "reiki_online_admin_therapy_alerts_v1";
 const SELECTIONS_STORAGE_KEY = "reiki_online_role_selections_v1";
+const SELECTED_ROLE_STORAGE_KEY = "reiki_online_selected_role_v1";
 const PROFILES_STORAGE_KEY = "reiki_online_user_profiles_v1";
 const SYNC_EVENT_NAME = "reiki-online-catalog-sync";
 
@@ -275,6 +276,17 @@ export function TerapiasAccessPanel({
         if (Array.isArray(parsed.terapeuta)) {
           setTerapeutaSelections(parsed.terapeuta);
         }
+      }
+    } catch {
+      // Ignore
+    }
+
+    try {
+      const savedRole = window.localStorage.getItem(SELECTED_ROLE_STORAGE_KEY);
+      if (savedRole === "Consultante" || savedRole === "Terapeuta") {
+        setSelectedRole(savedRole);
+      } else {
+        setSelectedRole(null);
       }
     } catch {
       // Ignore
@@ -523,6 +535,24 @@ export function TerapiasAccessPanel({
     setSelectedRole(role);
     setActiveSection(null);
     setSelectionSavedFeedback(null);
+    try {
+      window.localStorage.setItem(SELECTED_ROLE_STORAGE_KEY, role);
+      notifySync();
+    } catch {
+      // Ignore
+    }
+  };
+
+  const handleBackToRoleSelect = () => {
+    setSelectedRole(null);
+    setActiveSection(null);
+    setSelectionSavedFeedback(null);
+    try {
+      window.localStorage.removeItem(SELECTED_ROLE_STORAGE_KEY);
+      notifySync();
+    } catch {
+      // Ignore
+    }
   };
 
   const handleResetSession = () => {
@@ -535,6 +565,7 @@ export function TerapiasAccessPanel({
     setMode("login");
     try {
       window.localStorage.removeItem(SESSION_STORAGE_KEY);
+      window.localStorage.removeItem(SELECTED_ROLE_STORAGE_KEY);
       notifySync();
     } catch {
       // Ignore storage errors
@@ -741,6 +772,8 @@ export function TerapiasAccessPanel({
                 {authenticatedUser
                   ? !isWhatsAppVerified
                     ? "Verificación de WhatsApp"
+                    : selectedRole
+                    ? `Espacio de ${selectedRole}`
                     : "¿Cómo Ingresas?"
                   : mode === "register"
                   ? "Registrarme"
@@ -759,6 +792,19 @@ export function TerapiasAccessPanel({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Botón Volver atrás (solo visible cuando ya confirmó Consultante o Terapeuta y desea volver a elegir) */}
+            {authenticatedUser && isWhatsAppVerified && selectedRole && (
+              <button
+                type="button"
+                onClick={handleBackToRoleSelect}
+                title="Volver atrás a la selección de rol"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Volver atrás</span>
+              </button>
+            )}
+
             {/* Botón / Indicador de Alerta al Administrador */}
             {(pendingAdminAlerts.length > 0 || authenticatedUser?.isAdmin) && (
               <button
@@ -1335,52 +1381,34 @@ export function TerapiasAccessPanel({
             />
           ) : (
             <>
-              {/* Opciones principales arriba: Consultante | Terapeuta */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => handleChooseRole("Consultante")}
-                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 text-center transition-all ${
-                    selectedRole === "Consultante" && !activeSection
-                      ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
-                      : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#F6F3FA]"
-                  }`}
-                >
-                  <span
-                    className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
-                      selectedRole === "Consultante" && !activeSection
-                        ? "bg-white/20 text-[#F3D791]"
-                        : "bg-[#836DAD] text-[#F3D791]"
-                    }`}
+              {/* Opciones principales: Consultante | Terapeuta (solo se muestran antes de elegir rol o al tocar "Volver atrás") */}
+              {!selectedRole && !activeSection && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => handleChooseRole("Consultante")}
+                    className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-6 text-center text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md group"
                   >
-                    <HeartHandshake className="h-6 w-6" />
-                  </span>
-                  <span className="text-lg font-semibold">Consultante</span>
-                </button>
+                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#836DAD] text-[#F3D791] group-hover:bg-white/20">
+                      <HeartHandshake className="h-6 w-6" />
+                    </span>
+                    <span className="text-lg font-semibold">Consultante</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleChooseRole("Terapeuta")}
-                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 p-6 text-center transition-all ${
-                    selectedRole === "Terapeuta" && !activeSection
-                      ? "border-[#836DAD] bg-[#836DAD] text-white shadow-md"
-                      : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD] hover:bg-[#F6F3FA]"
-                  }`}
-                >
-                  <span
-                    className={`inline-flex h-12 w-12 items-center justify-center rounded-2xl ${
-                      selectedRole === "Terapeuta" && !activeSection
-                        ? "bg-[#F3D791] text-[#2B1F42]"
-                        : "bg-[#F3D791] text-[#836DAD]"
-                    }`}
+                  <button
+                    type="button"
+                    onClick={() => handleChooseRole("Terapeuta")}
+                    className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-6 text-center text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md group"
                   >
-                    <UserCheck className="h-6 w-6" />
-                  </span>
-                  <span className="text-lg font-semibold">Terapeuta</span>
-                </button>
-              </div>
+                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F3D791] text-[#836DAD] group-hover:text-[#2B1F42]">
+                      <UserCheck className="h-6 w-6" />
+                    </span>
+                    <span className="text-lg font-semibold">Terapeuta</span>
+                  </button>
+                </div>
+              )}
 
-              {/* SECCIÓN ACTIVA DE LA BARRA INFERIOR: MI PERFIL (bibliotecaroncedo.ar + Geoposición Satelital + Maps) */}
+              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI PERFIL (bibliotecaroncedo.ar + Geoposición Satelital + Maps) */}
               {activeSection === "Mi Perfil" && (
                 <UserProfilePanel
                   profile={activeUserProfile}
