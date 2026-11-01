@@ -73,6 +73,10 @@ export function formatToE164(prefijo: string, rawNumber: string): string {
   if (cleanPrefix === "+54" && digits.startsWith("15") && digits.length > 8) {
     digits = digits.slice(2);
   }
+  // In Argentina (+54), mobile numbers for WhatsApp E.164 require the '9' after +54 (e.g. +5493585095475)
+  if (cleanPrefix === "+54" && digits.length === 10 && !digits.startsWith("9")) {
+    digits = `9${digits}`;
+  }
   return `${cleanPrefix}${digits}`;
 }
 

@@ -135,14 +135,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       provider: "twilio-sandbox-ready",
+      twilioConfigured: false,
       channel,
       phoneE164,
       status: "pending",
       cooldownSeconds: RESEND_COOLDOWN_SECONDS,
+      sandboxHintCode: "202600",
       message:
-        channel === "whatsapp"
-          ? `Solicitud procesada hacia WhatsApp (${phoneE164}). Ingrese el código OTP de 6 dígitos recibido.`
-          : `Solicitud procesada por SMS (${phoneE164}). Ingrese el código OTP de 6 dígitos recibido.`,
+        `Modo de prueba activo (faltan cargar las claves TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN y TWILIO_VERIFY_SERVICE_SID en Vercel para el envío real por WhatsApp a ${phoneE164}). Para avanzar ahora en modo prueba, ingresá el código: 202600`,
     });
   } catch {
     return NextResponse.json(
