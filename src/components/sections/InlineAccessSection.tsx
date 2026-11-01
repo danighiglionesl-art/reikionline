@@ -20,7 +20,7 @@ export function InlineAccessSection() {
             </span>
 
             <h2 className="mt-3 text-2xl sm:text-4xl font-semibold text-[#2B1F42]">
-              Ingreso a Terapias Online
+              Acceso a Terapias Online
             </h2>
 
             <p className="mt-4 text-base leading-relaxed text-[#2B1F42]/80">
