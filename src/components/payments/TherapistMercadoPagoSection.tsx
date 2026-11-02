@@ -695,10 +695,6 @@ export default function TherapistMercadoPagoSection({
                 <Calculator className="h-3.5 w-3.5" />
                 Distribución automática Split 1:1 (Información interna)
               </span>
-              <span>
-                {sampleSnapshot.appliedPercentage}% Reiki Online /{" "}
-                {sampleSnapshot.therapistSharePercentage}% Terapeuta
-              </span>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#FAF8FC] px-2.5 py-1.5 border border-[#836DAD]/15">
@@ -743,9 +739,6 @@ export default function TherapistMercadoPagoSection({
                 </span>
                 <span className="text-sm font-bold text-[#2B1F42]">
                   {formatArs(splitPreview.sessionPriceArs)}
-                </span>
-                <span className="block text-[9px] font-medium text-[#836DAD]">
-                  Igual en las 3 modalidades
                 </span>
               </div>
               <div className="rounded-lg bg-[#F6F3FA] p-2">

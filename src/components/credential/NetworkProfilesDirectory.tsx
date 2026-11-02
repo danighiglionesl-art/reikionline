@@ -522,7 +522,7 @@ export default function NetworkProfilesDirectory({
                 <h5 className="mt-1.5 text-base font-bold text-white">
                   {item.nombreCompleto}
                 </h5>
-                <p className="font-mono text-xs font-semibold text-[#F3D791]">
+                <p className="text-xs font-semibold text-[#F3D791]">
                   @{item.nickname}
                 </p>
                 <p className="mt-0.5 text-[11px] text-white/90">

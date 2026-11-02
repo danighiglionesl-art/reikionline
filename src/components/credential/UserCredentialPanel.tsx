@@ -243,36 +243,35 @@ export default function UserCredentialPanel({
       ]);
 
       const isFeed = targetFormat === "feed";
-      let cursorY = isFeed ? 54 : 88;
+      let cursorY = isFeed ? 68 : 104;
 
-      // 2. Cabecera con el Isologotipo Oficial completo de Reiki Online integrado al fondo #836DAD (proporción 2:1)
+      // 2. Cabecera horizontal: Isologotipo Oficial de Reiki Online a la izquierda + CREDENCIAL OFICIAL (en 2 líneas equiparadas) a la derecha
+      const headerInnerPad = pad + (isFeed ? 44 : 52);
+      const logoW = isFeed ? 340 : 400;
+      const logoH = logoW / 2;
       if (logoImg) {
-        const logoW = isFeed ? 360 : 520;
-        const logoH = logoW / 2;
-        ctx.drawImage(
-          logoImg,
-          width / 2 - logoW / 2,
-          cursorY,
-          logoW,
-          logoH
-        );
-        cursorY += logoH + (isFeed ? 8 : 16);
+        ctx.drawImage(logoImg, headerInnerPad, cursorY, logoW, logoH);
       }
 
+      ctx.save();
       ctx.fillStyle = "#F3D791";
-      ctx.font = `700 ${isFeed ? 18 : 24}px sans-serif`;
-      ctx.textAlign = "center";
+      ctx.textAlign = "right";
+      const headerFontSize = isFeed ? 44 : 50;
+      ctx.font = `800 ${headerFontSize}px sans-serif`;
+      const rightX = width - headerInnerPad;
+      const centerLogoY = cursorY + logoH / 2;
+      ctx.fillText("CREDENCIAL", rightX, centerLogoY - (isFeed ? 8 : 10));
       ctx.fillText(
-        totalFlyers > 1
-          ? `CREDENCIAL OFICIAL • FLYER ${flyerIdx + 1} DE ${totalFlyers}`
-          : "CREDENCIAL OFICIAL",
-        width / 2,
-        cursorY
+        "OFICIAL",
+        rightX,
+        centerLogoY + headerFontSize - (isFeed ? 4 : 4)
       );
-      cursorY += isFeed ? 22 : 42;
+      ctx.restore();
+
+      cursorY += logoH + (isFeed ? 24 : 56);
 
       // 3. Foto del usuario circular con aro Champán (#F3D791)
-      const avatarRadius = isFeed ? 74 : 122;
+      const avatarRadius = isFeed ? 76 : 126;
       const centerX = width / 2;
       const avatarCenterY = cursorY + avatarRadius;
 
@@ -304,6 +303,7 @@ export default function UserCredentialPanel({
         );
         ctx.fillStyle = "#836DAD";
         ctx.font = `700 ${isFeed ? 54 : 84}px sans-serif`;
+        ctx.textAlign = "center";
         const initials = fullName
           .split(" ")
           .map((n) => n[0])
@@ -314,9 +314,10 @@ export default function UserCredentialPanel({
       }
       ctx.restore();
 
-      cursorY = avatarCenterY + avatarRadius + (isFeed ? 34 : 56);
+      cursorY = avatarCenterY + avatarRadius + (isFeed ? 34 : 58);
 
       // 4. Insignia de Rol: Consultante o Terapeuta (colores del Manual)
+      ctx.textAlign = "center";
       const roleText = credentialRole.toUpperCase();
       const badgeW = isFeed ? 240 : 300;
       const badgeH = isFeed ? 40 : 52;
@@ -343,19 +344,14 @@ export default function UserCredentialPanel({
       ctx.font = `700 ${isFeed ? 19 : 24}px sans-serif`;
       ctx.fillText(roleText, centerX, cursorY - badgeH / 2 + 17);
 
-      cursorY += isFeed ? 38 : 62;
+      cursorY += isFeed ? 42 : 68;
 
-      // 5. Nombre y Apellido + Nickname
+      // 5. Nombre y Apellido (sin duplicar el nickname debajo del nombre, ya que figura al pie debajo del QR)
       ctx.fillStyle = "#FFFFFF";
       ctx.font = `700 ${isFeed ? 36 : 48}px sans-serif`;
       ctx.fillText(fullName, centerX, cursorY);
 
-      cursorY += isFeed ? 30 : 46;
-      ctx.fillStyle = "#F3D791";
-      ctx.font = `600 ${isFeed ? 24 : 32}px sans-serif`;
-      ctx.fillText(`@${cleanNickname}`, centerX, cursorY);
-
-      cursorY += isFeed ? 28 : 48;
+      cursorY += isFeed ? 34 : 54;
 
       // 6. En el caso del Terapeuta: terapias correspondientes a este Flyer (máx 4 o 6)
       if (credentialRole === "Terapeuta" && chunkForThisFlyer.length > 0) {
@@ -385,8 +381,8 @@ export default function UserCredentialPanel({
       }
 
       // 7. Bloque QR inferior vinculado a https://www.reikionline.com.ar/nickname
-      const qrBoxSize = isFeed ? 164 : 250;
-      const qrY = height - pad - qrBoxSize - (isFeed ? 66 : 120);
+      const qrBoxSize = isFeed ? 168 : 250;
+      const qrY = height - pad - qrBoxSize - (isFeed ? 68 : 116);
 
       if (qrImg) {
         ctx.fillStyle = "#FFFFFF";
@@ -413,7 +409,7 @@ export default function UserCredentialPanel({
       ctx.fillText(
         displayShortUrl,
         centerX,
-        qrY + qrBoxSize + (isFeed ? 46 : 64)
+        qrY + qrBoxSize + (isFeed ? 44 : 62)
       );
 
       const pngUrl = canvas.toDataURL("image/png");
@@ -590,10 +586,7 @@ export default function UserCredentialPanel({
             className="flex w-full flex-col items-center space-y-2.5"
           >
             {flyerChunks.length > 1 && (
-              <div className="flex w-full max-w-[360px] items-center justify-between px-1">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#836DAD]/15 px-3 py-1 text-xs font-bold text-[#836DAD]">
-                  Flyer {flyerIdx + 1} de {flyerChunks.length}
-                </span>
+              <div className="flex w-full max-w-[360px] items-center justify-end px-1">
                 <button
                   type="button"
                   disabled={exporting}
@@ -601,7 +594,7 @@ export default function UserCredentialPanel({
                   className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#836DAD] underline hover:text-[#5E4B8B]"
                 >
                   <Download className="h-3.5 w-3.5" />
-                  Descargar Flyer {flyerIdx + 1}
+                  Descargar esta imagen
                 </button>
               </div>
             )}
@@ -609,32 +602,37 @@ export default function UserCredentialPanel({
             <div
               className={`relative flex flex-col items-center justify-between overflow-hidden rounded-[2rem] border-2 border-[#F3D791] bg-[#836DAD] text-center text-white shadow-2xl transition-all ${
                 format === "feed"
-                  ? "aspect-square w-full max-w-[440px] px-5 py-4 sm:px-6 sm:py-5"
-                  : "aspect-[9/16] w-full max-w-[360px] px-5 py-5 sm:px-6 sm:py-6"
+                  ? "aspect-square w-full max-w-[440px] px-6 py-5 sm:px-7 sm:py-6"
+                  : "aspect-[9/16] w-full max-w-[360px] px-5 py-6 sm:px-6 sm:py-7"
               }`}
             >
               {/* Marco interno sutil con los colores del Manual de Marca */}
               <div className="pointer-events-none absolute inset-3 rounded-[1.5rem] border border-[#F3D791]/45" />
 
-              {/* 1. Cabecera con el Isologotipo Oficial de Reiki Online integrado al fondo sin recuadro */}
-              <div className="relative z-10 flex w-full flex-col items-center">
+              {/* 1. Cabecera rediseñada: Isologotipo de Reiki Online a la izquierda y CREDENCIAL OFICIAL (en 2 líneas equiparadas) a la derecha */}
+              <div className="relative z-10 flex w-full items-center justify-between gap-3 px-2 pt-0.5">
                 <img
                   src="/brand/Reiki_Online_Lavanda_Unificado.png"
                   alt="Reiki online — CONECTANDO BIENESTAR"
                   className={
                     format === "feed"
-                      ? "h-14 sm:h-16 w-auto object-contain"
-                      : "h-20 sm:h-22 w-auto object-contain"
+                      ? "h-12 sm:h-14 w-auto object-contain shrink-0"
+                      : "h-14 sm:h-16 w-auto object-contain shrink-0"
                   }
                 />
-                <span className="-mt-0.5 block text-[9px] sm:text-[10px] font-bold tracking-[0.18em] uppercase text-[#F3D791]">
-                  {flyerChunks.length > 1
-                    ? `Credencial Oficial • Flyer ${flyerIdx + 1}/${flyerChunks.length}`
-                    : "Credencial Oficial"}
-                </span>
+                <div
+                  className={`flex flex-col items-end justify-center text-right font-extrabold uppercase tracking-[0.14em] text-[#F3D791] leading-[1.12] ${
+                    format === "feed"
+                      ? "text-sm sm:text-base"
+                      : "text-base sm:text-lg"
+                  }`}
+                >
+                  <span>CREDENCIAL</span>
+                  <span>OFICIAL</span>
+                </div>
               </div>
 
-              {/* 2. Foto aportada por usuario + Rol + Nombre y Apellido + Nickname + Terapias de este Flyer */}
+              {/* 2. Foto aportada por usuario + Rol + Nombre y Apellido + Terapias de este Flyer */}
               <div className="relative z-10 flex w-full flex-col items-center">
                 <div className="relative">
                   <div
@@ -693,9 +691,9 @@ export default function UserCredentialPanel({
                   )}
                 </div>
 
-                {/* Nombre y Apellido */}
+                {/* Nombre y Apellido (sin duplicar @nickname aquí, ya que figura debajo del QR) */}
                 <h3
-                  className={`mt-1 font-bold text-white leading-tight ${
+                  className={`mt-1.5 font-bold text-white leading-tight ${
                     format === "feed"
                       ? "text-base sm:text-lg"
                       : "text-lg sm:text-xl"
@@ -704,15 +702,10 @@ export default function UserCredentialPanel({
                   {fullName}
                 </h3>
 
-                {/* Nickname */}
-                <p className="text-xs sm:text-sm font-semibold text-[#F3D791]">
-                  @{cleanNickname}
-                </p>
-
                 {/* En el caso del Terapeuta: muestra hasta 4 (o 6) terapias en este Flyer */}
                 {credentialRole === "Terapeuta" &&
                   chunkTherapies.length > 0 && (
-                    <div className="mt-2 flex max-w-[300px] flex-wrap justify-center gap-1">
+                    <div className="mt-2 flex max-w-[310px] flex-wrap justify-center gap-1">
                       {chunkTherapies.map((therapy) => (
                         <span
                           key={therapy}
@@ -725,8 +718,8 @@ export default function UserCredentialPanel({
                   )}
               </div>
 
-              {/* 3. Código QR vinculado a https://www.reikionline.com.ar/nickname */}
-              <div className="relative z-10 flex w-full shrink-0 flex-col items-center pb-0.5">
+              {/* 3. Código QR vinculado a https://www.reikionline.com.ar/nickname + URL única al pie */}
+              <div className="relative z-10 flex w-full shrink-0 flex-col items-center pb-1">
                 <div
                   className={`shrink-0 rounded-2xl bg-white shadow-lg ${
                     format === "feed" ? "p-1.5" : "p-2"
@@ -736,16 +729,16 @@ export default function UserCredentialPanel({
                     <img
                       src={qrDataUrl}
                       alt={`QR ${publicCredentialUrl}`}
-                      width={format === "feed" ? 80 : 100}
-                      height={format === "feed" ? 80 : 100}
+                      width={format === "feed" ? 76 : 100}
+                      height={format === "feed" ? 76 : 100}
                       className={
                         format === "feed"
-                          ? "block h-[74px] w-[74px] sm:h-[82px] sm:w-[82px] min-h-[74px] min-w-[74px] shrink-0 object-contain"
+                          ? "block h-[72px] w-[72px] sm:h-[78px] sm:w-[78px] min-h-[72px] min-w-[72px] shrink-0 object-contain"
                           : "block h-[96px] w-[96px] sm:h-[104px] sm:w-[104px] min-h-[96px] min-w-[96px] shrink-0 object-contain"
                       }
                     />
                   ) : (
-                    <div className="flex h-[74px] w-[74px] items-center justify-center text-xs font-bold text-[#2B1F42]">
+                    <div className="flex h-[72px] w-[72px] items-center justify-center text-xs font-bold text-[#2B1F42]">
                       QR...
                     </div>
                   )}

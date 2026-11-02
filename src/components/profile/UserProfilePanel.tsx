@@ -771,7 +771,7 @@ export default function UserProfilePanel({
                     : "border-[#CBD8EE] focus-within:border-[#836DAD]"
                 }`}
               >
-                <span className="bg-[#F4F0FA] px-3.5 py-2.5 text-xs sm:text-sm font-mono font-semibold text-[#5E4B8B] border-b sm:border-b-0 sm:border-r border-[#CBD8EE] select-none shrink-0">
+                <span className="bg-[#F4F0FA] px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-[#5E4B8B] border-b sm:border-b-0 sm:border-r border-[#CBD8EE] select-none shrink-0">
                   https://www.reikionline.com.ar/
                 </span>
                 <input
@@ -797,7 +797,7 @@ export default function UserProfilePanel({
                     const nextNick = sanitizeNickname(e.target.value);
                     setNickname(nextNick);
                   }}
-                  className="min-w-0 flex-1 px-3.5 py-2.5 text-sm font-mono font-bold text-[#1E293B] focus:outline-none"
+                  className="min-w-0 flex-1 px-3.5 py-2.5 text-sm font-bold text-[#1E293B] focus:outline-none"
                 />
               </div>
 

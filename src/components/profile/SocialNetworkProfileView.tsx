@@ -513,7 +513,7 @@ export default function SocialNetworkProfileView({
               </h3>
 
               <div className="flex flex-wrap items-center gap-3 text-xs text-white/90">
-                <span className="font-mono font-semibold text-[#F3D791]">
+                <span className="font-semibold text-[#F3D791]">
                   @{profileData.nickname}
                 </span>
                 <span className="inline-flex items-center gap-1">
@@ -626,7 +626,7 @@ export default function SocialNetworkProfileView({
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-black/25 px-3.5 py-2 text-xs">
           <div className="flex items-center gap-2 truncate">
             <Share2 className="h-3.5 w-3.5 text-[#F3D791] shrink-0" />
-            <span className="font-mono text-white/95 truncate">
+            <span className="font-medium text-white/95 truncate">
               {fullPublicUrl}
             </span>
           </div>
@@ -789,7 +789,7 @@ export default function SocialNetworkProfileView({
                                 {fol.followerRole}
                               </span>
                             </div>
-                            <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
+                            <p className="text-[11px] font-semibold text-[#F3D791]">
                               @{fol.followerNickname}
                             </p>
                           </div>
@@ -909,7 +909,7 @@ export default function SocialNetworkProfileView({
                                 {fol.targetRole}
                               </span>
                             </div>
-                            <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
+                            <p className="text-[11px] font-semibold text-[#F3D791]">
                               @{fol.targetNickname}
                             </p>
                           </div>
@@ -1008,7 +1008,7 @@ export default function SocialNetworkProfileView({
                                   {sug.role}
                                 </span>
                               </div>
-                              <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
+                              <p className="text-[11px] font-semibold text-[#F3D791]">
                                 @{sug.nickname} · {sug.localidad}
                               </p>
                             </div>
