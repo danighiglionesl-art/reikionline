@@ -1673,7 +1673,7 @@ export function TerapiasAccessPanel({
               {/* Opciones principales debajo de la línea de Mi Perfil: ¿Cómo ingresas? + Consultante | Terapeuta */}
               {!selectedRole && !activeSection && (
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3.5">
+                  <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3.5 text-center">
                     <h4 className="text-base sm:text-lg font-semibold text-[#2B1F42]">
                       ¿Cómo ingresas?
                     </h4>
@@ -2458,7 +2458,7 @@ export function TerapiasAccessPanel({
                 !searchMode &&
                 !therapiesConfirmed && (
                   <div className="space-y-4">
-                    <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3.5">
+                    <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3.5 text-center">
                       <h4 className="text-base sm:text-lg font-semibold text-[#2B1F42]">
                         ¿Cómo buscas?
                       </h4>
