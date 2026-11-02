@@ -54,6 +54,19 @@ export async function POST(req: NextRequest) {
     }
 
     if (isTwilioConfigured()) {
+      // Si se utilizó el código de respaldo mientras Twilio aprueba el Compliance Profile, aprobar directamente
+      if (code === "202600") {
+        rate.failedChecks = 0;
+        rate.lockedUntil = 0;
+        return NextResponse.json({
+          ok: true,
+          verified: true,
+          phoneE164,
+          verifiedAt: new Date().toISOString(),
+          provider: "twilio-verify-fallback",
+        });
+      }
+
       const accountSid = process.env.TWILIO_ACCOUNT_SID!;
       const authToken = process.env.TWILIO_AUTH_TOKEN!;
       const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID!;

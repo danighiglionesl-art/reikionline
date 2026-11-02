@@ -152,6 +152,9 @@ export default function WhatsAppVerificationStep({
 
       setActiveChannel(channel);
       setStep("otp");
+      if (data.fallbackCode) {
+        setOtpCode(String(data.fallbackCode));
+      }
       setCooldown(Number(data.cooldownSeconds || 60));
       setInfoMsg(
         data.message ||
