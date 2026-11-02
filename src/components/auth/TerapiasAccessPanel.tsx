@@ -1730,6 +1730,13 @@ export function TerapiasAccessPanel({
               {activeSection === "Mi Billetera" && (
                 <TherapistMercadoPagoSection
                   profile={activeUserProfile}
+                  activeRole={
+                    selectedRole ||
+                    (activeUserProfile.soyTerapeuta ||
+                    activeUserProfile.role === "terapeuta"
+                      ? "Terapeuta"
+                      : "Consultante")
+                  }
                   offeredTherapies={terapeutaSelections}
                 />
               )}

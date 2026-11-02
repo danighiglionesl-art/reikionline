@@ -12,10 +12,17 @@ import {
   Calculator,
   ExternalLink,
   Lock,
+  Wallet,
+  CreditCard,
+  UserCheck,
+  HeartHandshake,
+  CalendarClock,
 } from "lucide-react";
 import {
   appendIntegrationError,
+  ATTENTION_MODALITY_LABELS,
   AttentionModality,
+  BOOKING_TIMING_LABELS,
   BookingTimingType,
   calculateSplitAmounts,
   formatArs,
@@ -26,13 +33,20 @@ import {
   resolveApplicableCommission,
   resolveTherapySessionPrice,
   saveMpAccounts,
+  saveMpTransactions,
   SplitPaymentTransaction,
   TherapistMercadoPagoAccount,
 } from "@/lib/mercadoPagoSplit";
 import { ReikiUserProfile, sanitizeNickname } from "@/lib/geoData";
 
+export type WalletSectionTab =
+  | "split_pagos"
+  | "sesiones_cobradas"
+  | "sesiones_abonadas";
+
 interface TherapistMercadoPagoSectionProps {
   profile: ReikiUserProfile;
+  activeRole?: "Consultante" | "Terapeuta";
   offeredTherapies?: string[];
 }
 
@@ -46,6 +60,7 @@ const DEFAULT_FALLBACK_THERAPIES = [
 
 export default function TherapistMercadoPagoSection({
   profile,
+  activeRole = "Terapeuta",
   offeredTherapies,
 }: TherapistMercadoPagoSectionProps) {
   const cleanNick = useMemo(
@@ -62,6 +77,9 @@ export default function TherapistMercadoPagoSection({
     `${profile.nombre || ""} ${profile.apellido || ""}`.trim() ||
     "Terapeuta Reiki Online";
 
+  const [walletTab, setWalletTab] = useState<WalletSectionTab>(() =>
+    activeRole === "Consultante" ? "sesiones_abonadas" : "split_pagos"
+  );
   const [accountsMap, setAccountsMap] = useState<
     Record<string, TherapistMercadoPagoAccount>
   >({});
@@ -185,6 +203,7 @@ export default function TherapistMercadoPagoSection({
     };
   }, [accountsMap, profile.id, cleanNick, fullName, profile.email]);
 
+  // Sesiones Cobradas (como Terapeuta)
   const myTransactions = useMemo(() => {
     return transactions.filter(
       (t) =>
@@ -192,6 +211,89 @@ export default function TherapistMercadoPagoSection({
         t.therapistNickname.toLowerCase() === cleanNick
     );
   }, [transactions, profile.id, cleanNick]);
+
+  // Sesiones Abonadas (como Consultante)
+  const myPaidTransactions = useMemo(() => {
+    const cleanEmail = (profile.email || "").trim().toLowerCase();
+    return transactions.filter(
+      (t) =>
+        t.consultanteId === profile.id ||
+        (cleanEmail && t.consultanteEmail.toLowerCase() === cleanEmail)
+    );
+  }, [transactions, profile.id, profile.email]);
+
+  const cobradasTotals = useMemo(() => {
+    const approved = myTransactions.filter((t) => t.status === "approved");
+    return {
+      count: approved.length,
+      totalSessionArs: approved.reduce((acc, t) => acc + t.sessionPriceArs, 0),
+      totalFeeArs: approved.reduce((acc, t) => acc + t.marketplaceFeeArs, 0),
+      totalGrossArs: approved.reduce(
+        (acc, t) => acc + t.therapistGrossShareArs,
+        0
+      ),
+      totalNetArs: approved.reduce((acc, t) => acc + t.therapistNetShareArs, 0),
+    };
+  }, [myTransactions]);
+
+  const abonadasTotals = useMemo(() => {
+    const valid = myPaidTransactions.filter(
+      (t) => t.status === "approved" || t.status === "refunded"
+    );
+    const activeConfirmed = myPaidTransactions.filter(
+      (t) => t.status === "approved" && t.sessionConfirmed
+    );
+    return {
+      count: valid.length,
+      activeCount: activeConfirmed.length,
+      totalPaidArs: activeConfirmed.reduce(
+        (acc, t) => acc + t.sessionPriceArs,
+        0
+      ),
+    };
+  }, [myPaidTransactions]);
+
+  const handleRescheduleConsultanteSession = (txId: string) => {
+    const nextList = transactions.map((tx) => {
+      if (tx.id !== txId) return tx;
+      return {
+        ...tx,
+        scheduledSlotLabel: "Reprogramada en turnos habilitados del terapeuta",
+        reconciliationNote:
+          "El consultante desistió del horario original; sesión reprogramada en los turnos habilitados del terapeuta conservando el pago abonado.",
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    setTransactions(nextList);
+    saveMpTransactions(nextList);
+    setStatusMessage({
+      type: "ok",
+      text: "Sesión reprogramada en los turnos habilitados del terapeuta conservando tu pago abonado.",
+    });
+  };
+
+  const handleTherapistCancelAndRefund = (txId: string) => {
+    const nextList = transactions.map((tx) => {
+      if (tx.id !== txId) return tx;
+      return {
+        ...tx,
+        status: "refunded" as const,
+        sessionConfirmed: false,
+        cancellationCategory: "cancelacion_terapeuta" as const,
+        cancellationReason:
+          "Cancelación informada por el terapeuta: devolución del 100% al consultante sin descontar la comisión de Reiki Online (la cual queda firme).",
+        refundRequested: true,
+        refundStatus: "completed" as const,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    setTransactions(nextList);
+    saveMpTransactions(nextList);
+    setStatusMessage({
+      type: "warn",
+      text: `Se registró la devolución del 100% al consultante por cancelación del terapeuta. Conforme a la política aceptada, la comisión de Reiki Online queda firme.`,
+    });
+  };
 
   const commissionConfig = useMemo(() => loadCommissionConfig(), [accountsMap]);
 
@@ -516,41 +618,93 @@ export default function TherapistMercadoPagoSection({
 
   return (
     <div className="rounded-2xl border-2 border-[#836DAD]/30 bg-white p-4 sm:p-5 space-y-4 shadow-xs">
-      {/* Encabezado oficial requerido en Punto 3: Cobros y cuenta de Mercado Pago */}
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
-        <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F6F3FA] px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[#836DAD]">
-            <ShieldCheck className="h-3.5 w-3.5 text-[#836DAD]" />
-            Split de Pagos 1:1 • Marketplace Oficial
-          </span>
-          <h4 className="mt-1 text-base sm:text-lg font-bold text-[#2B1F42]">
-            Cobros y cuenta de Mercado Pago
-          </h4>
-          <p className="text-xs text-[#2B1F42]/75">
-            Vinculación segura mediante OAuth 2.0 (sin pedir contraseñas ni
-            credenciales privadas). Distribución automática en cada sesión.
-          </p>
-        </div>
-
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-            isPaidSessionsEnabled
-              ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
-              : "bg-amber-100 text-amber-900 border border-amber-300"
+      {/* Barra de opciones de Mi Billetera:
+          1. Split de Pagos 1:1
+          2. Sesiones Cobradas (Terapeuta)
+          3. Sesiones Abonadas (Consultante) */}
+      <div
+        className="grid grid-cols-1 gap-2 sm:grid-cols-3 rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-1.5"
+        role="tablist"
+        aria-label="Opciones de Mi Billetera"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={walletTab === "split_pagos"}
+          onClick={() => setWalletTab("split_pagos")}
+          className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold transition-all ${
+            walletTab === "split_pagos"
+              ? "bg-[#836DAD] text-white shadow-sm"
+              : "text-[#2B1F42] hover:bg-white/80"
           }`}
         >
-          {isPaidSessionsEnabled ? (
-            <>
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
-              <span>Cuenta vinculada • Sesiones pagas habilitadas</span>
-            </>
-          ) : (
-            <>
-              <AlertCircle className="h-3.5 w-3.5 text-amber-700" />
-              <span>Sin vincular • Sesiones pagas deshabilitadas</span>
-            </>
-          )}
-        </span>
+          <ShieldCheck
+            className={`h-4 w-4 shrink-0 ${
+              walletTab === "split_pagos" ? "text-[#F3D791]" : "text-[#836DAD]"
+            }`}
+          />
+          <span>Split de Pagos 1:1</span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={walletTab === "sesiones_cobradas"}
+          onClick={() => setWalletTab("sesiones_cobradas")}
+          className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold transition-all ${
+            walletTab === "sesiones_cobradas"
+              ? "bg-[#836DAD] text-white shadow-sm"
+              : "text-[#2B1F42] hover:bg-white/80"
+          }`}
+        >
+          <UserCheck
+            className={`h-4 w-4 shrink-0 ${
+              walletTab === "sesiones_cobradas"
+                ? "text-[#F3D791]"
+                : "text-[#836DAD]"
+            }`}
+          />
+          <span>Sesiones Cobradas (Terapeuta)</span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+              walletTab === "sesiones_cobradas"
+                ? "bg-[#F3D791] text-[#2B1F42]"
+                : "bg-[#836DAD]/15 text-[#836DAD]"
+            }`}
+          >
+            {myTransactions.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={walletTab === "sesiones_abonadas"}
+          onClick={() => setWalletTab("sesiones_abonadas")}
+          className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-bold transition-all ${
+            walletTab === "sesiones_abonadas"
+              ? "bg-[#836DAD] text-white shadow-sm"
+              : "text-[#2B1F42] hover:bg-white/80"
+          }`}
+        >
+          <HeartHandshake
+            className={`h-4 w-4 shrink-0 ${
+              walletTab === "sesiones_abonadas"
+                ? "text-[#F3D791]"
+                : "text-[#836DAD]"
+            }`}
+          />
+          <span>Sesiones Abonadas (Consultante)</span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${
+              walletTab === "sesiones_abonadas"
+                ? "bg-[#F3D791] text-[#2B1F42]"
+                : "bg-[#836DAD]/15 text-[#836DAD]"
+            }`}
+          >
+            {myPaidTransactions.length}
+          </span>
+        </button>
       </div>
 
       {statusMessage && (
@@ -567,6 +721,48 @@ export default function TherapistMercadoPagoSection({
           {statusMessage.text}
         </div>
       )}
+
+      {/* =====================================================================
+          OPCIÓN 1: SPLIT DE PAGOS 1:1 (COBROS Y CUENTA DE MERCADO PAGO)
+      ===================================================================== */}
+      {walletTab === "split_pagos" && (
+        <div className="space-y-4">
+          {/* Encabezado oficial requerido en Punto 3: Cobros y cuenta de Mercado Pago */}
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F6F3FA] px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[#836DAD]">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#836DAD]" />
+                Split de Pagos 1:1 • Marketplace Oficial
+              </span>
+              <h4 className="mt-1 text-base sm:text-lg font-bold text-[#2B1F42]">
+                Cobros y cuenta de Mercado Pago
+              </h4>
+              <p className="text-xs text-[#2B1F42]/75">
+                Vinculación segura mediante OAuth 2.0 (sin pedir contraseñas ni
+                credenciales privadas). Distribución automática en cada sesión.
+              </p>
+            </div>
+
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+                isPaidSessionsEnabled
+                  ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                  : "bg-amber-100 text-amber-900 border border-amber-300"
+              }`}
+            >
+              {isPaidSessionsEnabled ? (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>Cuenta vinculada • Sesiones pagas habilitadas</span>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-700" />
+                  <span>Sin vincular • Sesiones pagas deshabilitadas</span>
+                </>
+              )}
+            </span>
+          </div>
 
       {/* Precio total de tu sesión por cada Terapia tildada + Simulación en vivo del Split 1:1 */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-4">
@@ -868,12 +1064,23 @@ export default function TherapistMercadoPagoSection({
 
         <button
           type="button"
-          onClick={() => setShowHistory((prev) => !prev)}
+          onClick={() => setWalletTab("sesiones_cobradas")}
           className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD] bg-[#F3D791]/40 px-3.5 py-2.5 text-xs font-bold text-[#2B1F42] hover:bg-[#F3D791]"
         >
           <Receipt className="h-4 w-4 text-[#836DAD]" />
           <span>
-            Consultar historial de cobros ({myTransactions.length})
+            Sesiones Cobradas ({myTransactions.length})
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setWalletTab("sesiones_abonadas")}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/35 bg-[#FAF8FC] px-3.5 py-2.5 text-xs font-bold text-[#2B1F42] hover:bg-[#F6F3FA]"
+        >
+          <CreditCard className="h-4 w-4 text-[#836DAD]" />
+          <span>
+            Sesiones Abonadas ({myPaidTransactions.length})
           </span>
         </button>
       </div>
@@ -894,76 +1101,178 @@ export default function TherapistMercadoPagoSection({
           </span>
         )}
       </div>
+        </div>
+      )}
 
-      {/* Historial de cobros del Terapeuta */}
-      {showHistory && (
-        <div className="rounded-2xl border border-[#836DAD]/25 bg-[#FAF8FC] p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h5 className="text-xs sm:text-sm font-bold text-[#2B1F42]">
-              Historial de cobros distribuidos (Split 1:1)
-            </h5>
-            <span className="text-[11px] font-semibold text-[#836DAD]">
-              {myTransactions.length} operaci
-              {myTransactions.length === 1 ? "ón" : "ones"}
-            </span>
+      {/* =====================================================================
+          OPCIÓN 2: SESIONES COBRADAS (ROL TERAPEUTA)
+      ===================================================================== */}
+      {walletTab === "sesiones_cobradas" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F3D791]/45 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[#2B1F42]">
+                <UserCheck className="h-3.5 w-3.5 text-[#836DAD]" />
+                Rol Terapeuta • Liquidación Automática Split 1:1
+              </span>
+              <h4
+                id="ro-sesiones-cobradas-caption"
+                className="mt-1 text-base sm:text-lg font-bold text-[#2B1F42]"
+              >
+                Sesiones Cobradas (Terapeuta)
+              </h4>
+              <p className="text-xs text-[#2B1F42]/75">
+                Detalle de sesiones cobradas a consultantes, comisión retenida por Reiki Online y monto neto acreditado en tu cuenta de Mercado Pago.
+              </p>
+            </div>
+          </div>
+
+          {/* Tarjetas de resumen financiero de Sesiones Cobradas */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-[#836DAD]/20 bg-[#F6F3FA] p-3.5">
+              <span className="block text-[11px] font-semibold uppercase text-[#2B1F42]/70">
+                Sesiones Cobradas
+              </span>
+              <span className="mt-1 block text-lg font-extrabold text-[#2B1F42]">
+                {cobradasTotals.count}
+              </span>
+              <span className="text-[11px] text-[#836DAD] font-semibold">
+                Pagos aprobados y confirmados
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-[#836DAD]/20 bg-[#F6F3FA] p-3.5">
+              <span className="block text-[11px] font-semibold uppercase text-[#2B1F42]/70">
+                Valor Total Sesiones
+              </span>
+              <span className="mt-1 block text-lg font-extrabold text-[#2B1F42]">
+                {formatArs(cobradasTotals.totalSessionArs)}
+              </span>
+              <span className="text-[11px] text-[#2B1F42]/65">
+                Suma de tarifas abonadas
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-[#836DAD]/20 bg-[#F6F3FA] p-3.5">
+              <span className="block text-[11px] font-semibold uppercase text-[#2B1F42]/70">
+                Comisión Reiki Online
+              </span>
+              <span className="mt-1 block text-lg font-extrabold text-[#836DAD]">
+                {formatArs(cobradasTotals.totalFeeArs)}
+              </span>
+              <span className="text-[11px] text-[#2B1F42]/65">
+                Separada en el Split 1:1
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-[#836DAD]/30 bg-[#F3D791]/35 p-3.5">
+              <span className="block text-[11px] font-bold uppercase text-[#2B1F42]">
+                Ingreso Neto Terapeuta
+              </span>
+              <span className="mt-1 block text-lg font-extrabold text-emerald-900">
+                {formatArs(cobradasTotals.totalNetArs)}
+              </span>
+              <span className="text-[11px] text-[#2B1F42]/75">
+                Bruto: {formatArs(cobradasTotals.totalGrossArs)} (antes de MP)
+              </span>
+            </div>
           </div>
 
           {myTransactions.length === 0 ? (
-            <p className="text-xs text-[#2B1F42]/70">
-              Aún no registrás cobros de sesiones. Cuando un consultante abone
-              una sesión con vos, verás aquí el desglose automático de cada
-              operación.
-            </p>
+            <div className="rounded-2xl border border-[#836DAD]/20 bg-[#FAF8FC] p-5 text-center space-y-2">
+              <p className="text-xs sm:text-sm font-semibold text-[#2B1F42]">
+                Aún no registrás sesiones cobradas como Terapeuta.
+              </p>
+              <p className="text-xs text-[#2B1F42]/70">
+                Cuando un consultante abone una sesión con vos mediante Mercado Pago, verás aquí el comprobante y el desglose automático de tu cobro.
+              </p>
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="border-b border-[#836DAD]/20 text-[#836DAD]">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-labelledby="ro-sesiones-cobradas-caption"
+              className="max-h-[420px] overflow-auto rounded-2xl border border-[#836DAD]/25 bg-[#FAF8FC] p-3 shadow-2xs"
+            >
+              <table className="w-full border-separate border-spacing-0 text-left text-xs">
+                <thead className="sticky top-0 z-10 bg-[#FAF8FC] text-[#836DAD]">
                   <tr>
-                    <th className="py-2 pr-3">Fecha / ID Pago</th>
-                    <th className="py-2 pr-3">Consultante / Terapia</th>
-                    <th className="py-2 pr-3">Total Sesión</th>
-                    <th className="py-2 pr-3">Comisión Reiki</th>
-                    <th className="py-2 pr-3">Bruto Terapeuta</th>
-                    <th className="py-2 pr-3">Costo MP / Neto</th>
-                    <th className="py-2 pr-3">Estado</th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Fecha / ID Pago MP
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Consultante
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Terapia / Modalidad / Turno
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Total Sesión
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Comisión Reiki
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Bruto / Neto Terapeuta
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Estado / Gestión
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#836DAD]/10">
                   {myTransactions.map((tx) => (
-                    <tr key={tx.id}>
-                      <td className="py-2 pr-3 font-mono text-[11px]">
+                    <tr key={tx.id} className="hover:bg-white/80">
+                      <th
+                        scope="row"
+                        className="sticky left-0 bg-[#FAF8FC] py-2.5 pr-3 font-mono text-[11px] font-semibold text-[#2B1F42]"
+                      >
                         <div>
                           {new Date(tx.createdAt).toLocaleDateString("es-AR")}
                         </div>
                         <div className="text-[#836DAD]">
                           {tx.mpPaymentId || tx.preferenceId}
                         </div>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="font-semibold text-[#2B1F42]">
+                      </th>
+                      <td className="py-2.5 pr-3">
+                        <div className="font-bold text-[#2B1F42]">
                           {tx.consultanteName}
                         </div>
-                        <div className="text-[11px] text-[#2B1F42]/70">
-                          {tx.therapyName} ({tx.scheduledSlotLabel})
+                        <div className="text-[11px] text-[#2B1F42]/65">
+                          {tx.consultanteEmail}
                         </div>
                       </td>
-                      <td className="py-2 pr-3 font-bold">
+                      <td className="py-2.5 pr-3">
+                        <div className="font-semibold text-[#2B1F42]">
+                          {tx.therapyName}
+                        </div>
+                        <div className="text-[11px] text-[#836DAD] font-medium">
+                          {ATTENTION_MODALITY_LABELS[tx.attentionModality]} •{" "}
+                          {BOOKING_TIMING_LABELS[tx.bookingTiming]}
+                        </div>
+                        <div className="text-[11px] text-[#2B1F42]/70">
+                          {tx.scheduledSlotLabel}
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-3 font-bold text-[#2B1F42]">
                         {formatArs(tx.sessionPriceArs)}
                       </td>
-                      <td className="py-2 pr-3 text-[#836DAD] font-semibold">
+                      <td className="py-2.5 pr-3 font-semibold text-[#836DAD]">
                         {formatArs(tx.marketplaceFeeArs)} (
                         {tx.commissionSnapshot.appliedPercentage}%)
                       </td>
-                      <td className="py-2 pr-3 font-bold text-[#2B1F42]">
-                        {formatArs(tx.therapistGrossShareArs)}
-                      </td>
-                      <td className="py-2 pr-3 text-[11px]">
-                        <div>MP: -{formatArs(tx.mpProcessorFeeArs)}</div>
+                      <td className="py-2.5 pr-3 text-[11px]">
+                        <div className="font-semibold text-[#2B1F42]">
+                          Bruto: {formatArs(tx.therapistGrossShareArs)}
+                        </div>
+                        <div className="text-[#2B1F42]/65">
+                          Costo MP: -{formatArs(tx.mpProcessorFeeArs)}
+                        </div>
                         <div className="font-bold text-emerald-800">
                           Neto: {formatArs(tx.therapistNetShareArs)}
                         </div>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td className="py-2.5 pr-3 space-y-1.5">
                         <span
                           className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
                             tx.status === "approved"
@@ -975,8 +1284,212 @@ export default function TherapistMercadoPagoSection({
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {tx.status}
+                          {tx.status === "approved"
+                            ? "Cobrada"
+                            : tx.status === "refunded"
+                            ? "Devuelta al consultante"
+                            : tx.status}
                         </span>
+                        {tx.status === "approved" && (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleTherapistCancelAndRefund(tx.id)
+                              }
+                              className="cursor-pointer rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-semibold text-red-700 hover:bg-red-100"
+                              title="Si cancelás como terapeuta, devolvés el 100% al consultante y la comisión de Reiki Online queda firme"
+                            >
+                              Cancelar y devolver 100%
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* =====================================================================
+          OPCIÓN 3: SESIONES ABONADAS (ROL CONSULTANTE)
+      ===================================================================== */}
+      {walletTab === "sesiones_abonadas" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
+            <div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F6F3FA] px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[#836DAD]">
+                <HeartHandshake className="h-3.5 w-3.5 text-[#836DAD]" />
+                Rol Consultante • Pago Único Mercado Pago
+              </span>
+              <h4
+                id="ro-sesiones-abonadas-caption"
+                className="mt-1 text-base sm:text-lg font-bold text-[#2B1F42]"
+              >
+                Sesiones Abonadas (Consultante)
+              </h4>
+              <p className="text-xs text-[#2B1F42]/75">
+                Comprobantes de las sesiones que abonaste como consultante, estado de tus turnos y opción de reprogramar en los turnos habilitados del terapeuta.
+              </p>
+            </div>
+          </div>
+
+          {/* Tarjetas de resumen de Sesiones Abonadas */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-[#836DAD]/20 bg-[#F6F3FA] p-3.5">
+              <span className="block text-[11px] font-semibold uppercase text-[#2B1F42]/70">
+                Sesiones Abonadas
+              </span>
+              <span className="mt-1 block text-lg font-extrabold text-[#2B1F42]">
+                {abonadasTotals.count}
+              </span>
+              <span className="text-[11px] text-[#836DAD] font-semibold">
+                Comprobantes registrados en Mercado Pago
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-[#836DAD]/20 bg-[#F6F3FA] p-3.5">
+              <span className="block text-[11px] font-semibold uppercase text-[#2B1F42]/70">
+                Total Abonado (Pago Único)
+              </span>
+              <span className="mt-1 block text-lg font-extrabold text-[#2B1F42]">
+                {formatArs(abonadasTotals.totalPaidArs)}
+              </span>
+              <span className="text-[11px] text-[#2B1F42]/65">
+                Mismo valor de sesión en cualquier modalidad
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-[#836DAD]/30 bg-[#F3D791]/35 p-3.5">
+              <span className="block text-[11px] font-bold uppercase text-[#2B1F42]">
+                Turnos Confirmados Vigentes
+              </span>
+              <span className="mt-1 block text-lg font-extrabold text-emerald-900">
+                {abonadasTotals.activeCount}
+              </span>
+              <span className="text-[11px] text-[#2B1F42]/75">
+                Reprogramables si desistís del horario
+              </span>
+            </div>
+          </div>
+
+          {myPaidTransactions.length === 0 ? (
+            <div className="rounded-2xl border border-[#836DAD]/20 bg-[#FAF8FC] p-5 text-center space-y-2">
+              <p className="text-xs sm:text-sm font-semibold text-[#2B1F42]">
+                Aún no registrás sesiones abonadas como Consultante.
+              </p>
+              <p className="text-xs text-[#2B1F42]/70">
+                Cuando contrates y abones una sesión con un terapeuta mediante Mercado Pago, verás aquí el comprobante, el horario y el estado de tu sesión.
+              </p>
+            </div>
+          ) : (
+            <div
+              tabIndex={0}
+              role="region"
+              aria-labelledby="ro-sesiones-abonadas-caption"
+              className="max-h-[420px] overflow-auto rounded-2xl border border-[#836DAD]/25 bg-[#FAF8FC] p-3 shadow-2xs"
+            >
+              <table className="w-full border-separate border-spacing-0 text-left text-xs">
+                <thead className="sticky top-0 z-10 bg-[#FAF8FC] text-[#836DAD]">
+                  <tr>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Fecha / Comprobante MP
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Terapeuta
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Terapia / Modalidad / Turno
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Importe Abonado
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Estado de la Sesión
+                    </th>
+                    <th scope="col" className="border-b border-[#836DAD]/20 py-2.5 pr-3 font-bold">
+                      Gestión de Turno
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#836DAD]/10">
+                  {myPaidTransactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-white/80">
+                      <th
+                        scope="row"
+                        className="sticky left-0 bg-[#FAF8FC] py-2.5 pr-3 font-mono text-[11px] font-semibold text-[#2B1F42]"
+                      >
+                        <div>
+                          {new Date(tx.createdAt).toLocaleDateString("es-AR")}
+                        </div>
+                        <div className="text-[#836DAD]">
+                          {tx.mpPaymentId || tx.preferenceId}
+                        </div>
+                      </th>
+                      <td className="py-2.5 pr-3">
+                        <div className="font-bold text-[#2B1F42]">
+                          {tx.therapistName}
+                        </div>
+                        <a
+                          href={`/${tx.therapistNickname}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-[#836DAD] hover:underline"
+                        >
+                          <span>@{tx.therapistNickname}</span>
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <div className="font-semibold text-[#2B1F42]">
+                          {tx.therapyName}
+                        </div>
+                        <div className="text-[11px] text-[#836DAD] font-medium">
+                          {ATTENTION_MODALITY_LABELS[tx.attentionModality]} •{" "}
+                          {BOOKING_TIMING_LABELS[tx.bookingTiming]}
+                        </div>
+                        <div className="text-[11px] text-[#2B1F42]/70">
+                          {tx.scheduledSlotLabel}
+                        </div>
+                      </td>
+                      <td className="py-2.5 pr-3 font-extrabold text-[#2B1F42]">
+                        {formatArs(tx.sessionPriceArs)}
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                            tx.status === "approved"
+                              ? "bg-emerald-100 text-emerald-900"
+                              : tx.status === "pending"
+                              ? "bg-amber-100 text-amber-900"
+                              : tx.status === "refunded"
+                              ? "bg-[#836DAD]/15 text-[#836DAD]"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {tx.status === "approved"
+                            ? "Abonada • Sesión confirmada"
+                            : tx.status === "refunded"
+                            ? "100% Reintegrado (Canceló Terapeuta)"
+                            : tx.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        {tx.status === "approved" && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRescheduleConsultanteSession(tx.id)
+                            }
+                            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#836DAD]/35 bg-white px-2.5 py-1 text-[11px] font-semibold text-[#836DAD] hover:bg-[#836DAD] hover:text-white"
+                          >
+                            <CalendarClock className="h-3 w-3" />
+                            <span>Reprogramar en turnos del terapeuta</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
