@@ -1,4 +1,4 @@
-const CACHE_NAME = "reiki-online-pwa-v16";
+const CACHE_NAME = "reiki-online-pwa-v17";
 
 const STATIC_ASSETS = [
   "/manifest.json",

@@ -190,33 +190,13 @@ export default function UserCredentialPanel({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // 1. Fondo institucional degradado Lavanda / Violeta profundo
-      const grad = ctx.createLinearGradient(0, 0, width, height);
-      grad.addColorStop(0, "#2B1F42");
-      grad.addColorStop(0.5, "#4E3A75");
-      grad.addColorStop(1, "#2B1F42");
-      ctx.fillStyle = grad;
+      // 1. Fondo institucional con el color Lavanda oficial del Manual de Marca (#836DAD)
+      ctx.fillStyle = "#836DAD";
       ctx.fillRect(0, 0, width, height);
 
-      // Halos decorativos suaves
-      ctx.save();
-      const radialTop = ctx.createRadialGradient(
-        width * 0.82,
-        height * 0.12,
-        20,
-        width * 0.82,
-        height * 0.12,
-        420
-      );
-      radialTop.addColorStop(0, "rgba(243, 215, 145, 0.22)");
-      radialTop.addColorStop(1, "rgba(243, 215, 145, 0)");
-      ctx.fillStyle = radialTop;
-      ctx.fillRect(0, 0, width, height);
-      ctx.restore();
-
-      // Marco interior elegante
-      const pad = targetFormat === "feed" ? 48 : 64;
-      ctx.strokeStyle = "rgba(243, 215, 145, 0.45)";
+      // Marco interior elegante en Champán (#F3D791)
+      const pad = targetFormat === "feed" ? 44 : 60;
+      ctx.strokeStyle = "rgba(243, 215, 145, 0.55)";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.roundRect(pad, pad, width - pad * 2, height - pad * 2, 44);
@@ -234,47 +214,36 @@ export default function UserCredentialPanel({
         });
 
       const [logoImg, userImg, qrImg] = await Promise.all([
-        loadImg("/brand/Reiki_Icono_Lavanda_Unificado.png"),
+        loadImg("/brand/Reiki_Online_Lavanda_Unificado.png"),
         loadImg(photoDataUrl),
         loadImg(qrDataUrl),
       ]);
 
       const isFeed = targetFormat === "feed";
-      let cursorY = isFeed ? 95 : 140;
+      let cursorY = isFeed ? 68 : 110;
 
-      // 2. Cabecera con Iconografía de Reiki Online
+      // 2. Cabecera con el Isologotipo Oficial completo de Reiki Online (proporción 2:1)
       if (logoImg) {
-        const iconSize = isFeed ? 88 : 112;
-        ctx.save();
-        ctx.fillStyle = "#836DAD";
-        ctx.beginPath();
-        ctx.roundRect(
-          width / 2 - iconSize / 2,
-          cursorY,
-          iconSize,
-          iconSize,
-          24
-        );
-        ctx.fill();
+        const logoW = isFeed ? 320 : 420;
+        const logoH = logoW / 2;
         ctx.drawImage(
           logoImg,
-          width / 2 - iconSize / 2 + 8,
-          cursorY + 8,
-          iconSize - 16,
-          iconSize - 16
+          width / 2 - logoW / 2,
+          cursorY,
+          logoW,
+          logoH
         );
-        ctx.restore();
-        cursorY += iconSize + 26;
+        cursorY += logoH + (isFeed ? 18 : 28);
       }
 
       ctx.fillStyle = "#F3D791";
-      ctx.font = `700 ${isFeed ? 24 : 28}px sans-serif`;
+      ctx.font = `700 ${isFeed ? 20 : 24}px sans-serif`;
       ctx.textAlign = "center";
-      ctx.fillText("REIKI ONLINE · CREDENCIAL OFICIAL", width / 2, cursorY);
-      cursorY += isFeed ? 46 : 68;
+      ctx.fillText("CREDENCIAL OFICIAL", width / 2, cursorY);
+      cursorY += isFeed ? 34 : 56;
 
-      // 3. Foto del usuario circular con aro dorado
-      const avatarRadius = isFeed ? 105 : 145;
+      // 3. Foto del usuario circular con aro Champán (#F3D791)
+      const avatarRadius = isFeed ? 96 : 138;
       const centerX = width / 2;
       const avatarCenterY = cursorY + avatarRadius;
 
@@ -297,32 +266,38 @@ export default function UserCredentialPanel({
           avatarRadius * 2
         );
       } else {
-        ctx.fillStyle = "#836DAD";
+        ctx.fillStyle = "#F6F3FA";
         ctx.fillRect(
           centerX - avatarRadius,
           avatarCenterY - avatarRadius,
           avatarRadius * 2,
           avatarRadius * 2
         );
-        ctx.fillStyle = "#F3D791";
-        ctx.font = `700 ${isFeed ? 68 : 92}px sans-serif`;
+        ctx.fillStyle = "#836DAD";
+        ctx.font = `700 ${isFeed ? 64 : 88}px sans-serif`;
         const initials = fullName
           .split(" ")
           .map((n) => n[0])
           .join("")
           .slice(0, 2)
           .toUpperCase();
-        ctx.fillText(initials, centerX, avatarCenterY + (isFeed ? 24 : 32));
+        ctx.fillText(initials, centerX, avatarCenterY + (isFeed ? 22 : 30));
       }
       ctx.restore();
 
-      cursorY = avatarCenterY + avatarRadius + (isFeed ? 48 : 68);
+      cursorY = avatarCenterY + avatarRadius + (isFeed ? 42 : 64);
 
-      // 4. Insignia de Rol: Consultante o Terapeuta
+      // 4. Insignia de Rol: Consultante o Terapeuta (colores del Manual)
       const roleText = credentialRole.toUpperCase();
-      const badgeW = isFeed ? 260 : 310;
-      const badgeH = isFeed ? 46 : 56;
-      ctx.fillStyle = credentialRole === "Terapeuta" ? "#F3D791" : "#836DAD";
+      const badgeW = isFeed ? 250 : 300;
+      const badgeH = isFeed ? 44 : 54;
+      ctx.save();
+      ctx.fillStyle =
+        credentialRole === "Terapeuta"
+          ? "#F3D791"
+          : "rgba(255, 255, 255, 0.18)";
+      ctx.strokeStyle = "#F3D791";
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.roundRect(
         centerX - badgeW / 2,
@@ -332,31 +307,33 @@ export default function UserCredentialPanel({
         badgeH / 2
       );
       ctx.fill();
+      ctx.stroke();
+      ctx.restore();
 
       ctx.fillStyle = credentialRole === "Terapeuta" ? "#2B1F42" : "#FFFFFF";
-      ctx.font = `700 ${isFeed ? 22 : 26}px sans-serif`;
-      ctx.fillText(roleText, centerX, cursorY - badgeH / 2 + 18);
+      ctx.font = `700 ${isFeed ? 20 : 25}px sans-serif`;
+      ctx.fillText(roleText, centerX, cursorY - badgeH / 2 + 17);
 
-      cursorY += isFeed ? 52 : 74;
+      cursorY += isFeed ? 46 : 70;
 
       // 5. Nombre y Apellido + Nickname
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `700 ${isFeed ? 44 : 54}px sans-serif`;
+      ctx.font = `700 ${isFeed ? 42 : 52}px sans-serif`;
       ctx.fillText(fullName, centerX, cursorY);
 
-      cursorY += isFeed ? 40 : 52;
+      cursorY += isFeed ? 36 : 50;
       ctx.fillStyle = "#F3D791";
-      ctx.font = `600 ${isFeed ? 28 : 34}px monospace`;
+      ctx.font = `600 ${isFeed ? 26 : 34}px monospace`;
       ctx.fillText(`@${cleanNickname}`, centerX, cursorY);
 
-      cursorY += isFeed ? 36 : 58;
+      cursorY += isFeed ? 32 : 54;
 
       // 6. En el caso del Terapeuta: terapias que ofrece
       if (credentialRole === "Terapeuta" && therapiesToShow.length > 0) {
         const shown = therapiesToShow.slice(0, isFeed ? 5 : 8);
         const summaryLine = shown.join("  •  ");
-        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-        ctx.font = `600 ${isFeed ? 22 : 27}px sans-serif`;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = `600 ${isFeed ? 20 : 26}px sans-serif`;
 
         // Wrap text nicely within width - 180
         const maxTextWidth = width - 180;
@@ -376,13 +353,13 @@ export default function UserCredentialPanel({
 
         for (const l of lines.slice(0, isFeed ? 2 : 4)) {
           ctx.fillText(l, centerX, cursorY);
-          cursorY += isFeed ? 30 : 40;
+          cursorY += isFeed ? 28 : 38;
         }
       }
 
       // 7. Bloque QR inferior vinculado a https://www.reikionline.com.ar/nickname
-      const qrBoxSize = isFeed ? 190 : 280;
-      const qrY = height - pad - qrBoxSize - (isFeed ? 76 : 120);
+      const qrBoxSize = isFeed ? 176 : 270;
+      const qrY = height - pad - qrBoxSize - (isFeed ? 68 : 114);
 
       if (qrImg) {
         ctx.fillStyle = "#FFFFFF";
@@ -613,47 +590,37 @@ export default function UserCredentialPanel({
       {/* PREVISUALIZACIÓN EN VIVO DE LA CREDENCIAL (TAMAÑO FEED O TAMAÑO ESTADOS) */}
       <div className="flex justify-center py-2">
         <div
-          className={`relative flex flex-col items-center justify-between overflow-hidden rounded-[2rem] border-2 border-[#F3D791]/60 bg-gradient-to-b from-[#2B1F42] via-[#4E3A75] to-[#2B1F42] text-center text-white shadow-2xl transition-all ${
+          className={`relative flex flex-col items-center justify-between overflow-hidden rounded-[2rem] border-2 border-[#F3D791] bg-[#836DAD] text-center text-white shadow-2xl transition-all ${
             format === "feed"
-              ? "aspect-square w-full max-w-[440px] p-6 sm:p-7"
-              : "aspect-[9/16] w-full max-w-[360px] p-6 sm:p-8"
+              ? "aspect-square w-full max-w-[440px] p-5 sm:p-6"
+              : "aspect-[9/16] w-full max-w-[360px] p-6 sm:p-7"
           }`}
         >
-          {/* Halo luminoso decorativo */}
-          <div className="pointer-events-none absolute -top-16 -right-16 h-44 w-44 rounded-full bg-[#F3D791]/15 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-16 -left-16 h-44 w-44 rounded-full bg-[#836DAD]/30 blur-2xl" />
+          {/* Marco interno sutil con los colores del Manual de Marca */}
+          <div className="pointer-events-none absolute inset-3 rounded-[1.5rem] border border-[#F3D791]/45" />
 
-          {/* 1. Cabecera con toda la iconografía de Reiki Online */}
+          {/* 1. Cabecera con el Isologotipo Oficial de Reiki Online (Manual de Marca) */}
           <div className="relative z-10 flex w-full flex-col items-center">
-            <div className="flex items-center gap-2.5">
-              <div className="overflow-hidden rounded-2xl bg-[#836DAD] p-1.5 shadow-md ring-1 ring-[#F3D791]/50">
-                <img
-                  src="/brand/Reiki_Icono_Lavanda_Unificado.png"
-                  alt="Reiki Online"
-                  className={
-                    format === "feed"
-                      ? "h-8 w-8 object-contain"
-                      : "h-10 w-10 object-contain"
-                  }
-                />
-              </div>
-              <div className="text-left">
-                <span className="block text-[10px] font-bold tracking-widest uppercase text-[#F3D791]">
-                  Reiki Online
-                </span>
-                <span className="block text-xs font-semibold text-white/90">
-                  Credencial Oficial
-                </span>
-              </div>
-            </div>
+            <img
+              src="/brand/Reiki_Online_Lavanda_Unificado.png"
+              alt="Reiki online — CONECTANDO BIENESTAR"
+              className={
+                format === "feed"
+                  ? "h-14 sm:h-16 w-auto object-contain"
+                  : "h-18 sm:h-20 w-auto object-contain"
+              }
+            />
+            <span className="mt-0.5 block text-[10px] font-bold tracking-[0.2em] uppercase text-[#F3D791]">
+              Credencial Oficial
+            </span>
           </div>
 
           {/* 2. Foto aportada por usuario + Rol + Nombre y Apellido + Nickname + Terapias */}
-          <div className="relative z-10 my-auto flex w-full flex-col items-center py-2">
+          <div className="relative z-10 my-auto flex w-full flex-col items-center py-1.5">
             <div className="relative">
               <div
-                className={`overflow-hidden rounded-full border-[3px] border-[#F3D791] bg-[#836DAD] shadow-lg ${
-                  format === "feed" ? "h-20 w-20 sm:h-24 sm:w-24" : "h-28 w-28"
+                className={`overflow-hidden rounded-full border-[3px] border-[#F3D791] bg-[#F6F3FA] shadow-lg ${
+                  format === "feed" ? "h-20 w-20 sm:h-22 sm:w-22" : "h-26 w-26"
                 }`}
               >
                 {photoDataUrl ? (
@@ -663,7 +630,7 @@ export default function UserCredentialPanel({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-[#F3D791]">
+                  <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-[#836DAD]">
                     {initials}
                   </div>
                 )}
@@ -681,23 +648,23 @@ export default function UserCredentialPanel({
 
             {/* Insignia Consultante / Terapeuta */}
             <span
-              className={`mt-2.5 inline-flex items-center gap-1.5 rounded-full px-3.5 py-0.5 text-[11px] font-bold tracking-wide uppercase shadow-xs ${
+              className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3.5 py-0.5 text-[11px] font-bold tracking-wide uppercase shadow-xs ${
                 credentialRole === "Terapeuta"
                   ? "bg-[#F3D791] text-[#2B1F42]"
-                  : "bg-[#836DAD] text-white ring-1 ring-white/30"
+                  : "border border-[#F3D791] bg-white/15 text-white"
               }`}
             >
               {credentialRole === "Terapeuta" ? (
                 <UserCheck className="h-3.5 w-3.5" />
               ) : (
-                <HeartHandshake className="h-3.5 w-3.5" />
+                <HeartHandshake className="h-3.5 w-3.5 text-[#F3D791]" />
               )}
               <span>{credentialRole}</span>
             </span>
 
             {/* Nombre y Apellido */}
             <h3
-              className={`mt-2 font-bold text-white leading-tight ${
+              className={`mt-1.5 font-bold text-white leading-tight ${
                 format === "feed" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl"
               }`}
             >
@@ -711,19 +678,19 @@ export default function UserCredentialPanel({
 
             {/* En el caso del Terapeuta: agrega las terapias que ofrece */}
             {credentialRole === "Terapeuta" && therapiesToShow.length > 0 && (
-              <div className="mt-2.5 flex max-w-xs flex-wrap justify-center gap-1">
+              <div className="mt-2 flex max-w-xs flex-wrap justify-center gap-1">
                 {therapiesToShow
                   .slice(0, format === "feed" ? 4 : 7)
                   .map((therapy) => (
                     <span
                       key={therapy}
-                      className="rounded-full border border-[#F3D791]/35 bg-white/10 px-2.5 py-0.5 text-[10px] font-medium text-white"
+                      className="rounded-full border border-[#F3D791]/50 bg-white/15 px-2.5 py-0.5 text-[10px] font-medium text-white"
                     >
                       {therapy}
                     </span>
                   ))}
                 {therapiesToShow.length > (format === "feed" ? 4 : 7) && (
-                  <span className="rounded-full bg-[#F3D791]/25 px-2 py-0.5 text-[10px] font-bold text-[#F3D791]">
+                  <span className="rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
                     +{therapiesToShow.length - (format === "feed" ? 4 : 7)} más
                   </span>
                 )}
@@ -740,12 +707,12 @@ export default function UserCredentialPanel({
                   alt={`QR ${publicCredentialUrl}`}
                   className={
                     format === "feed"
-                      ? "h-20 w-20 sm:h-24 sm:w-24"
-                      : "h-28 w-28 sm:h-32 sm:w-32"
+                      ? "h-18 w-18 sm:h-22 sm:w-22"
+                      : "h-26 w-26 sm:h-30 sm:w-30"
                   }
                 />
               ) : (
-                <div className="flex h-24 w-24 items-center justify-center text-xs text-[#2B1F42]">
+                <div className="flex h-20 w-20 items-center justify-center text-xs text-[#2B1F42]">
                   QR...
                 </div>
               )}
@@ -755,7 +722,7 @@ export default function UserCredentialPanel({
               href={`/${cleanNickname}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline"
+              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline"
             >
               <span>{displayShortUrl}</span>
               <ExternalLink className="h-3 w-3" />

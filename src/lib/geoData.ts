@@ -106,7 +106,8 @@ export interface ReikiUserProfile {
   nickname: string; // 4 a 16 caracteres, solo letras y números (https://www.reikionline.com.ar/nickname)
   isAdmin?: boolean;
   role: "consultante" | "terapeuta" | "pendiente";
-  visibleEnRed?: boolean; // Opción del Consultante en su perfil de ser visible o no en la red
+  visibleEnRed?: boolean; // Mi Perfil visible
+  soyTerapeuta?: boolean; // Soy Terapeuta (por defecto destildado)
   // Datos personales obligatorios
   nombre: string;
   apellido: string;
@@ -160,6 +161,7 @@ export const DEFAULT_ADMIN_PROFILE: ReikiUserProfile = {
   isAdmin: true,
   role: "terapeuta",
   visibleEnRed: true,
+  soyTerapeuta: false,
   nombre: "Daniel Alejandro",
   apellido: "Ghiglione",
   dni: "22523947",

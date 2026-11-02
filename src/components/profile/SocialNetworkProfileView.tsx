@@ -284,12 +284,22 @@ export default function SocialNetworkProfileView({
 
   return (
     <div className="rounded-3xl border border-[#836DAD]/25 bg-white shadow-md overflow-hidden">
-      {/* Portada superior de la Red Social */}
-      <div className="bg-gradient-to-r from-[#2E2344] via-[#5E4B8B] to-[#836DAD] px-5 py-6 text-white">
+      {/* Portada superior de la Red Social con colores e Isologotipo del Manual de Marca */}
+      <div className="bg-[#836DAD] px-5 py-6 text-white">
+        <div className="mb-4 flex items-center justify-between border-b border-white/15 pb-3">
+          <img
+            src="/brand/Reiki_Online_Lavanda_Unificado.png"
+            alt="Reiki online — CONECTANDO BIENESTAR"
+            className="h-12 sm:h-14 w-auto object-contain"
+          />
+          <span className="text-[11px] font-bold tracking-widest uppercase text-[#F3D791]">
+            Credencial Oficial
+          </span>
+        </div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {/* Avatar del usuario/terapeuta */}
-            <div className="relative h-20 w-20 shrink-0 rounded-full border-3 border-[#F3D791] bg-[#2E2344] overflow-hidden shadow-lg flex items-center justify-center">
+            <div className="relative h-20 w-20 shrink-0 rounded-full border-3 border-[#F3D791] bg-[#F6F3FA] overflow-hidden shadow-lg flex items-center justify-center">
               {profileData.fotoUrl ? (
                 <img
                   src={profileData.fotoUrl}
@@ -298,7 +308,7 @@ export default function SocialNetworkProfileView({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-2xl font-bold text-[#F3D791]">
+                <span className="text-2xl font-bold text-[#836DAD]">
                   {initials}
                 </span>
               )}

@@ -63,6 +63,9 @@ export default function UserProfilePanel({
   const [visibleEnRed, setVisibleEnRed] = useState<boolean>(
     profile.visibleEnRed ?? true
   );
+  const [soyTerapeuta, setSoyTerapeuta] = useState<boolean>(
+    profile.soyTerapeuta ?? false
+  );
 
   const [nombre, setNombre] = useState(profile.nombre);
   const [apellido, setApellido] = useState(profile.apellido);
@@ -461,6 +464,7 @@ export default function UserProfilePanel({
       ...profile,
       nickname: cleanNickname,
       visibleEnRed,
+      soyTerapeuta,
       fotoUrl: fotoUrl.trim(),
       nombre: nombre.trim(),
       apellido: apellido.trim(),
@@ -572,6 +576,7 @@ export default function UserProfilePanel({
                 ...profile,
                 nickname: cleanNickname || profile.nickname || "danielghiglione",
                 visibleEnRed,
+                soyTerapeuta,
                 fotoUrl: fotoUrl.trim(),
                 nombre: nombre.trim(),
                 apellido: apellido.trim(),
@@ -637,12 +642,13 @@ export default function UserProfilePanel({
       {/* Formulario principal de Mi Perfil */}
       <form onSubmit={handleSaveSubmit} className="space-y-4">
         <div className="rounded-2xl border border-[#DCE6F5] bg-[#F2F7FF] p-4 sm:p-5 space-y-4 shadow-inner">
-          {/* Fila 0 (ENCIMA DEL NOMBRE): Foto que trae de Google + Cambiar foto | Campo obligatorio https://www.reikionline.com.ar/nickname */}
-          <div className="rounded-2xl border border-[#CBD8EE] bg-white p-4 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Fila 0 (ENCIMA DEL NOMBRE): Foto que trae de Google + Cambiar foto | Mi Perfil visible + Soy Terapeuta | Campo obligatorio https://www.reikionline.com.ar/nickname */}
+          <div className="rounded-2xl border border-[#CBD8EE] bg-white p-4 sm:p-5 space-y-4">
+            {/* Bloque superior: Foto de Perfil + Casillas Mi Perfil visible y Soy Terapeuta */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               {/* Foto de perfil (Google o personalizada) */}
               <div className="flex items-center gap-3.5 shrink-0">
-                <div className="relative h-20 w-20 rounded-full border-2 border-[#836DAD] bg-[#F4F0FA] overflow-hidden shadow-sm flex items-center justify-center">
+                <div className="relative h-18 w-18 sm:h-20 sm:w-20 rounded-full border-2 border-[#836DAD] bg-[#F4F0FA] overflow-hidden shadow-sm flex items-center justify-center shrink-0">
                   {fotoUrl ? (
                     <img
                       src={fotoUrl}
@@ -657,8 +663,8 @@ export default function UserProfilePanel({
                   )}
                 </div>
 
-                <div className="space-y-1.5">
-                  <span className="block text-xs font-bold text-[#2B3A55]">
+                <div className="space-y-2">
+                  <span className="block text-xs sm:text-sm font-bold text-[#2B3A55]">
                     Foto de Perfil (Google)
                   </span>
                   <div className="flex flex-wrap items-center gap-2">
@@ -672,7 +678,7 @@ export default function UserProfilePanel({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#5E4B8B] transition cursor-pointer"
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-[#5E4B8B] transition cursor-pointer"
                     >
                       <Camera className="h-3.5 w-3.5 text-[#F3D791]" />
                       Cambiar foto
@@ -689,135 +695,155 @@ export default function UserProfilePanel({
                       </button>
                     )}
                   </div>
-                  <p className="text-[11px] text-[#64748B]">
-                    Se carga tu foto de Google o podés subir otra imagen desde tu dispositivo.
-                  </p>
                 </div>
               </div>
 
-              {/* Campo obligatorio https://www.reikionline.com.ar/nickname */}
-              <div className="flex-1 space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-1">
-                  <label
-                    htmlFor="ro-perfil-nickname"
-                    className="block text-xs font-bold text-[#2B3A55]"
-                  >
-                    Tu Red Social en Reiki Online (Nickname obligatorio) *
-                  </label>
-                  <span className="text-[11px] font-semibold text-[#5E4B8B]">
-                    {cleanNickname.length}/16 caracteres (mín. 4)
-                  </span>
-                </div>
-
-                <div
-                  className={`flex items-center rounded-xl border bg-white overflow-hidden transition ${
-                    nicknameTaken
-                      ? "border-red-500 ring-2 ring-red-100"
-                      : nicknameFormatValid
-                      ? "border-emerald-500/70 focus-within:border-[#836DAD]"
-                      : "border-[#CBD8EE] focus-within:border-[#836DAD]"
-                  }`}
-                >
-                  <span className="bg-[#F4F0FA] px-3 py-2.5 text-xs sm:text-sm font-mono font-semibold text-[#5E4B8B] border-r border-[#CBD8EE] select-none shrink-0">
-                    https://www.reikionline.com.ar/
+              {/* Casillas lado a lado: "Mi Perfil visible" y "Soy Terapeuta" (por defecto destildado) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full md:w-auto md:min-w-[340px]">
+                <label className="ro-choice-label flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3">
+                  <span className="text-xs sm:text-sm font-bold text-[#2B1F42]">
+                    Mi Perfil visible
                   </span>
                   <input
-                    id="ro-perfil-nickname"
-                    name="nickname"
-                    type="text"
-                    required
-                    minLength={4}
-                    maxLength={16}
-                    pattern="[A-Za-z0-9]{4,16}"
-                    autoComplete="username"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                    aria-invalid={nicknameTaken || (cleanNickname.length > 0 && !nicknameLengthValid)}
-                    aria-describedby="ro-perfil-nickname-status"
-                    placeholder="juanperez"
-                    value={nickname}
+                    type="checkbox"
+                    checked={visibleEnRed}
                     onChange={(e) => {
-                      const nextNick = sanitizeNickname(e.target.value);
-                      setNickname(nextNick);
+                      const checked = e.target.checked;
+                      setVisibleEnRed(checked);
+                      onSaveProfile({
+                        ...profile,
+                        visibleEnRed: checked,
+                        soyTerapeuta,
+                        updatedAt: new Date().toISOString(),
+                      });
                     }}
-                    className="w-full px-3 py-2.5 text-sm font-mono font-bold text-[#1E293B] focus:outline-none"
+                    className="h-5 w-5 shrink-0 cursor-pointer rounded border-[#836DAD]"
                   />
-                </div>
+                </label>
 
-                <div
-                  id="ro-perfil-nickname-status"
-                  aria-live="polite"
-                  className="flex flex-wrap items-center justify-between gap-2 pt-0.5"
-                >
-                  {nicknameTaken ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600">
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                      El nickname «{cleanNickname}» ya está en uso. Elegí otro disponible.
-                    </span>
-                  ) : !nicknameLengthValid ? (
-                    <span className="text-[11px] text-amber-800 font-medium">
-                      Ingresá entre 4 y 16 caracteres (solo letras y números, sin espacios ni símbolos).
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                      Disponible: https://www.reikionline.com.ar/{cleanNickname}
-                    </span>
-                  )}
-
-                  {nicknameFormatValid && !nicknameTaken && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setShowSocialPreview((v) => !v)}
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#836DAD] underline cursor-pointer"
-                      >
-                        <Sparkles className="h-3 w-3" />
-                        {showSocialPreview
-                          ? "Ocultar vista de mi Red Social"
-                          : "Ver mi Red Social y reseñas"}
-                      </button>
-                      <a
-                        href={`/${cleanNickname}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5E4B8B] hover:text-[#836DAD]"
-                      >
-                        Abrir enlace ↗
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  )}
-                </div>
+                <label className="ro-choice-label flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3">
+                  <span className="text-xs sm:text-sm font-bold text-[#2B1F42]">
+                    Soy Terapeuta
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={soyTerapeuta}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setSoyTerapeuta(checked);
+                      onSaveProfile({
+                        ...profile,
+                        visibleEnRed,
+                        soyTerapeuta: checked,
+                        role: checked ? "terapeuta" : "consultante",
+                        updatedAt: new Date().toISOString(),
+                      });
+                    }}
+                    className="h-5 w-5 shrink-0 cursor-pointer rounded border-[#836DAD]"
+                  />
+                </label>
               </div>
             </div>
 
-            {/* Opción de visibilidad del Consultante en la red */}
-            <label className="ro-choice-label flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3">
-              <div>
-                <span className="block text-xs sm:text-sm font-bold text-[#2B1F42]">
-                  Perfil de Consultante visible en la red
-                </span>
-                <span className="text-[11px] text-[#2B1F42]/70">
-                  Si está activo, tu credencial de Consultante aparece cuando los Terapeutas buscan «Por Consultante».
+            {/* Bloque inferior a ancho completo: Campo obligatorio https://www.reikionline.com.ar/nickname */}
+            <div className="space-y-1.5 pt-2 border-t border-[#E6E0F0]">
+              <div className="flex flex-wrap items-center justify-between gap-1">
+                <label
+                  htmlFor="ro-perfil-nickname"
+                  className="block text-xs font-bold text-[#2B3A55]"
+                >
+                  Tu Red Social en Reiki Online (Nickname obligatorio) *
+                </label>
+                <span className="text-[11px] font-semibold text-[#5E4B8B]">
+                  {cleanNickname.length}/16 caracteres (mín. 4)
                 </span>
               </div>
-              <input
-                type="checkbox"
-                checked={visibleEnRed}
-                onChange={(e) => {
-                  const checked = e.target.checked;
-                  setVisibleEnRed(checked);
-                  onSaveProfile({
-                    ...profile,
-                    visibleEnRed: checked,
-                    updatedAt: new Date().toISOString(),
-                  });
-                }}
-                className="h-5 w-5 shrink-0 cursor-pointer rounded border-[#836DAD]"
-              />
-            </label>
+
+              <div
+                className={`flex flex-col sm:flex-row sm:items-center rounded-xl border bg-white overflow-hidden transition ${
+                  nicknameTaken
+                    ? "border-red-500 ring-2 ring-red-100"
+                    : nicknameFormatValid
+                    ? "border-emerald-500/70 focus-within:border-[#836DAD]"
+                    : "border-[#CBD8EE] focus-within:border-[#836DAD]"
+                }`}
+              >
+                <span className="bg-[#F4F0FA] px-3.5 py-2.5 text-xs sm:text-sm font-mono font-semibold text-[#5E4B8B] border-b sm:border-b-0 sm:border-r border-[#CBD8EE] select-none shrink-0">
+                  https://www.reikionline.com.ar/
+                </span>
+                <input
+                  id="ro-perfil-nickname"
+                  name="nickname"
+                  type="text"
+                  required
+                  minLength={4}
+                  maxLength={16}
+                  pattern="[A-Za-z0-9]{4,16}"
+                  autoComplete="username"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  aria-invalid={
+                    nicknameTaken ||
+                    (cleanNickname.length > 0 && !nicknameLengthValid)
+                  }
+                  aria-describedby="ro-perfil-nickname-status"
+                  placeholder="juanperez"
+                  value={nickname}
+                  onChange={(e) => {
+                    const nextNick = sanitizeNickname(e.target.value);
+                    setNickname(nextNick);
+                  }}
+                  className="min-w-0 flex-1 px-3.5 py-2.5 text-sm font-mono font-bold text-[#1E293B] focus:outline-none"
+                />
+              </div>
+
+              <div
+                id="ro-perfil-nickname-status"
+                aria-live="polite"
+                className="flex flex-wrap items-center justify-between gap-2 pt-0.5"
+              >
+                {nicknameTaken ? (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    El nickname «{cleanNickname}» ya está en uso. Elegí otro disponible.
+                  </span>
+                ) : !nicknameLengthValid ? (
+                  <span className="text-[11px] text-amber-800 font-medium">
+                    Ingresá entre 4 y 16 caracteres (solo letras y números, sin espacios ni símbolos).
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 break-all">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                    Disponible: https://www.reikionline.com.ar/{cleanNickname}
+                  </span>
+                )}
+
+                {nicknameFormatValid && !nicknameTaken && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowSocialPreview((v) => !v)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#836DAD] underline cursor-pointer"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {showSocialPreview
+                        ? "Ocultar vista de mi Red Social"
+                        : "Ver mi Red Social y reseñas"}
+                    </button>
+                    <a
+                      href={`/${cleanNickname}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5E4B8B] hover:text-[#836DAD]"
+                    >
+                      Abrir enlace
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Fila 1: Nombre * | Apellido * */}

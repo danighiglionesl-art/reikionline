@@ -302,32 +302,27 @@ export default function NetworkProfilesDirectory({
           return (
             <div
               key={item.id}
-              className="relative flex flex-col items-center justify-between overflow-hidden rounded-3xl border-2 border-[#F3D791]/60 bg-gradient-to-b from-[#2B1F42] via-[#4E3A75] to-[#2B1F42] p-5 text-center text-white shadow-xl"
+              className="relative flex flex-col items-center justify-between overflow-hidden rounded-3xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-center text-white shadow-xl"
             >
-              {/* 1. Cabecera Reiki Online */}
-              <div className="flex w-full items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="overflow-hidden rounded-xl bg-[#836DAD] p-1 ring-1 ring-[#F3D791]/50">
-                    <img
-                      src="/brand/Reiki_Icono_Lavanda_Unificado.png"
-                      alt="Reiki Online"
-                      className="h-6 w-6 object-contain"
-                    />
-                  </div>
-                  <span className="text-[10px] font-bold tracking-wider uppercase text-[#F3D791]">
-                    Reiki Online
+              {/* 1. Cabecera Reiki Online con Isologotipo Oficial */}
+              <div className="flex w-full flex-col items-center gap-1">
+                <div className="flex w-full items-center justify-between gap-2">
+                  <img
+                    src="/brand/Reiki_Online_Lavanda_Unificado.png"
+                    alt="Reiki online — CONECTANDO BIENESTAR"
+                    className="h-11 w-auto object-contain"
+                  />
+
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#F3D791]">
+                    <MapPin className="h-3 w-3" />
+                    {distanceKm} km
                   </span>
                 </div>
-
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold text-[#F3D791]">
-                  <MapPin className="h-3 w-3" />
-                  {distanceKm} km
-                </span>
               </div>
 
               {/* 2. Foto + Rol + Nombre y Apellido + Nickname */}
               <div className="my-3 flex flex-col items-center">
-                <div className="h-18 w-18 overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#836DAD] shadow-md flex items-center justify-center">
+                <div className="h-18 w-18 overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] shadow-md flex items-center justify-center">
                   {item.fotoUrl ? (
                     <img
                       src={item.fotoUrl}
@@ -335,7 +330,7 @@ export default function NetworkProfilesDirectory({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="text-xl font-bold text-[#F3D791]">
+                    <span className="text-xl font-bold text-[#836DAD]">
                       {initials}
                     </span>
                   )}
@@ -345,13 +340,13 @@ export default function NetworkProfilesDirectory({
                   className={`mt-2 inline-flex items-center gap-1 rounded-full px-3 py-0.5 text-[10px] font-bold uppercase ${
                     item.role === "Terapeuta"
                       ? "bg-[#F3D791] text-[#2B1F42]"
-                      : "bg-[#836DAD] text-white ring-1 ring-white/30"
+                      : "border border-[#F3D791] bg-white/15 text-white"
                   }`}
                 >
                   {item.role === "Terapeuta" ? (
                     <UserCheck className="h-3 w-3" />
                   ) : (
-                    <HeartHandshake className="h-3 w-3" />
+                    <HeartHandshake className="h-3 w-3 text-[#F3D791]" />
                   )}
                   <span>{item.role}</span>
                 </span>
@@ -362,7 +357,7 @@ export default function NetworkProfilesDirectory({
                 <p className="font-mono text-xs font-semibold text-[#F3D791]">
                   @{item.nickname}
                 </p>
-                <p className="mt-0.5 text-[11px] text-white/75">
+                <p className="mt-0.5 text-[11px] text-white/90">
                   {item.localidad}, {item.provincia}
                 </p>
 
@@ -371,7 +366,7 @@ export default function NetworkProfilesDirectory({
                     {item.therapies.slice(0, 3).map((th) => (
                       <span
                         key={th}
-                        className="rounded-full border border-[#F3D791]/35 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white"
+                        className="rounded-full border border-[#F3D791]/50 bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white"
                       >
                         {th}
                       </span>
