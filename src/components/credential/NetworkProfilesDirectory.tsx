@@ -304,20 +304,17 @@ export default function NetworkProfilesDirectory({
               key={item.id}
               className="relative flex flex-col items-center justify-between overflow-hidden rounded-3xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-center text-white shadow-xl"
             >
-              {/* 1. Cabecera Reiki Online con Isologotipo Oficial */}
-              <div className="flex w-full flex-col items-center gap-1">
-                <div className="flex w-full items-center justify-between gap-2">
-                  <img
-                    src="/brand/Reiki_Online_Lavanda_Unificado.png"
-                    alt="Reiki online — CONECTANDO BIENESTAR"
-                    className="h-11 w-auto object-contain"
-                  />
-
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#F3D791]">
-                    <MapPin className="h-3 w-3" />
-                    {distanceKm} km
-                  </span>
-                </div>
+              {/* 1. Cabecera Reiki Online con Isologotipo Oficial agrandado para mayor presencia */}
+              <div className="relative flex w-full flex-col items-center pt-1">
+                <span className="absolute top-0 right-0 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#F3D791]">
+                  <MapPin className="h-3 w-3" />
+                  {distanceKm} km
+                </span>
+                <img
+                  src="/brand/Reiki_Online_Lavanda_Unificado.png"
+                  alt="Reiki online — CONECTANDO BIENESTAR"
+                  className="h-20 sm:h-24 w-auto max-w-[82%] object-contain drop-shadow-sm"
+                />
               </div>
 
               {/* 2. Foto + Rol + Nombre y Apellido + Nickname */}

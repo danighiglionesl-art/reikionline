@@ -220,11 +220,11 @@ export default function UserCredentialPanel({
       ]);
 
       const isFeed = targetFormat === "feed";
-      let cursorY = isFeed ? 68 : 110;
+      let cursorY = isFeed ? 48 : 84;
 
-      // 2. Cabecera con el Isologotipo Oficial completo de Reiki Online (proporción 2:1)
+      // 2. Cabecera con el Isologotipo Oficial completo de Reiki Online ampliado con mayor presencia (proporción 2:1)
       if (logoImg) {
-        const logoW = isFeed ? 320 : 420;
+        const logoW = isFeed ? 500 : 640;
         const logoH = logoW / 2;
         ctx.drawImage(
           logoImg,
@@ -233,17 +233,17 @@ export default function UserCredentialPanel({
           logoW,
           logoH
         );
-        cursorY += logoH + (isFeed ? 18 : 28);
+        cursorY += logoH + (isFeed ? 10 : 20);
       }
 
       ctx.fillStyle = "#F3D791";
       ctx.font = `700 ${isFeed ? 20 : 24}px sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText("CREDENCIAL OFICIAL", width / 2, cursorY);
-      cursorY += isFeed ? 34 : 56;
+      cursorY += isFeed ? 26 : 48;
 
       // 3. Foto del usuario circular con aro Champán (#F3D791)
-      const avatarRadius = isFeed ? 96 : 138;
+      const avatarRadius = isFeed ? 86 : 132;
       const centerX = width / 2;
       const avatarCenterY = cursorY + avatarRadius;
 
@@ -599,15 +599,15 @@ export default function UserCredentialPanel({
           {/* Marco interno sutil con los colores del Manual de Marca */}
           <div className="pointer-events-none absolute inset-3 rounded-[1.5rem] border border-[#F3D791]/45" />
 
-          {/* 1. Cabecera con el Isologotipo Oficial de Reiki Online (Manual de Marca) */}
+          {/* 1. Cabecera con el Isologotipo Oficial de Reiki Online agrandado para mayor presencia */}
           <div className="relative z-10 flex w-full flex-col items-center">
             <img
               src="/brand/Reiki_Online_Lavanda_Unificado.png"
               alt="Reiki online — CONECTANDO BIENESTAR"
               className={
                 format === "feed"
-                  ? "h-14 sm:h-16 w-auto object-contain"
-                  : "h-18 sm:h-20 w-auto object-contain"
+                  ? "h-24 sm:h-28 w-auto max-w-[85%] object-contain drop-shadow-md"
+                  : "h-28 sm:h-32 w-auto max-w-[88%] object-contain drop-shadow-md"
               }
             />
             <span className="mt-0.5 block text-[10px] font-bold tracking-[0.2em] uppercase text-[#F3D791]">
