@@ -580,15 +580,14 @@ export default function NetworkProfilesDirectory({
                   )}
 
                   <div className="text-center">
-                    <a
-                      href={`/${item.nickname}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline break-all"
+                    <button
+                      type="button"
+                      onClick={() => onSelectProfileToConnect(item)}
+                      className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline break-all"
                     >
                       <span>reikionline.com.ar/{item.nickname}</span>
                       <ExternalLink className="h-3 w-3 shrink-0" />
-                    </a>
+                    </button>
                     <span className="block text-[10px] font-bold text-[#F3D791]">
                       ✓ Identidad verificada
                     </span>

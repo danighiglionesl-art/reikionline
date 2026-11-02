@@ -654,6 +654,14 @@ export function TerapiasAccessPanel({
     }
   };
 
+  const handleGoToComoBuscas = () => {
+    setActiveSection(null);
+    setSearchMode(null);
+    setTherapiesConfirmed(false);
+    setSelectedModality(null);
+    setSelectionSavedFeedback(null);
+  };
+
   const handleBackToRoleSelect = () => {
     if (activeSection) {
       handleGoToComoIngresas();
@@ -936,23 +944,48 @@ export function TerapiasAccessPanel({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Botón Volver atrás (visible en cualquier sub-sección como Mi Perfil, Mi Credencial o al elegir rol) */}
-            {authenticatedUser &&
-              isWhatsAppVerified &&
-              (selectedRole || activeSection) && (
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Botones rectangulares en la parte fija superior: ¿Cómo ingresas? y ¿Cómo buscas? */}
+            {authenticatedUser && isWhatsAppVerified && (
+              <>
                 <button
                   type="button"
-                  onClick={handleBackToRoleSelect}
-                  title="Volver a ¿Cómo ingresas?"
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
+                  onClick={handleGoToComoIngresas}
+                  title="Ir a ¿Cómo ingresas?"
+                  className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
+                    !selectedRole && !activeSection
+                      ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
+                      : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
+                  }`}
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  <span>
-                    {activeSection ? "¿Cómo ingresas?" : "Volver atrás"}
-                  </span>
+                  {(selectedRole || activeSection) && (
+                    <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  <span>¿Cómo ingresas?</span>
                 </button>
-              )}
+
+                {selectedRole && (
+                  <button
+                    type="button"
+                    onClick={handleGoToComoBuscas}
+                    title="Ir a ¿Cómo buscas?"
+                    className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
+                      selectedRole &&
+                      !activeSection &&
+                      !searchMode &&
+                      !therapiesConfirmed
+                        ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
+                        : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
+                    }`}
+                  >
+                    {(activeSection || searchMode || therapiesConfirmed) && (
+                      <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                    <span>¿Cómo buscas?</span>
+                  </button>
+                )}
+              </>
+            )}
 
             {/* Botón / Indicador de Alerta al Administrador */}
             {(pendingAdminAlerts.length > 0 || authenticatedUser?.isAdmin) && (
@@ -1640,9 +1673,11 @@ export function TerapiasAccessPanel({
               {/* Opciones principales debajo de la línea de Mi Perfil: ¿Cómo ingresas? + Consultante | Terapeuta */}
               {!selectedRole && !activeSection && (
                 <div className="space-y-4">
-                  <h4 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
-                    ¿Cómo ingresas?
-                  </h4>
+                  <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3.5">
+                    <h4 className="text-base sm:text-lg font-semibold text-[#2B1F42]">
+                      ¿Cómo ingresas?
+                    </h4>
+                  </div>
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <button
                       type="button"
@@ -2423,9 +2458,11 @@ export function TerapiasAccessPanel({
                 !searchMode &&
                 !therapiesConfirmed && (
                   <div className="space-y-4">
-                    <h4 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
-                      ¿Cómo buscas?
-                    </h4>
+                    <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3.5">
+                      <h4 className="text-base sm:text-lg font-semibold text-[#2B1F42]">
+                        ¿Cómo buscas?
+                      </h4>
+                    </div>
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <button
                         type="button"

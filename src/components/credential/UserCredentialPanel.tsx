@@ -1004,15 +1004,15 @@ export default function UserCredentialPanel({
                   )}
                 </div>
 
-                <a
-                  href={`/${cleanNickname}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-[#F3D791] hover:underline"
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  title="Copiar enlace de la credencial sin salir de esta pantalla"
+                  className="mt-1.5 inline-flex cursor-pointer items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-[#F3D791] hover:underline"
                 >
                   <span>{displayShortUrl}</span>
                   <ExternalLink className="h-3 w-3 shrink-0" />
-                </a>
+                </button>
               </div>
             </div>
           </div>

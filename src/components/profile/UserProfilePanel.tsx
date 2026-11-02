@@ -1373,9 +1373,12 @@ export default function UserProfilePanel({
               />
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* SECCIÓN DE GEOPOSICIÓN SATELITAL E IMAGEN DE MAPS EN EL PERFIL */}
+        {!showInlineSocialLink && (
         <div className="rounded-2xl border border-[#E6E0F0] bg-white p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -1604,9 +1607,8 @@ export default function UserProfilePanel({
               </a>
             </div>
           </div>
-            </>
-          )}
         </div>
+        )}
 
         {/* Botón Guardar Mi Perfil */}
         {!showInlineSocialLink && (

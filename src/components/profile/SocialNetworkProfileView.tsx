@@ -648,17 +648,6 @@ export default function SocialNetworkProfileView({
                 </>
               )}
             </button>
-            {compact && (
-              <a
-                href={`/${profileData.nickname}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-lg bg-[#F3D791] px-2.5 py-1 text-[11px] font-bold text-[#2E2344] hover:bg-[#e7c875] transition"
-              >
-                Abrir perfil (usuarios registrados)
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
           </div>
         </div>
       </div>
@@ -774,12 +763,9 @@ export default function SocialNetworkProfileView({
                           </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <a
-                                href={`/${fol.followerNickname}`}
-                                className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
-                              >
+                              <span className="truncate text-xs sm:text-sm font-bold text-white">
                                 {fol.followerName}
-                              </a>
+                              </span>
                               <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
                                 {fol.followerRole === "Terapeuta" ? (
                                   <UserCheck className="h-2.5 w-2.5" />
@@ -899,12 +885,9 @@ export default function SocialNetworkProfileView({
                           </div>
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <a
-                                href={`/${fol.targetNickname}`}
-                                className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
-                              >
+                              <span className="truncate text-xs sm:text-sm font-bold text-white">
                                 {fol.targetName}
-                              </a>
+                              </span>
                               <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
                                 {fol.targetRole}
                               </span>
@@ -998,12 +981,9 @@ export default function SocialNetworkProfileView({
                             </div>
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-1.5">
-                                <a
-                                  href={`/${sug.nickname}`}
-                                  className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
-                                >
+                                <span className="truncate text-xs sm:text-sm font-bold text-white">
                                   {sug.displayName}
-                                </a>
+                                </span>
                                 <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
                                   {sug.role}
                                 </span>
