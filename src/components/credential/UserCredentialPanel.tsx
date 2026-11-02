@@ -494,31 +494,6 @@ export default function UserCredentialPanel({
               <span>Tamaño Estados (9:16)</span>
             </button>
           </div>
-
-          {credentialRole === "Terapeuta" && therapiesToShow.length > 4 && (
-            <div className="inline-flex items-center gap-1 rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-1 text-xs">
-              <span className="px-2.5 font-semibold text-[#2B1F42]/75">
-                Máx. por Flyer:
-              </span>
-              {([4, 6] as const).map((limitVal) => (
-                <button
-                  key={limitVal}
-                  type="button"
-                  onClick={() => {
-                    setMaxTherapiesPerFlyer(limitVal);
-                    setActiveFlyerIndex(0);
-                  }}
-                  className={`cursor-pointer rounded-xl px-3 py-1.5 font-bold transition ${
-                    maxTherapiesPerFlyer === limitVal
-                      ? "bg-[#836DAD] text-white shadow-2xs"
-                      : "text-[#2B1F42] hover:bg-white/70"
-                  }`}
-                >
-                  {limitVal} terapias
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -562,17 +537,7 @@ export default function UserCredentialPanel({
         </div>
       )}
 
-      {flyerChunks.length > 1 && (
-        <div className="rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-2.5 text-xs text-[#2B1F42] flex flex-wrap items-center justify-between gap-2">
-          <span>
-            Tus <strong>{therapiesToShow.length} terapias</strong> se dividieron automáticamente en{" "}
-            <strong>{flyerChunks.length} Flyers</strong> (máximo{" "}
-            {maxTherapiesPerFlyer} terapias por Flyer) para mantener intacto el diseño sin distorsiones.
-          </span>
-        </div>
-      )}
-
-      {/* PREVISUALIZACIÓN EN VIVO DE LOS FLYERS (SI HAY MÁS DE 4 O 6 TERAPIAS, PASA EL RESTO A OTRO FLYER) */}
+      {/* PREVISUALIZACIÓN EN VIVO DE LOS FLYERS */}
       <div
         className={`grid gap-6 py-2 justify-items-center ${
           flyerChunks.length > 1
