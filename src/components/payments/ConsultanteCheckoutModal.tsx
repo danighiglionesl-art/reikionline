@@ -28,6 +28,7 @@ import {
   loadMpTransactions,
   releaseTherapistLock,
   resolveApplicableCommission,
+  resolveTherapySessionPrice,
   saveMpTransactions,
   SplitPaymentStatus,
   SplitPaymentTransaction,
@@ -180,7 +181,11 @@ export default function ConsultanteCheckoutModal({
       therapistMpAccount?.kycVerified
   );
 
-  const sessionPriceArs = therapistMpAccount?.sessionPriceArs || 30000;
+  // El valor de la sesión depende de la terapia seleccionada (y es el mismo sea presencial, virtual con turno o virtual ahora)
+  const sessionPriceArs = useMemo(
+    () => resolveTherapySessionPrice(therapistMpAccount, selectedTherapy),
+    [therapistMpAccount, selectedTherapy]
+  );
 
   const commissionConfig = useMemo(() => loadCommissionConfig(), [isOpen]);
   const commissionSnapshot = useMemo(
@@ -351,6 +356,7 @@ export default function ConsultanteCheckoutModal({
         reconciliationRequired: data.reconciliationRequired,
         reconciliationNote: data.reconciliationNote,
         cancellationCategory: "none",
+        reikiCommissionFirm: true,
         refundRequested: false,
         refundStatus: "none",
         createdAt: nowIso,
@@ -486,7 +492,10 @@ export default function ConsultanteCheckoutModal({
                 >
                   {availableTherapies.map((th) => (
                     <option key={th} value={th}>
-                      {th}
+                      {th} —{" "}
+                      {formatArs(
+                        resolveTherapySessionPrice(therapistMpAccount, th)
+                      )}
                     </option>
                   ))}
                 </select>
@@ -574,22 +583,37 @@ export default function ConsultanteCheckoutModal({
               </div>
             </div>
 
-            {/* Confirmación obligatoria de condiciones de contratación y cancelación */}
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#836DAD]/25 bg-[#FAF8FC] p-3.5 text-xs text-[#2B1F42]">
-              <input
-                type="checkbox"
-                checked={acceptedTerms}
-                onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-[#836DAD]"
-              />
-              <span>
-                Confirmo las{" "}
-                <strong>condiciones de contratación y cancelación</strong> de
-                Reiki Online. Comprendo que los pagos pendientes no confirman
-                una sesión y que el acceso a la sesión se habilita únicamente
-                tras la aprobación verificada por el backend. *
-              </span>
-            </label>
+            {/* Confirmación obligatoria de condiciones de contratación, reprogramación y cancelación */}
+            <div className="rounded-xl border border-[#836DAD]/25 bg-[#FAF8FC] p-3.5 space-y-2.5">
+              <div className="text-[11px] text-[#2B1F42]/85 space-y-1">
+                <p className="font-bold text-[#836DAD] uppercase tracking-wider">
+                  Política Oficial de Reserva, Reprogramación y Cancelación:
+                </p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>
+                    <strong>Confirmación de pago al reservar:</strong> Tanto en la reserva de turnos en cualquiera de las modalidades como en la contratación inmediata, el pago debe confirmarse al momento de reservar la sesión.
+                  </li>
+                  <li>
+                    <strong>Si el consultante desiste de la sesión:</strong> El importe abonado no se reembolsa y <strong>la sesión se reprogramará en los turnos habilitados por el terapeuta</strong>.
+                  </li>
+                  <li>
+                    <strong>Si el terapeuta cancela la reunión:</strong> El terapeuta deberá devolver el dinero al consultante, quedando firme la comisión de Reiki Online.
+                  </li>
+                </ul>
+              </div>
+
+              <label className="flex cursor-pointer items-start gap-2.5 border-t border-[#836DAD]/15 pt-2.5 text-xs font-semibold text-[#2B1F42]">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5 h-4 w-4 rounded border-[#836DAD]"
+                />
+                <span>
+                  Acepto las condiciones de pago inmediato al reservar, reprogramación en turnos del terapeuta ante desistimiento del consultante y devolución a cargo del terapeuta si éste cancela la sesión. *
+                </span>
+              </label>
+            </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               <div className="flex items-center gap-2 text-xs">

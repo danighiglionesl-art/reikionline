@@ -52,6 +52,8 @@ import UserCredentialPanel from "@/components/credential/UserCredentialPanel";
 import NetworkProfilesDirectory from "@/components/credential/NetworkProfilesDirectory";
 import AdminPaymentsCommissionsPanel from "@/components/payments/AdminPaymentsCommissionsPanel";
 import TherapistMercadoPagoSection from "@/components/payments/TherapistMercadoPagoSection";
+import DailyVideoCallModal from "@/components/video/DailyVideoCallModal";
+import { loadConsultations, saveConsultations } from "@/lib/socialNetwork";
 import {
   ATTENTION_MODALITY_LABELS,
   BOOKING_TIMING_LABELS,
@@ -245,6 +247,21 @@ export function TerapiasAccessPanel({
   >([]);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [adminFeedback, setAdminFeedback] = useState<string | null>(null);
+  const [consultasSubTab, setConsultasSubTab] = useState<
+    "finalizadas" | "programadas"
+  >("finalizadas");
+  const [consultasRefreshKey, setConsultasRefreshKey] = useState(0);
+  const [activeConsultasVideoRoom, setActiveConsultasVideoRoom] = useState<{
+    sessionId: string;
+    therapistName: string;
+    therapistNickname: string;
+    consultanteName: string;
+    consultanteEmail: string;
+    consultanteNickname: string;
+    therapyName: string;
+    modalityLabel: "Online con turno" | "Online ahora";
+    scheduledSlotLabel: string;
+  } | null>(null);
 
   const loadSyncedData = () => {
     if (typeof window === "undefined") return;
@@ -1675,7 +1692,10 @@ export function TerapiasAccessPanel({
 
               {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI BILLETERA (Cobros y cuenta de Mercado Pago Split 1:1) */}
               {activeSection === "Mi Billetera" && (
-                <TherapistMercadoPagoSection profile={activeUserProfile} />
+                <TherapistMercadoPagoSection
+                  profile={activeUserProfile}
+                  offeredTherapies={terapeutaSelections}
+                />
               )}
 
               {/* QUINTA PESTAÑA DE LA BARRA SUPERIOR: MI RED SOCIAL (Seguidores, Seguidos, Historias y Feed) */}
@@ -1721,22 +1741,24 @@ export function TerapiasAccessPanel({
                 />
               )}
 
-              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MIS CONSULTAS */}
+              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MIS CONSULTAS (Sesiones finalizadas · Sesiones programadas) */}
               {activeSection === "Mis Consultas" && (
-                <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 text-sm text-[#2B1F42] space-y-4">
-                  <div className="flex items-center justify-between">
+                <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 text-sm text-[#2B1F42] space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h4 className="font-bold text-[#836DAD]">
+                      <h4 className="text-base font-bold text-[#836DAD]">
                         Mis Consultas y Contrataciones
                       </h4>
                       <p className="text-xs text-[#2B1F42]/70">
-                        Historial de sesiones confirmadas y estado de pagos procesados con Mercado Pago.
+                        Gestioná tus sesiones finalizadas y tus sesiones programadas en Reiki Online.
                       </p>
                     </div>
                   </div>
 
                   {(() => {
+                    void consultasRefreshKey;
                     const allTxs = loadMpTransactions();
+                    const allConsultations = loadConsultations();
                     const myNick = sanitizeNickname(
                       activeUserProfile.nickname ||
                         `${activeUserProfile.nombre}${activeUserProfile.apellido}`
@@ -1748,56 +1770,492 @@ export function TerapiasAccessPanel({
                         t.therapistNickname.toLowerCase() === myNick ||
                         authenticatedUser.isAdmin
                     );
-                    if (myTxs.length === 0) {
-                      return (
-                        <p className="rounded-xl border border-[#836DAD]/15 bg-white p-4 text-xs text-[#2B1F42]/75">
-                          Aún no registrás sesiones contratadas. Podés seleccionar una terapia o terapeuta para agendar con turno o contratar una sesión inmediata online.
-                        </p>
-                      );
-                    }
+                    const myConsultations = allConsultations.filter(
+                      (c) =>
+                        c.consultanteEmail.toLowerCase() ===
+                          activeUserProfile.email.toLowerCase() ||
+                        (c.consultanteNickname || "").toLowerCase() === myNick ||
+                        c.therapistNickname.toLowerCase() === myNick ||
+                        authenticatedUser.isAdmin
+                    );
+
+                    const finalizedConsultations = myConsultations.filter(
+                      (c) => c.status === "efectuada"
+                    );
+                    const scheduledConsultations = myConsultations.filter(
+                      (c) => c.status === "programada"
+                    );
+                    const finalizedTxs = myTxs.filter((t) => t.sessionConfirmed);
+                    const scheduledTxs = myTxs.filter((t) => !t.sessionConfirmed);
+
+                    const totalFinalizadas =
+                      finalizedConsultations.length + finalizedTxs.length;
+                    const totalProgramadas =
+                      scheduledConsultations.length + scheduledTxs.length;
+
                     return (
-                      <div className="space-y-2.5">
-                        {myTxs.map((tx) => (
-                          <div
-                            key={tx.id}
-                            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#836DAD]/20 bg-white p-3.5 text-xs"
+                      <div className="space-y-4">
+                        {/* DOS OPCIONES DE MIS CONSULTAS: Sesiones finalizadas | Sesiones programadas */}
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => setConsultasSubTab("finalizadas")}
+                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-2xl border-2 p-4 text-left transition-all ${
+                              consultasSubTab === "finalizadas"
+                                ? "border-[#F3D791] bg-[#836DAD] text-white shadow-md"
+                                : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD]"
+                            }`}
                           >
-                            <div>
-                              <p className="font-bold text-[#2B1F42]">
-                                {tx.therapyName} · Terapeuta: {tx.therapistName}{" "}
-                                ↔ Consultante: {tx.consultanteName}
-                              </p>
-                              <p className="text-[11px] text-[#2B1F42]/70">
-                                {
-                                  ATTENTION_MODALITY_LABELS[
-                                    tx.attentionModality
-                                  ]
-                                }{" "}
-                                · {BOOKING_TIMING_LABELS[tx.bookingTiming]} (
-                                {tx.scheduledSlotLabel})
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-extrabold text-[#836DAD]">
-                                {formatArs(tx.sessionPriceArs)}
-                              </p>
+                            <div className="flex items-center gap-3">
                               <span
-                                className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                  tx.sessionConfirmed
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-amber-100 text-amber-800"
+                                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                                  consultasSubTab === "finalizadas"
+                                    ? "bg-[#F3D791] text-[#2B1F42]"
+                                    : "bg-[#836DAD]/15 text-[#836DAD]"
                                 }`}
                               >
-                                {tx.sessionConfirmed
-                                  ? "✓ Sesión Confirmada"
-                                  : `Estado: ${tx.status} (Sin confirmar)`}
+                                <CheckCircle2 className="h-5 w-5" />
                               </span>
+                              <div>
+                                <span className="block text-sm sm:text-base font-bold">
+                                  Sesiones finalizadas
+                                </span>
+                                <span
+                                  className={`block text-xs ${
+                                    consultasSubTab === "finalizadas"
+                                      ? "text-white/85"
+                                      : "text-[#2B1F42]/65"
+                                  }`}
+                                >
+                                  Consultas efectuadas y listas para calificar
+                                </span>
+                              </div>
                             </div>
+                            <span
+                              className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-xs font-extrabold ${
+                                consultasSubTab === "finalizadas"
+                                  ? "bg-[#F3D791] text-[#2B1F42]"
+                                  : "bg-[#836DAD] text-white"
+                              }`}
+                            >
+                              {totalFinalizadas}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setConsultasSubTab("programadas")}
+                            className={`flex cursor-pointer items-center justify-between gap-3 rounded-2xl border-2 p-4 text-left transition-all ${
+                              consultasSubTab === "programadas"
+                                ? "border-[#F3D791] bg-[#836DAD] text-white shadow-md"
+                                : "border-[#836DAD]/30 bg-white text-[#2B1F42] hover:border-[#836DAD]"
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span
+                                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                                  consultasSubTab === "programadas"
+                                    ? "bg-[#F3D791] text-[#2B1F42]"
+                                    : "bg-[#836DAD]/15 text-[#836DAD]"
+                                }`}
+                              >
+                                <CalendarClock className="h-5 w-5" />
+                              </span>
+                              <div>
+                                <span className="block text-sm sm:text-base font-bold">
+                                  Sesiones programadas
+                                </span>
+                                <span
+                                  className={`block text-xs ${
+                                    consultasSubTab === "programadas"
+                                      ? "text-white/85"
+                                      : "text-[#2B1F42]/65"
+                                  }`}
+                                >
+                                  Turnos agendados y salas de videollamada
+                                </span>
+                              </div>
+                            </div>
+                            <span
+                              className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-xs font-extrabold ${
+                                consultasSubTab === "programadas"
+                                  ? "bg-[#F3D791] text-[#2B1F42]"
+                                  : "bg-[#836DAD] text-white"
+                              }`}
+                            >
+                              {totalProgramadas}
+                            </span>
+                          </button>
+                        </div>
+
+                        {/* OPCIÓN 1: SESIONES FINALIZADAS */}
+                        {consultasSubTab === "finalizadas" && (
+                          <div className="space-y-2.5">
+                            {totalFinalizadas === 0 ? (
+                              <div className="rounded-xl border border-[#836DAD]/15 bg-white p-4 text-xs text-[#2B1F42]/75">
+                                Aún no registrás sesiones finalizadas. Cuando completes una consulta con un terapeuta, aparecerá aquí para que puedas calificar de 1 a 5 estrellas y dejar tu reseña.
+                              </div>
+                            ) : (
+                              <>
+                                {finalizedConsultations.map((cons) => (
+                                  <div
+                                    key={cons.id}
+                                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#836DAD]/25 bg-white p-4 text-xs shadow-2xs"
+                                  >
+                                    <div className="space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="font-bold text-[#2B1F42] text-sm">
+                                          {cons.therapyName}
+                                        </p>
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                                          <CheckCircle2 className="h-3 w-3" />
+                                          Sesión finalizada
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-[#2B1F42]/80">
+                                        Terapeuta:{" "}
+                                        <strong className="text-[#836DAD]">
+                                          {cons.therapistName ||
+                                            `@${cons.therapistNickname}`}
+                                        </strong>{" "}
+                                        (@{cons.therapistNickname}) ↔ Consultante:{" "}
+                                        <strong>{cons.consultanteName}</strong>
+                                      </p>
+                                      <p className="text-[11px] text-[#2B1F42]/65">
+                                        Modalidad: {cons.modality} · Fecha y hora:{" "}
+                                        {cons.scheduledAt}
+                                      </p>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setActiveSection("Mi Red Social")
+                                        }
+                                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-bold text-white shadow-2xs transition hover:bg-[#6F599B]"
+                                      >
+                                        <Sparkles className="h-3.5 w-3.5 text-[#F3D791]" />
+                                        <span>
+                                          {cons.reviewed
+                                            ? "Ver reseña en Mi Red Social"
+                                            : "Calificar (1 a 5 ★) en Mi Red Social"}
+                                        </span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {finalizedTxs.map((tx) => (
+                                  <div
+                                    key={tx.id}
+                                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#836DAD]/25 bg-white p-4 text-xs shadow-2xs"
+                                  >
+                                    <div className="space-y-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="font-bold text-[#2B1F42] text-sm">
+                                          {tx.therapyName}
+                                        </p>
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                                          <CheckCircle2 className="h-3 w-3" />
+                                          Sesión finalizada
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-[#2B1F42]/80">
+                                        Terapeuta:{" "}
+                                        <strong className="text-[#836DAD]">
+                                          {tx.therapistName}
+                                        </strong>{" "}
+                                        ↔ Consultante:{" "}
+                                        <strong>{tx.consultanteName}</strong>
+                                      </p>
+                                      <p className="text-[11px] text-[#2B1F42]/65">
+                                        {
+                                          ATTENTION_MODALITY_LABELS[
+                                            tx.attentionModality
+                                          ]
+                                        }{" "}
+                                        · {BOOKING_TIMING_LABELS[tx.bookingTiming]} (
+                                        {tx.scheduledSlotLabel})
+                                      </p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="font-extrabold text-[#836DAD]">
+                                        {formatArs(tx.sessionPriceArs)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </>
+                            )}
                           </div>
-                        ))}
+                        )}
+
+                        {/* OPCIÓN 2: SESIONES PROGRAMADAS */}
+                        {consultasSubTab === "programadas" && (
+                          <div className="space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#836DAD]/20 bg-white px-4 py-3">
+                              <span className="text-xs font-semibold text-[#2B1F42]">
+                                Videollamada privada 1:1 integrada (sin exponer WhatsApp ni correo personal)
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const myFullName =
+                                    `${activeUserProfile.nombre} ${activeUserProfile.apellido}`.trim() ||
+                                    activeUserProfile.nombre ||
+                                    myNick;
+                                  const isTherapistRole =
+                                    selectedRole === "Terapeuta";
+                                  setActiveConsultasVideoRoom({
+                                    sessionId: `daily-direct-${myNick}-${new Date()
+                                      .toISOString()
+                                      .slice(0, 10)}`,
+                                    therapistName: isTherapistRole
+                                      ? myFullName
+                                      : "Valeria Méndez",
+                                    therapistNickname: isTherapistRole
+                                      ? myNick
+                                      : "valeriamendez",
+                                    consultanteName: isTherapistRole
+                                      ? "Consultante en Sala"
+                                      : myFullName,
+                                    consultanteEmail: activeUserProfile.email,
+                                    consultanteNickname: myNick,
+                                    therapyName:
+                                      (activeSelections && activeSelections[0]) ||
+                                      "Sesión Online Reiki",
+                                    modalityLabel: "Online ahora",
+                                    scheduledSlotLabel: "Sala activa · 1 hora",
+                                  });
+                                }}
+                                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#6D5898]"
+                              >
+                                <Video className="h-3.5 w-3.5 text-[#F3D791]" />
+                                Abrir Sala de Videollamada Daily.co
+                              </button>
+                            </div>
+
+                            {totalProgramadas === 0 ? (
+                              <div className="rounded-xl border border-[#836DAD]/15 bg-white p-4 text-xs text-[#2B1F42]/75">
+                                Aún no tenés sesiones programadas pendientes. Podés seleccionar una terapia o terapeuta para agendar con turno (de 1 hora exacta) o conectar en <strong>Online ahora</strong>.
+                              </div>
+                            ) : (
+                              <div className="space-y-2.5">
+                                {scheduledConsultations.map((cons) => {
+                                  const isOnlineModality =
+                                    cons.modality === "Online con turno" ||
+                                    cons.modality === "Online ahora";
+                                  return (
+                                    <div
+                                      key={cons.id}
+                                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#836DAD]/25 bg-white p-4 text-xs shadow-2xs"
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <p className="font-bold text-[#2B1F42] text-sm">
+                                            {cons.therapyName}
+                                          </p>
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791]/60 px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                                            <CalendarClock className="h-3 w-3 text-[#836DAD]" />
+                                            Sesión programada
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-[#2B1F42]/80">
+                                          Terapeuta:{" "}
+                                          <strong className="text-[#836DAD]">
+                                            {cons.therapistName ||
+                                              `@${cons.therapistNickname}`}
+                                          </strong>{" "}
+                                          (@{cons.therapistNickname}) ↔ Consultante:{" "}
+                                          <strong>{cons.consultanteName}</strong>
+                                        </p>
+                                        <p className="text-[11px] text-[#2B1F42]/65">
+                                          Modalidad: {cons.modality} · Turno programado:{" "}
+                                          <strong>{cons.scheduledAt}</strong> (1 hora)
+                                        </p>
+                                      </div>
+
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        {isOnlineModality && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setActiveConsultasVideoRoom({
+                                                sessionId: cons.id,
+                                                therapistName:
+                                                  cons.therapistName ||
+                                                  `@${cons.therapistNickname}`,
+                                                therapistNickname:
+                                                  cons.therapistNickname,
+                                                consultanteName:
+                                                  cons.consultanteName,
+                                                consultanteEmail:
+                                                  cons.consultanteEmail,
+                                                consultanteNickname:
+                                                  cons.consultanteNickname ||
+                                                  sanitizeNickname(
+                                                    cons.consultanteName
+                                                  ),
+                                                therapyName: cons.therapyName,
+                                                modalityLabel: cons.modality as
+                                                  | "Online con turno"
+                                                  | "Online ahora",
+                                                scheduledSlotLabel:
+                                                  cons.scheduledAt ||
+                                                  "1 hora (Daily.co)",
+                                              })
+                                            }
+                                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#6D5898]"
+                                          >
+                                            <Video className="h-3.5 w-3.5 text-[#F3D791]" />
+                                            Ingresar a Videollamada
+                                          </button>
+                                        )}
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const updated = allConsultations.map(
+                                              (item) =>
+                                                item.id === cons.id
+                                                  ? {
+                                                      ...item,
+                                                      status:
+                                                        "efectuada" as const,
+                                                    }
+                                                  : item
+                                            );
+                                            saveConsultations(updated);
+                                            setConsultasRefreshKey(
+                                              (prev) => prev + 1
+                                            );
+                                            setConsultasSubTab("finalizadas");
+                                          }}
+                                          className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-3 py-1.5 text-xs font-bold text-[#836DAD] hover:bg-[#836DAD] hover:text-white transition"
+                                        >
+                                          <CheckCircle2 className="h-3.5 w-3.5" />
+                                          Marcar como finalizada
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+
+                                {scheduledTxs.map((tx) => {
+                                  const isOnlineVideo =
+                                    tx.attentionModality ===
+                                    "distancia_con_video";
+                                  return (
+                                    <div
+                                      key={tx.id}
+                                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#836DAD]/25 bg-white p-4 text-xs shadow-2xs"
+                                    >
+                                      <div className="space-y-1">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <p className="font-bold text-[#2B1F42] text-sm">
+                                            {tx.therapyName}
+                                          </p>
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791]/60 px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                                            <CalendarClock className="h-3 w-3 text-[#836DAD]" />
+                                            Sesión programada
+                                          </span>
+                                        </div>
+                                        <p className="text-xs text-[#2B1F42]/80">
+                                          Terapeuta:{" "}
+                                          <strong className="text-[#836DAD]">
+                                            {tx.therapistName}
+                                          </strong>{" "}
+                                          ↔ Consultante:{" "}
+                                          <strong>{tx.consultanteName}</strong>
+                                        </p>
+                                        <p className="text-[11px] text-[#2B1F42]/65">
+                                          {
+                                            ATTENTION_MODALITY_LABELS[
+                                              tx.attentionModality
+                                            ]
+                                          }{" "}
+                                          ·{" "}
+                                          {
+                                            BOOKING_TIMING_LABELS[
+                                              tx.bookingTiming
+                                            ]
+                                          }{" "}
+                                          ({tx.scheduledSlotLabel})
+                                        </p>
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-2.5">
+                                        {isOnlineVideo && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setActiveConsultasVideoRoom({
+                                                sessionId: `tx-${tx.id}`,
+                                                therapistName: tx.therapistName,
+                                                therapistNickname:
+                                                  tx.therapistNickname,
+                                                consultanteName:
+                                                  tx.consultanteName,
+                                                consultanteEmail:
+                                                  tx.consultanteEmail,
+                                                consultanteNickname:
+                                                  sanitizeNickname(
+                                                    tx.consultanteName
+                                                  ),
+                                                therapyName: tx.therapyName,
+                                                modalityLabel:
+                                                  tx.bookingTiming ===
+                                                  "inmediata"
+                                                    ? "Online ahora"
+                                                    : "Online con turno",
+                                                scheduledSlotLabel:
+                                                  tx.scheduledSlotLabel,
+                                              })
+                                            }
+                                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#6D5898]"
+                                          >
+                                            <Video className="h-3.5 w-3.5 text-[#F3D791]" />
+                                            Ingresar a Videollamada
+                                          </button>
+                                        )}
+                                        <div className="text-right">
+                                          <p className="font-extrabold text-[#836DAD]">
+                                            {formatArs(tx.sessionPriceArs)}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
+
+                  {activeConsultasVideoRoom && (
+                    <DailyVideoCallModal
+                      isOpen={true}
+                      onClose={() => setActiveConsultasVideoRoom(null)}
+                      sessionId={activeConsultasVideoRoom.sessionId}
+                      viewerRole={selectedRole || "Consultante"}
+                      therapistName={activeConsultasVideoRoom.therapistName}
+                      therapistNickname={
+                        activeConsultasVideoRoom.therapistNickname
+                      }
+                      consultanteName={activeConsultasVideoRoom.consultanteName}
+                      consultanteEmail={
+                        activeConsultasVideoRoom.consultanteEmail
+                      }
+                      therapyName={activeConsultasVideoRoom.therapyName}
+                      modality={activeConsultasVideoRoom.modalityLabel}
+                      scheduledSlotLabel={
+                        activeConsultasVideoRoom.scheduledSlotLabel
+                      }
+                    />
+                  )}
                 </div>
               )}
 

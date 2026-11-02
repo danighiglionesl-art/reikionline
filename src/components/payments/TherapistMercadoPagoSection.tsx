@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import {
   appendIntegrationError,
+  AttentionModality,
+  BookingTimingType,
   calculateSplitAmounts,
   formatArs,
   loadCommissionConfig,
@@ -22,6 +24,7 @@ import {
   loadMpTransactions,
   MP_SYNC_EVENT,
   resolveApplicableCommission,
+  resolveTherapySessionPrice,
   saveMpAccounts,
   SplitPaymentTransaction,
   TherapistMercadoPagoAccount,
@@ -30,10 +33,20 @@ import { ReikiUserProfile, sanitizeNickname } from "@/lib/geoData";
 
 interface TherapistMercadoPagoSectionProps {
   profile: ReikiUserProfile;
+  offeredTherapies?: string[];
 }
+
+const SELECTIONS_STORAGE_KEY = "reiki_online_role_selections_v1";
+const CATALOG_SYNC_EVENT = "reiki-online-catalog-sync";
+const DEFAULT_FALLBACK_THERAPIES = [
+  "Reiki Usui",
+  "Alineación de chakras",
+  "Armonización energética",
+];
 
 export default function TherapistMercadoPagoSection({
   profile,
+  offeredTherapies,
 }: TherapistMercadoPagoSectionProps) {
   const cleanNick = useMemo(
     () =>
@@ -55,7 +68,16 @@ export default function TherapistMercadoPagoSection({
   const [transactions, setTransactions] = useState<SplitPaymentTransaction[]>(
     []
   );
+  const [storedTherapies, setStoredTherapies] = useState<string[]>([]);
   const [sessionPriceInput, setSessionPriceInput] = useState<string>("30000");
+  const [therapyPriceInputs, setTherapyPriceInputs] = useState<
+    Record<string, string>
+  >({});
+  const [selectedPreviewTherapy, setSelectedPreviewTherapy] =
+    useState<string>("");
+  const [previewModalityMode, setPreviewModalityMode] = useState<
+    "presencial" | "virtual_turno" | "virtual_ahora"
+  >("virtual_turno");
   const [kycConfirmed, setKycConfirmed] = useState<boolean>(true);
   const [processorFeeAccepted, setProcessorFeeAccepted] =
     useState<boolean>(true);
@@ -66,12 +88,51 @@ export default function TherapistMercadoPagoSection({
     text: string;
   } | null>(null);
 
+  const activeTherapies = useMemo(() => {
+    if (offeredTherapies && offeredTherapies.length > 0) {
+      return offeredTherapies;
+    }
+    if (storedTherapies.length > 0) {
+      return storedTherapies;
+    }
+    return DEFAULT_FALLBACK_THERAPIES;
+  }, [offeredTherapies, storedTherapies]);
+
   const syncData = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const rawSel = window.localStorage.getItem(SELECTIONS_STORAGE_KEY);
+        if (rawSel) {
+          const parsedSel = JSON.parse(rawSel) as {
+            terapeuta?: string[];
+          };
+          if (Array.isArray(parsedSel.terapeuta)) {
+            setStoredTherapies(parsedSel.terapeuta);
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
     const loadedAcc = loadMpAccounts();
     setAccountsMap(loadedAcc);
     const existing = loadedAcc[profile.id] || loadedAcc[cleanNick];
     if (existing) {
-      setSessionPriceInput(String(existing.sessionPriceArs || 30000));
+      const basePrice = existing.sessionPriceArs || 30000;
+      setSessionPriceInput(String(basePrice));
+      const nextInputs: Record<string, string> = {};
+      if (existing.therapyPricesArs) {
+        for (const [thName, val] of Object.entries(existing.therapyPricesArs)) {
+          if (typeof val === "number" && val > 0) {
+            nextInputs[thName] = String(val);
+          }
+        }
+      }
+      setTherapyPriceInputs((prev) => ({
+        ...prev,
+        ...nextInputs,
+      }));
       setKycConfirmed(existing.kycVerified);
       setProcessorFeeAccepted(existing.processorFeeAccepted);
     }
@@ -83,12 +144,24 @@ export default function TherapistMercadoPagoSection({
     if (typeof window === "undefined") return;
     const handler = () => syncData();
     window.addEventListener(MP_SYNC_EVENT, handler);
+    window.addEventListener(CATALOG_SYNC_EVENT, handler);
     window.addEventListener("storage", handler);
     return () => {
       window.removeEventListener(MP_SYNC_EVENT, handler);
+      window.removeEventListener(CATALOG_SYNC_EVENT, handler);
       window.removeEventListener("storage", handler);
     };
   }, [profile.id, cleanNick]);
+
+  useEffect(() => {
+    if (
+      activeTherapies.length > 0 &&
+      (!selectedPreviewTherapy ||
+        !activeTherapies.includes(selectedPreviewTherapy))
+    ) {
+      setSelectedPreviewTherapy(activeTherapies[0]);
+    }
+  }, [activeTherapies, selectedPreviewTherapy]);
 
   const currentAccount: TherapistMercadoPagoAccount = useMemo(() => {
     const found = accountsMap[profile.id] || accountsMap[cleanNick];
@@ -121,19 +194,65 @@ export default function TherapistMercadoPagoSection({
   }, [transactions, profile.id, cleanNick]);
 
   const commissionConfig = useMemo(() => loadCommissionConfig(), [accountsMap]);
+
+  const previewAttentionModality: AttentionModality =
+    previewModalityMode === "presencial"
+      ? "presencial"
+      : "distancia_con_video";
+  const previewBookingTiming: BookingTimingType =
+    previewModalityMode === "virtual_ahora" ? "inmediata" : "con_turno";
+
   const sampleSnapshot = useMemo(
     () =>
       resolveApplicableCommission(
         commissionConfig,
-        "distancia_con_video",
-        "con_turno",
+        previewAttentionModality,
+        previewBookingTiming,
         profile.id,
         cleanNick
       ),
-    [commissionConfig, profile.id, cleanNick]
+    [
+      commissionConfig,
+      previewAttentionModality,
+      previewBookingTiming,
+      profile.id,
+      cleanNick,
+    ]
   );
 
-  const numericPrice = Math.max(0, Number(sessionPriceInput) || 30000);
+  const baseFallbackPrice = Math.max(0, Number(sessionPriceInput) || 30000);
+
+  const resolvedTherapyPricesMap = useMemo(() => {
+    const map: Record<string, number> = {
+      ...(currentAccount.therapyPricesArs || {}),
+    };
+    for (const th of activeTherapies) {
+      const rawInput = therapyPriceInputs[th];
+      if (rawInput !== undefined && rawInput.trim() !== "") {
+        const parsed = Math.max(0, Number(rawInput) || baseFallbackPrice);
+        map[th] = parsed;
+      } else if (typeof map[th] === "number" && map[th] > 0) {
+        // conservar valor guardado
+      } else {
+        map[th] = baseFallbackPrice;
+      }
+    }
+    return map;
+  }, [
+    currentAccount.therapyPricesArs,
+    activeTherapies,
+    therapyPriceInputs,
+    baseFallbackPrice,
+  ]);
+
+  const activeTherapyForPreview =
+    selectedPreviewTherapy && activeTherapies.includes(selectedPreviewTherapy)
+      ? selectedPreviewTherapy
+      : activeTherapies[0] || "Reiki Usui";
+
+  const numericPrice =
+    resolvedTherapyPricesMap[activeTherapyForPreview] || baseFallbackPrice;
+
   const splitPreview = useMemo(
     () =>
       calculateSplitAmounts(numericPrice, sampleSnapshot.appliedPercentage),
@@ -186,6 +305,7 @@ export default function TherapistMercadoPagoSection({
         kycVerified: true,
         processorFeeAccepted: true,
         sessionPriceArs: numericPrice,
+        therapyPricesArs: resolvedTherapyPricesMap,
         tokenStatus: "active",
         tokenExpiresAt: data.tokenExpiresAt,
         linkedAt: data.linkedAt,
@@ -290,6 +410,7 @@ export default function TherapistMercadoPagoSection({
         kycVerified: true,
         processorFeeAccepted: true,
         sessionPriceArs: numericPrice,
+        therapyPricesArs: resolvedTherapyPricesMap,
         tokenStatus: "active",
         tokenExpiresAt: data.tokenExpiresAt,
         lastRefreshedAt: data.lastRefreshedAt,
@@ -361,10 +482,14 @@ export default function TherapistMercadoPagoSection({
     }
   };
 
-  const handleSaveSessionPrice = () => {
+  const handleSaveSessionPrice = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const firstTherapyPrice =
+      resolvedTherapyPricesMap[activeTherapies[0]] || numericPrice;
     const updated: TherapistMercadoPagoAccount = {
       ...currentAccount,
-      sessionPriceArs: numericPrice,
+      sessionPriceArs: firstTherapyPrice,
+      therapyPricesArs: resolvedTherapyPricesMap,
       kycVerified: kycConfirmed,
       processorFeeAccepted,
     };
@@ -377,7 +502,9 @@ export default function TherapistMercadoPagoSection({
     saveMpAccounts(nextMap);
     setStatusMessage({
       type: "ok",
-      text: `Precio de sesión actualizado a ${formatArs(numericPrice)}.`,
+      text: `Precios por terapia actualizados (${activeTherapies.length} ${
+        activeTherapies.length === 1 ? "terapia tildada" : "terapias tildadas"
+      }). Recordá que el valor de cada sesión es el mismo sea presencial, virtual con turno o virtual ahora.`,
     });
   };
 
@@ -441,88 +568,220 @@ export default function TherapistMercadoPagoSection({
         </div>
       )}
 
-      {/* Precio de sesión definido por el Terapeuta + Simulación en vivo del Split 1:1 (Punto 5) */}
+      {/* Precio total de tu sesión por cada Terapia tildada + Simulación en vivo del Split 1:1 */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA] p-4">
-        <div className="lg:col-span-5 space-y-2">
-          <label
-            htmlFor="ro-mp-session-price"
-            className="block text-xs font-bold text-[#2B1F42]"
-          >
-            Precio total de tu sesión (ARS) *
-          </label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-xs font-bold text-[#836DAD]">
-                $
+        <form
+          onSubmit={handleSaveSessionPrice}
+          className="lg:col-span-6 space-y-3"
+        >
+          <fieldset className="space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <legend className="text-xs font-bold text-[#2B1F42]">
+                Precio total de tu sesión (ARS) * — Según tus Terapias tildadas
+              </legend>
+              <span className="rounded-full bg-[#836DAD]/15 px-2.5 py-0.5 text-[10px] font-bold text-[#836DAD]">
+                {activeTherapies.length}{" "}
+                {activeTherapies.length === 1
+                  ? "terapia tildada"
+                  : "terapias tildadas"}
               </span>
-              <input
-                id="ro-mp-session-price"
-                type="number"
-                min={1000}
-                step={500}
-                value={sessionPriceInput}
-                onChange={(e) => setSessionPriceInput(e.target.value)}
-                className="w-full rounded-xl border border-[#836DAD]/30 bg-white py-2 pr-3 pl-7 text-sm font-bold text-[#2B1F42] focus:border-[#836DAD] focus:outline-none"
-              />
             </div>
-            <button
-              type="button"
-              onClick={handleSaveSessionPrice}
-              className="cursor-pointer rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#6F599B]"
+
+            <p
+              id="ro-mp-therapy-price-help"
+              className="text-[11px] leading-snug text-[#2B1F42]/75"
             >
-              Guardar precio
+              Podés asignar un precio distinto a cada terapia tildada en tu
+              listado.{" "}
+              <strong>
+                El valor de la sesión de cada terapia es el mismo sea
+                presencial, virtual con turno o virtual ahora
+              </strong>{" "}
+              (lo que cambia en cada caso son las comisiones).
+            </p>
+
+            <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+              {activeTherapies.map((therapyName, idx) => {
+                const inputId = `ro-mp-price-therapy-${idx}`;
+                const currentVal =
+                  therapyPriceInputs[therapyName] !== undefined
+                    ? therapyPriceInputs[therapyName]
+                    : String(
+                        resolvedTherapyPricesMap[therapyName] ||
+                          baseFallbackPrice
+                      );
+                const isSelectedPreview =
+                  activeTherapyForPreview === therapyName;
+
+                return (
+                  <div
+                    key={therapyName}
+                    onClick={() => setSelectedPreviewTherapy(therapyName)}
+                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border p-2.5 transition-colors cursor-pointer ${
+                      isSelectedPreview
+                        ? "border-[#836DAD] bg-white shadow-2xs"
+                        : "border-[#836DAD]/20 bg-white/75 hover:border-[#836DAD]/50"
+                    }`}
+                  >
+                    <label
+                      htmlFor={inputId}
+                      className="flex items-center gap-2 text-xs font-bold text-[#2B1F42] cursor-pointer"
+                    >
+                      <span
+                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                          isSelectedPreview
+                            ? "bg-[#836DAD] text-[#F3D791]"
+                            : "bg-[#F6F3FA] text-[#836DAD]"
+                        }`}
+                      >
+                        ✓
+                      </span>
+                      <span className="leading-snug">{therapyName}</span>
+                    </label>
+
+                    <div className="relative w-full sm:w-40 shrink-0">
+                      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-xs font-bold text-[#836DAD]">
+                        $
+                      </span>
+                      <input
+                        id={inputId}
+                        name={`therapy_price_${idx}`}
+                        type="number"
+                        inputMode="numeric"
+                        enterKeyHint="done"
+                        min={1000}
+                        step={500}
+                        required
+                        aria-describedby="ro-mp-therapy-price-help"
+                        value={currentVal}
+                        onFocus={() => setSelectedPreviewTherapy(therapyName)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTherapyPriceInputs((prev) => ({
+                            ...prev,
+                            [therapyName]: val,
+                          }));
+                          if (idx === 0) {
+                            setSessionPriceInput(val);
+                          }
+                        }}
+                        className="w-full rounded-xl border border-[#836DAD]/30 bg-white py-1.5 pr-3 pl-7 text-sm font-bold text-[#2B1F42] focus:border-[#836DAD] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+            <span className="text-[11px] text-[#2B1F42]/70">
+              Tocá cualquier terapia de la lista para ver su desglose a la
+              derecha.
+            </span>
+            <button
+              type="submit"
+              className="cursor-pointer rounded-xl bg-[#836DAD] px-4 py-2 text-xs font-semibold text-white shadow-2xs hover:bg-[#6F599B]"
+            >
+              Guardar precios
             </button>
           </div>
-          <p className="text-[11px] text-[#2B1F42]/70">
-            El consultante realiza un único pago y Mercado Pago separa
-            automáticamente tu participación y la comisión de Reiki Online.
-          </p>
-        </div>
+        </form>
 
-        <div className="lg:col-span-7 rounded-xl border border-[#836DAD]/20 bg-white p-3.5 space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold text-[#836DAD]">
-            <span className="inline-flex items-center gap-1.5">
-              <Calculator className="h-3.5 w-3.5" />
-              Distribución automática Split 1:1 (Ejemplo sobre tu tarifa)
-            </span>
-            <span>
-              {sampleSnapshot.appliedPercentage}% Reiki Online /{" "}
-              {sampleSnapshot.therapistSharePercentage}% Terapeuta
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-lg bg-[#F6F3FA] p-2">
-              <span className="block text-[10px] font-semibold uppercase text-[#2B1F42]/70">
-                Precio de sesión
+        <div className="lg:col-span-6 rounded-xl border border-[#836DAD]/20 bg-white p-3.5 space-y-2.5 flex flex-col justify-between">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs font-bold text-[#836DAD]">
+              <span className="inline-flex items-center gap-1.5">
+                <Calculator className="h-3.5 w-3.5" />
+                Distribución automática Split 1:1 (Información interna)
               </span>
-              <span className="text-sm font-bold text-[#2B1F42]">
-                {formatArs(splitPreview.sessionPriceArs)}
+              <span>
+                {sampleSnapshot.appliedPercentage}% Reiki Online /{" "}
+                {sampleSnapshot.therapistSharePercentage}% Terapeuta
               </span>
             </div>
-            <div className="rounded-lg bg-[#F6F3FA] p-2">
-              <span className="block text-[10px] font-semibold uppercase text-[#2B1F42]/70">
-                Comisión Reiki ({sampleSnapshot.appliedPercentage}%)
+
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#FAF8FC] px-2.5 py-1.5 border border-[#836DAD]/15">
+              <span className="text-[11px] font-semibold text-[#2B1F42]">
+                Terapia:{" "}
+                <strong className="text-[#836DAD]">
+                  {activeTherapyForPreview}
+                </strong>
               </span>
-              <span className="text-sm font-bold text-[#836DAD]">
-                {formatArs(splitPreview.marketplaceFeeArs)}
-              </span>
+              <div
+                className="inline-flex rounded-lg border border-[#836DAD]/25 bg-white p-0.5 text-[10px] font-bold"
+                role="group"
+                aria-label="Simular modalidad para ver comisión"
+              >
+                {(
+                  [
+                    { key: "presencial" as const, label: "Presencial" },
+                    { key: "virtual_turno" as const, label: "Virtual turno" },
+                    { key: "virtual_ahora" as const, label: "Virtual ahora" },
+                  ] as const
+                ).map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setPreviewModalityMode(m.key)}
+                    className={`cursor-pointer rounded-md px-2 py-1 transition-colors ${
+                      previewModalityMode === m.key
+                        ? "bg-[#836DAD] text-white"
+                        : "text-[#2B1F42]/75 hover:bg-[#F6F3FA]"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="rounded-lg bg-[#F3D791]/35 p-2">
-              <span className="block text-[10px] font-semibold uppercase text-[#2B1F42]/80">
-                Participación bruta ({sampleSnapshot.therapistSharePercentage}%)
-              </span>
-              <span className="text-sm font-bold text-[#2B1F42]">
-                {formatArs(splitPreview.therapistGrossShareArs)}
-              </span>
+
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-lg bg-[#F6F3FA] p-2">
+                <span className="block text-[10px] font-semibold uppercase text-[#2B1F42]/70">
+                  Precio de sesión
+                </span>
+                <span className="text-sm font-bold text-[#2B1F42]">
+                  {formatArs(splitPreview.sessionPriceArs)}
+                </span>
+                <span className="block text-[9px] font-medium text-[#836DAD]">
+                  Igual en las 3 modalidades
+                </span>
+              </div>
+              <div className="rounded-lg bg-[#F6F3FA] p-2">
+                <span className="block text-[10px] font-semibold uppercase text-[#2B1F42]/70">
+                  Comisión Reiki ({sampleSnapshot.appliedPercentage}%)
+                </span>
+                <span className="text-sm font-bold text-[#836DAD]">
+                  {formatArs(splitPreview.marketplaceFeeArs)}
+                </span>
+                <span className="block text-[9px] font-medium text-[#2B1F42]/60">
+                  Según modalidad
+                </span>
+              </div>
+              <div className="rounded-lg bg-[#F3D791]/35 p-2">
+                <span className="block text-[10px] font-semibold uppercase text-[#2B1F42]/80">
+                  Participación bruta ({sampleSnapshot.therapistSharePercentage}
+                  %)
+                </span>
+                <span className="text-sm font-bold text-[#2B1F42]">
+                  {formatArs(splitPreview.therapistGrossShareArs)}
+                </span>
+                <span className="block text-[9px] font-medium text-[#2B1F42]/70">
+                  Tu ingreso bruto
+                </span>
+              </div>
             </div>
           </div>
 
           <p className="text-[11px] text-[#2B1F42]/75">
-            Participación bruta del terapeuta:{" "}
+            Participación bruta del terapeuta en{" "}
+            <strong>{activeTherapyForPreview}</strong>:{" "}
             <strong>{formatArs(splitPreview.therapistGrossShareArs)}</strong>,
             antes de costos del procesador Mercado Pago (est.{" "}
-            {formatArs(splitPreview.mpProcessorFeeArs)}) e impuestos.
+            {formatArs(splitPreview.mpProcessorFeeArs)}) e impuestos. El valor de
+            la sesión ({formatArs(splitPreview.sessionPriceArs)}) se mantiene
+            fijo sea presencial, virtual con turno o virtual ahora.
           </p>
         </div>
       </div>
@@ -554,7 +813,15 @@ export default function TherapistMercadoPagoSection({
             Acepto que, por defecto, el{" "}
             <strong>costo de procesamiento de Mercado Pago e impuestos</strong>{" "}
             aplicables son soportados por la cuenta del terapeuta conforme al
-            funcionamiento documentado del Split 1:1.
+            funcionamiento documentado del Split 1:1. Asimismo, acepto que si el{" "}
+            <strong>consultante desiste de la sesión</strong> se reprogramará en
+            mis turnos habilitados, y que en caso de que{" "}
+            <strong>yo como terapeuta cancele la reunión</strong> deberé{" "}
+            <strong>
+              devolver el dinero al consultante sin descontar la comisión de
+              Reiki Online, la cual quedará firme
+            </strong>
+            .
           </span>
         </label>
       </div>

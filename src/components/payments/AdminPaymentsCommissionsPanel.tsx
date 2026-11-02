@@ -491,6 +491,8 @@ export default function AdminPaymentsCommissionsPanel({
         }
         if (tx.status === "refunded") {
           acc.refundedTotal += tx.sessionPriceArs;
+          // La comisión de Reiki Online queda siempre firme incluso si el terapeuta cancela y devuelve el dinero al consultante
+          acc.reikiCommissionApproved += tx.marketplaceFeeArs;
         }
         if (tx.reconciliationRequired) {
           acc.pendingReconciliations += 1;
@@ -580,18 +582,36 @@ export default function AdminPaymentsCommissionsPanel({
     showNotice("Reporte contable CSV descargado correctamente.");
   };
 
-  // Clasificar categoría de cancelación / disputa sin ejecutar reembolso automático (Punto 8)
+  // Clasificar categoría de cancelación / reprogramación / disputa
   const handleUpdateCancellationCategory = (
     txId: string,
     category: CancellationCategory,
     reason: string
   ) => {
+    const nowIso = new Date().toISOString();
     const nextList = transactions.map((tx) => {
       if (tx.id !== txId) return tx;
+      if (category === "cancelacion_consultante") {
+        return {
+          ...tx,
+          cancellationCategory: category,
+          cancellationReason:
+            "Desistimiento del consultante: corresponde reprogramación en los turnos habilitados por el terapeuta (sin devolución monetaria).",
+          rescheduled: true,
+          rescheduledSlotLabel:
+            tx.rescheduledSlotLabel || "Pendiente de elegir nuevo turno habilitado del terapeuta",
+          rescheduledAt: nowIso,
+          reikiCommissionFirm: true,
+          refundRequested: false,
+          refundStatus: "rescheduled_no_refund" as const,
+          updatedAt: nowIso,
+        };
+      }
       return {
         ...tx,
         cancellationCategory: category,
         cancellationReason: reason,
+        reikiCommissionFirm: true,
         status:
           category === "disputa"
             ? ("in_dispute" as SplitPaymentStatus)
@@ -601,21 +621,65 @@ export default function AdminPaymentsCommissionsPanel({
           category !== "none" && (!tx.refundStatus || tx.refundStatus === "none")
             ? ("pending_admin" as const)
             : tx.refundStatus,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
       };
     });
     saveMpTransactions(nextList);
     setTransactions(nextList);
+    if (category === "cancelacion_consultante") {
+      showNotice(
+        `Operación ${txId}: Desistimiento del consultante registrado. La sesión pasa a REPROGRAMACIÓN en los turnos habilitados por el terapeuta (sin devolución de dinero).`
+      );
+    } else if (category === "cancelacion_terapeuta") {
+      showNotice(
+        `Operación ${txId}: Cancelación del terapeuta registrada. El terapeuta debe devolver el dinero al consultante sin descontar la comisión de Reiki Online, que queda firme.`
+      );
+    } else {
+      showNotice(
+        `Operación ${txId} clasificada como "${CANCELLATION_LABELS[category]}".`
+      );
+    }
+  };
+
+  // Reprogramar sesión en un turno habilitado por el terapeuta (cuando el consultante desiste)
+  const handleRescheduleConsultanteSlot = (txId: string, newSlotLabel: string) => {
+    const nowIso = new Date().toISOString();
+    const nextList = transactions.map((tx) =>
+      tx.id === txId
+        ? {
+            ...tx,
+            cancellationCategory: "cancelacion_consultante" as CancellationCategory,
+            scheduledSlotLabel: newSlotLabel,
+            rescheduled: true,
+            rescheduledSlotLabel: newSlotLabel,
+            rescheduledAt: nowIso,
+            sessionConfirmed: true,
+            reikiCommissionFirm: true,
+            refundRequested: false,
+            refundStatus: "rescheduled_no_refund" as const,
+            updatedAt: nowIso,
+          }
+        : tx
+    );
+    saveMpTransactions(nextList);
+    setTransactions(nextList);
     showNotice(
-      `Operación ${txId} clasificada como "${CANCELLATION_LABELS[category]}". No se ejecutó devolución automática (requiere aprobación expresa).`
+      `Sesión ${txId} reprogramada con éxito para el turno "${newSlotLabel}" habilitado por el terapeuta.`
     );
   };
 
-  // Ejecutar reembolso manual vía API compatible de Mercado Pago (contemplando saldo insuficiente)
+  // Ejecutar reembolso al consultante por cancelación del terapeuta (manteniendo firme la comisión de Reiki Online)
   const handleExecuteRefund = async (
     tx: SplitPaymentTransaction,
     simulateInsufficientBalance = false
   ) => {
+    if (tx.cancellationCategory === "cancelacion_consultante") {
+      showNotice(
+        "Política Reiki Online: Cuando el consultante desiste de la sesión no corresponde devolución de dinero; la sesión se reprograma en los turnos habilitados por el terapeuta."
+      );
+      return;
+    }
+
     try {
       const response = await fetch("/api/mp/refund", {
         method: "POST",
@@ -625,13 +689,14 @@ export default function AdminPaymentsCommissionsPanel({
           mpPaymentId: tx.mpPaymentId || `MP-PAY-${tx.id}`,
           therapistId: tx.therapistId,
           amountArs: tx.sessionPriceArs,
+          marketplaceFeeArs: tx.marketplaceFeeArs,
           cancellationCategory:
             tx.cancellationCategory === "none"
-              ? "cancelacion_consultante"
+              ? "cancelacion_terapeuta"
               : tx.cancellationCategory,
           reason:
             tx.cancellationReason ||
-            "Reembolso autorizado manualmente por el Administrador",
+            "Cancelación del terapeuta: devolución al consultante manteniendo firme la comisión de Reiki Online",
           adminUser,
           simulateInsufficientBalance,
         }),
@@ -641,17 +706,18 @@ export default function AdminPaymentsCommissionsPanel({
       if (!response.ok || data.refundStatus === "failed_insufficient_balance") {
         const errDetail =
           data.error ||
-          "Saldo disponible insuficiente en la cuenta de Mercado Pago del terapeuta para revertir el Split 1:1.";
+          "Saldo disponible insuficiente en la cuenta de Mercado Pago del terapeuta para devolver el importe al consultante.";
         const nextList = transactions.map((item) =>
           item.id === tx.id
             ? {
                 ...item,
                 refundRequested: true,
+                reikiCommissionFirm: true,
                 refundStatus: "failed_insufficient_balance" as const,
                 refundErrorDetail: errDetail,
                 reconciliationRequired: true,
                 reconciliationNote:
-                  "Falló reembolso API por saldo insuficiente en cuenta participante.",
+                  "Falló devolución del terapeuta por saldo insuficiente en su cuenta de Mercado Pago.",
                 updatedAt: new Date().toISOString(),
               }
             : item
@@ -675,6 +741,7 @@ export default function AdminPaymentsCommissionsPanel({
               ...item,
               status: "refunded" as SplitPaymentStatus,
               sessionConfirmed: false,
+              reikiCommissionFirm: true,
               refundRequested: true,
               refundStatus: "completed" as const,
               refundErrorDetail: undefined,
@@ -685,9 +752,13 @@ export default function AdminPaymentsCommissionsPanel({
       saveMpTransactions(nextList);
       setTransactions(nextList);
       showNotice(
-        `Reembolso de ${formatArs(
+        `Devolución al consultante (${formatArs(
           tx.sessionPriceArs
-        )} procesado correctamente en Mercado Pago (${data.refundId}).`
+        )}) ejecutada a cargo del terapeuta (${
+          data.refundId
+        }). La comisión de Reiki Online (${formatArs(
+          tx.marketplaceFeeArs
+        )}) quedó firme.`
       );
     } catch (err) {
       showNotice(
@@ -1854,28 +1925,24 @@ export default function AdminPaymentsCommissionsPanel({
         <div className="mt-5 space-y-4">
           <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4">
             <h4 className="text-sm font-bold text-[#2B1F42]">
-              Arquitectura de Cancelaciones, Devoluciones y Disputas
+              Política Oficial de Reservas, Reprogramaciones y Cancelaciones
             </h4>
-            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-xs text-[#2B1F42]/80">
+            <ul className="mt-1.5 list-disc space-y-1 pl-5 text-xs text-[#2B1F42]/85">
               <li>
-                Se distingue técnicamente entre:{" "}
-                <strong>Cancelación del terapeuta</strong>,{" "}
-                <strong>Cancelación del consultante</strong>,{" "}
-                <strong>Sesión no realizada</strong> y <strong>Disputas</strong>.
+                <strong>Pago confirmado al reservar:</strong> Tanto en la reserva de turnos en cualquiera de las modalidades como en la contratación inmediata, el pago debe confirmarse al momento de reservar la sesión.
               </li>
               <li>
-                No se asume que el dinero permanece retenido hasta finalizar la sesión (el Split 1:1 acredita en origen).
+                <strong>Desistimiento del consultante (`Cancelación del consultante`):</strong> La sesión <strong>se reprograma en los turnos habilitados por el terapeuta</strong> (no corresponde devolución monetaria).
               </li>
               <li>
-                <strong>Regla comercial activa:</strong> No se ejecutan devoluciones ni penalizaciones automáticas. Toda solicitud queda pendiente de revisión administrativa y, al ejecutarse mediante la API de Reembolsos de Mercado Pago, contempla posibles rechazos por{" "}
-                <strong>saldo insuficiente</strong> en las cuentas participantes.
+                <strong>Cancelación del terapeuta (`Cancelación del terapeuta`):</strong> El terapeuta <strong>debe devolver el dinero al consultante, sin descontar la comisión de Reiki Online que queda firme</strong>.
               </li>
             </ul>
           </div>
 
           {transactions.length === 0 ? (
             <p className="text-xs text-[#2B1F42]/65">
-              No hay transacciones registradas para gestionar devoluciones.
+              No hay transacciones registradas para gestionar reprogramaciones o devoluciones.
             </p>
           ) : (
             <div className="space-y-3">
@@ -1895,9 +1962,19 @@ export default function AdminPaymentsCommissionsPanel({
                         <strong>
                           {CANCELLATION_LABELS[tx.cancellationCategory]}
                         </strong>{" "}
-                        · Estado reembolso:{" "}
-                        <strong>{tx.refundStatus || "none"}</strong>
+                        · Turno: <strong>{tx.scheduledSlotLabel}</strong>
                       </p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-[#836DAD]">
+                        🔒 Comisión Reiki Online Firme:{" "}
+                        <strong>{formatArs(tx.marketplaceFeeArs)}</strong> (
+                        {tx.commissionSnapshot.appliedPercentage}% inalterable)
+                      </p>
+                      {tx.rescheduled && (
+                        <p className="mt-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+                          📅 Reprogramada en turnos del terapeuta:{" "}
+                          {tx.rescheduledSlotLabel || tx.scheduledSlotLabel}
+                        </p>
+                      )}
                       {tx.refundErrorDetail && (
                         <p className="mt-1 rounded-lg bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">
                           ⚠ Error API Reembolso: {tx.refundErrorDetail}
@@ -1918,11 +1995,11 @@ export default function AdminPaymentsCommissionsPanel({
                         className="rounded-xl border border-[#836DAD]/30 bg-[#F6F3FA] px-2.5 py-1.5 text-xs font-semibold text-[#2B1F42]"
                       >
                         <option value="none">Sin cancelación</option>
-                        <option value="cancelacion_terapeuta">
-                          Cancelación del terapeuta
-                        </option>
                         <option value="cancelacion_consultante">
-                          Cancelación del consultante
+                          Desistimiento del consultante (Reprogramar)
+                        </option>
+                        <option value="cancelacion_terapeuta">
+                          Cancelación del terapeuta (Devolver al consultante)
                         </option>
                         <option value="sesion_no_realizada">
                           Sesión no realizada
@@ -1930,24 +2007,56 @@ export default function AdminPaymentsCommissionsPanel({
                         <option value="disputa">Disputa abierta</option>
                       </select>
 
-                      {tx.status !== "refunded" && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleExecuteRefund(tx, false)}
-                            className="rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#6D5898]"
-                          >
-                            Ejecutar Devolución API
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleExecuteRefund(tx, true)}
-                            className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
-                            title="Simula que la cuenta del terapeuta ya retiró los fondos y no tiene saldo suficiente para revertir el Split"
-                          >
-                            Simular Saldo Insuficiente
-                          </button>
-                        </>
+                      {tx.cancellationCategory === "cancelacion_consultante" ? (
+                        <select
+                          defaultValue=""
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              handleRescheduleConsultanteSlot(
+                                tx.id,
+                                e.target.value
+                              );
+                            }
+                          }}
+                          className="rounded-xl border border-emerald-400 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-900"
+                        >
+                          <option value="" disabled>
+                            📅 Elegir nuevo turno del terapeuta...
+                          </option>
+                          <option value="Lunes · 10:00 a 11:00 hs (Reprogramado)">
+                            Lunes · 10:00 a 11:00 hs
+                          </option>
+                          <option value="Martes · 15:00 a 16:00 hs (Reprogramado)">
+                            Martes · 15:00 a 16:00 hs
+                          </option>
+                          <option value="Jueves · 18:00 a 19:00 hs (Reprogramado)">
+                            Jueves · 18:00 a 19:00 hs
+                          </option>
+                          <option value="Viernes · 11:00 a 12:00 hs (Reprogramado)">
+                            Viernes · 11:00 a 12:00 hs
+                          </option>
+                        </select>
+                      ) : (
+                        tx.status !== "refunded" && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleExecuteRefund(tx, false)}
+                              className="rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#6D5898]"
+                              title="El terapeuta devuelve el total al consultante y la comisión de Reiki Online queda firme"
+                            >
+                              Devolver al Consultante (Comisión Reiki Firme)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleExecuteRefund(tx, true)}
+                              className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
+                              title="Simula que la cuenta del terapeuta ya retiró los fondos y no tiene saldo suficiente"
+                            >
+                              Simular Saldo Insuficiente
+                            </button>
+                          </>
+                        )
                       )}
                     </div>
                   </div>

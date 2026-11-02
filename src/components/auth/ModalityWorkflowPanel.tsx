@@ -20,6 +20,7 @@ import {
   Search,
   Maximize2,
   ExternalLink,
+  Video,
 } from "lucide-react";
 import {
   PROVINCIAS_ARGENTINA,
@@ -43,6 +44,7 @@ import {
   loadMpAccounts,
   MP_SYNC_EVENT,
 } from "@/lib/mercadoPagoSplit";
+import DailyVideoCallModal from "@/components/video/DailyVideoCallModal";
 import ConsultanteCheckoutModal from "@/components/payments/ConsultanteCheckoutModal";
 import TherapistMercadoPagoSection from "@/components/payments/TherapistMercadoPagoSection";
 
@@ -288,6 +290,27 @@ export default function ModalityWorkflowPanel({
     attentionModality: AttentionModality;
     scheduledSlotLabel: string;
     slotKey: string;
+  } | null>(null);
+
+  const [videoSessionTarget, setVideoSessionTarget] = useState<{
+    sessionId: string;
+    therapyName: string;
+    modality: "Online con turno" | "Online ahora";
+    scheduledSlotLabel: string;
+    therapistName: string;
+    therapistNickname: string;
+    consultanteName: string;
+    consultanteEmail: string;
+  } | null>(null);
+  const [lastBookedVideoSession, setLastBookedVideoSession] = useState<{
+    sessionId: string;
+    therapyName: string;
+    modality: "Online con turno" | "Online ahora";
+    scheduledSlotLabel: string;
+    therapistName: string;
+    therapistNickname: string;
+    consultanteName: string;
+    consultanteEmail: string;
   } | null>(null);
 
   useEffect(() => {
@@ -1104,9 +1127,21 @@ export default function ModalityWorkflowPanel({
         </div>
 
         {bookingNotice && (
-          <div className="flex items-center gap-2 rounded-xl border border-[#836DAD] bg-white px-4 py-3 text-xs font-semibold text-[#836DAD]">
-            <CheckCircle2 className="h-4 w-4 shrink-0" />
-            <span>{bookingNotice}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#836DAD] bg-white px-4 py-3 text-xs font-semibold text-[#836DAD]">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{bookingNotice}</span>
+            </div>
+            {lastBookedVideoSession && (
+              <button
+                type="button"
+                onClick={() => setVideoSessionTarget(lastBookedVideoSession)}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#6F599B] transition"
+              >
+                <Video className="h-3.5 w-3.5 text-[#F3D791]" />
+                <span>Ingresar a Videollamada Daily.co</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -1386,6 +1421,19 @@ export default function ModalityWorkflowPanel({
             scheduledSlotLabel={checkoutTarget.scheduledSlotLabel}
             slotKey={checkoutTarget.slotKey}
             onPaymentConfirmed={(tx) => {
+              const videoTarget = {
+                sessionId: tx.id,
+                therapyName: tx.therapyName,
+                modality: "Online con turno" as const,
+                scheduledSlotLabel: tx.scheduledSlotLabel,
+                therapistName: tx.therapistName,
+                therapistNickname: tx.therapistNickname,
+                consultanteName: tx.consultanteName,
+                consultanteEmail: tx.consultanteEmail,
+              };
+              if (tx.attentionModality === "distancia_con_video") {
+                setLastBookedVideoSession(videoTarget);
+              }
               setBookingNotice(
                 `¡Contratación confirmada con ${
                   tx.therapistName
@@ -1394,6 +1442,22 @@ export default function ModalityWorkflowPanel({
                 )}) con Split 1:1 Mercado Pago. Turno: ${tx.scheduledSlotLabel}.`
               );
             }}
+          />
+        )}
+
+        {videoSessionTarget && (
+          <DailyVideoCallModal
+            isOpen={Boolean(videoSessionTarget)}
+            onClose={() => setVideoSessionTarget(null)}
+            sessionId={videoSessionTarget.sessionId}
+            therapyName={videoSessionTarget.therapyName}
+            modality={videoSessionTarget.modality}
+            scheduledSlotLabel={videoSessionTarget.scheduledSlotLabel}
+            therapistName={videoSessionTarget.therapistName}
+            therapistNickname={videoSessionTarget.therapistNickname}
+            consultanteName={videoSessionTarget.consultanteName}
+            consultanteEmail={videoSessionTarget.consultanteEmail}
+            viewerRole={role}
           />
         )}
       </div>
@@ -1541,37 +1605,59 @@ export default function ModalityWorkflowPanel({
                       Busca: {alert.therapies.join(", ")}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = matchAlerts.map((item) =>
-                        item.id === alert.id
-                          ? { ...item, status: "aceptado" as const }
-                          : item
-                      );
-                      setMatchAlerts(updated);
-                      setSavedNotice(
-                        `Match confirmado en plataforma con ${alert.consultanteName}. Por privacidad y transparencia, los números de WhatsApp nunca se exponen.`
-                      );
-                      try {
-                        window.localStorage.setItem(
-                          MATCH_ALERTS_STORAGE_KEY,
-                          JSON.stringify(updated)
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = matchAlerts.map((item) =>
+                          item.id === alert.id
+                            ? { ...item, status: "aceptado" as const }
+                            : item
                         );
-                        window.dispatchEvent(new Event(SYNC_EVENT_NAME));
-                      } catch {
-                        // Ignore
+                        setMatchAlerts(updated);
+                        setSavedNotice(
+                          `Match confirmado en plataforma con ${alert.consultanteName}. Ya podés abrir la Sala de Videollamada Daily.co 1:1.`
+                        );
+                        try {
+                          window.localStorage.setItem(
+                            MATCH_ALERTS_STORAGE_KEY,
+                            JSON.stringify(updated)
+                          );
+                          window.dispatchEvent(new Event(SYNC_EVENT_NAME));
+                        } catch {
+                          // Ignore
+                        }
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6F599B]"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 text-[#F3D791]" />
+                      <span>
+                        {alert.status === "aceptado"
+                          ? "Match confirmado"
+                          : "Confirmar Match en plataforma"}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVideoSessionTarget({
+                          sessionId: alert.id,
+                          therapyName: alert.therapies[0] || "Reiki Usui",
+                          modality: "Online ahora",
+                          scheduledSlotLabel: "Sesión inmediata en vivo",
+                          therapistName: alert.therapistName,
+                          therapistNickname: viewerNickname,
+                          consultanteName: alert.consultanteName,
+                          consultanteEmail: "consultante@reikionline.com.ar",
+                        })
                       }
-                    }}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6F599B]"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 text-[#F3D791]" />
-                    <span>
-                      {alert.status === "aceptado"
-                        ? "Match confirmado"
-                        : "Confirmar Match en plataforma"}
-                    </span>
-                  </button>
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#F3D791] px-3 py-1.5 text-xs font-bold text-[#2B1F42] hover:bg-white transition"
+                    >
+                      <Video className="h-3.5 w-3.5 text-[#836DAD]" />
+                      <span>Iniciar Videollamada Daily.co</span>
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -1581,6 +1667,22 @@ export default function ModalityWorkflowPanel({
             </p>
           )}
         </div>
+
+        {videoSessionTarget && (
+          <DailyVideoCallModal
+            isOpen={Boolean(videoSessionTarget)}
+            onClose={() => setVideoSessionTarget(null)}
+            sessionId={videoSessionTarget.sessionId}
+            therapyName={videoSessionTarget.therapyName}
+            modality={videoSessionTarget.modality}
+            scheduledSlotLabel={videoSessionTarget.scheduledSlotLabel}
+            therapistName={videoSessionTarget.therapistName}
+            therapistNickname={videoSessionTarget.therapistNickname}
+            consultanteName={videoSessionTarget.consultanteName}
+            consultanteEmail={videoSessionTarget.consultanteEmail}
+            viewerRole={role}
+          />
+        )}
       </div>
     );
   }
@@ -1604,9 +1706,21 @@ export default function ModalityWorkflowPanel({
       </div>
 
       {bookingNotice && (
-        <div className="flex items-center gap-2 rounded-xl border border-[#836DAD] bg-white px-4 py-3 text-xs font-semibold text-[#836DAD]">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{bookingNotice}</span>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#836DAD] bg-white px-4 py-3 text-xs font-semibold text-[#836DAD]">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{bookingNotice}</span>
+          </div>
+          {lastBookedVideoSession && (
+            <button
+              type="button"
+              onClick={() => setVideoSessionTarget(lastBookedVideoSession)}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#6F599B] transition"
+            >
+              <Video className="h-3.5 w-3.5 text-[#F3D791]" />
+              <span>Ingresar a Videollamada Daily.co Ahora</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -1852,14 +1966,42 @@ export default function ModalityWorkflowPanel({
               checkoutTarget.therapist,
               checkoutTarget.distanceKm
             );
+            const videoTarget = {
+              sessionId: tx.id,
+              therapyName: tx.therapyName,
+              modality: "Online ahora" as const,
+              scheduledSlotLabel: "Sesión inmediata en vivo",
+              therapistName: tx.therapistName,
+              therapistNickname: tx.therapistNickname,
+              consultanteName: tx.consultanteName,
+              consultanteEmail: tx.consultanteEmail,
+            };
+            setLastBookedVideoSession(videoTarget);
+            setVideoSessionTarget(videoTarget);
             setBookingNotice(
               `¡Match inmediato y pago confirmado con ${
                 tx.therapistName
               } (${formatArs(
                 tx.sessionPriceArs
-              )})! Acceso habilitado a la sesión online.`
+              )})! Sala de videollamada Daily.co habilitada.`
             );
           }}
+        />
+      )}
+
+      {videoSessionTarget && (
+        <DailyVideoCallModal
+          isOpen={Boolean(videoSessionTarget)}
+          onClose={() => setVideoSessionTarget(null)}
+          sessionId={videoSessionTarget.sessionId}
+          therapyName={videoSessionTarget.therapyName}
+          modality={videoSessionTarget.modality}
+          scheduledSlotLabel={videoSessionTarget.scheduledSlotLabel}
+          therapistName={videoSessionTarget.therapistName}
+          therapistNickname={videoSessionTarget.therapistNickname}
+          consultanteName={videoSessionTarget.consultanteName}
+          consultanteEmail={videoSessionTarget.consultanteEmail}
+          viewerRole={role}
         />
       )}
     </div>

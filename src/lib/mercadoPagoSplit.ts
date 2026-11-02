@@ -63,6 +63,8 @@ export interface TherapistMercadoPagoAccount {
   kycVerified: boolean;
   processorFeeAccepted: boolean;
   sessionPriceArs: number;
+  // Precios por terapia en función de los tildes del listado de Terapias (mismo valor para presencial, virtual con turno o virtual ahora)
+  therapyPricesArs?: Record<string, number>;
   // Token cifrado en backend; en cliente solo se guarda referencia de estado y vencimiento
   tokenStatus: "active" | "expired" | "disconnected";
   tokenExpiresAt: string | null;
@@ -132,11 +134,20 @@ export interface SplitPaymentTransaction {
   approvedAfterExpiration: boolean;
   reconciliationRequired: boolean;
   reconciliationNote?: string;
-  // Cancelaciones, devoluciones y disputas
+  // Cancelaciones, reprogramaciones, devoluciones y disputas
   cancellationCategory: CancellationCategory;
   cancellationReason?: string;
+  rescheduled?: boolean;
+  rescheduledSlotLabel?: string;
+  rescheduledAt?: string;
+  reikiCommissionFirm?: boolean; // La comisión de Reiki Online queda siempre firme incluso si el terapeuta cancela y devuelve al consultante
   refundRequested: boolean;
-  refundStatus?: "none" | "pending_admin" | "completed" | "failed_insufficient_balance";
+  refundStatus?:
+    | "none"
+    | "pending_admin"
+    | "completed"
+    | "failed_insufficient_balance"
+    | "rescheduled_no_refund";
   refundErrorDetail?: string;
   createdAt: string;
   updatedAt: string;
@@ -361,6 +372,25 @@ export function formatArs(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Resuelve el Precio Total de la Sesión (ARS) según la terapia seleccionada.
+ * El valor de la sesión de cada terapia es único (el mismo sea presencial,
+ * virtual con turno o virtual ahora; lo que varía en cada caso son las comisiones).
+ */
+export function resolveTherapySessionPrice(
+  account: TherapistMercadoPagoAccount | null | undefined,
+  therapyName?: string
+): number {
+  if (!account) return 30000;
+  if (therapyName && account.therapyPricesArs) {
+    const specific = account.therapyPricesArs[therapyName];
+    if (typeof specific === "number" && specific > 0) {
+      return specific;
+    }
+  }
+  return account.sessionPriceArs > 0 ? account.sessionPriceArs : 30000;
+}
+
 // Cuentas demo de terapeutas vinculadas para pruebas inmediatas en el directorio
 export const DEMO_LINKED_MP_ACCOUNTS: Record<string, TherapistMercadoPagoAccount> = {
   "demo-terapeuta-1": {
@@ -375,6 +405,12 @@ export const DEMO_LINKED_MP_ACCOUNTS: Record<string, TherapistMercadoPagoAccount
     kycVerified: true,
     processorFeeAccepted: true,
     sessionPriceArs: 30000,
+    therapyPricesArs: {
+      "Reiki Usui": 30000,
+      "Alineación de chakras": 28000,
+      "Limpieza y armonización energética": 32000,
+      "Meditación guiada": 25000,
+    },
     tokenStatus: "active",
     tokenExpiresAt: "2027-05-01T00:00:00.000Z",
     linkedAt: "2026-10-25T14:20:00.000Z",
@@ -392,6 +428,12 @@ export const DEMO_LINKED_MP_ACCOUNTS: Record<string, TherapistMercadoPagoAccount
     kycVerified: true,
     processorFeeAccepted: true,
     sessionPriceArs: 30000,
+    therapyPricesArs: {
+      "Reiki Karuna": 30000,
+      Tarot: 26000,
+      "Lectura de registros akáshicos": 36000,
+      "Constelaciones individuales": 42000,
+    },
     tokenStatus: "active",
     tokenExpiresAt: "2027-05-01T00:00:00.000Z",
     linkedAt: "2026-10-26T16:10:00.000Z",
@@ -409,6 +451,12 @@ export const DEMO_LINKED_MP_ACCOUNTS: Record<string, TherapistMercadoPagoAccount
     kycVerified: true,
     processorFeeAccepted: true,
     sessionPriceArs: 35000,
+    therapyPricesArs: {
+      "Flores de Bach": 32000,
+      Biodescodificación: 40000,
+      "Sonoterapia con cuencos tibetanos": 35000,
+      "Reiki con cristales": 34000,
+    },
     tokenStatus: "active",
     tokenExpiresAt: "2027-05-01T00:00:00.000Z",
     linkedAt: "2026-10-28T11:45:00.000Z",
