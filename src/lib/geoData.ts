@@ -103,8 +103,10 @@ export interface UserGeoLocation {
 export interface ReikiUserProfile {
   id: string;
   username?: string;
+  nickname: string; // 4 a 16 caracteres, solo letras y números (https://www.reikionline.com.ar/nickname)
   isAdmin?: boolean;
   role: "consultante" | "terapeuta" | "pendiente";
+  visibleEnRed?: boolean; // Opción del Consultante en su perfil de ser visible o no en la red
   // Datos personales obligatorios
   nombre: string;
   apellido: string;
@@ -141,11 +143,23 @@ export interface ReikiUserProfile {
   updatedAt: string;
 }
 
+export const NICKNAME_REGEX = /^[a-zA-Z0-9]{4,16}$/;
+
+export function sanitizeNickname(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
+}
+
+export function isValidNickname(nickname: string): boolean {
+  return NICKNAME_REGEX.test(nickname.trim());
+}
+
 export const DEFAULT_ADMIN_PROFILE: ReikiUserProfile = {
   id: "admin-reikionline",
   username: "ReikiOnline",
+  nickname: "danielghiglione",
   isAdmin: true,
   role: "terapeuta",
+  visibleEnRed: true,
   nombre: "Daniel Alejandro",
   apellido: "Ghiglione",
   dni: "22523947",

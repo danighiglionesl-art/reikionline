@@ -1,19 +1,35 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Camera,
+  CheckCircle2,
+  AlertCircle,
+  RotateCcw,
+  Sparkles,
+  ExternalLink,
+} from "lucide-react";
 import {
   buildGoogleMapsEmbedUrl,
   buildGoogleMapsExternalUrl,
   formatToE164,
   getLocalidadesParaProvincia,
+  isValidNickname,
   PAISES,
   PROVINCIAS_ARGENTINA,
   ReikiUserProfile,
+  sanitizeNickname,
 } from "@/lib/geoData";
+import { isNicknameAlreadyInUse } from "@/lib/socialNetwork";
 import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
+import SocialNetworkProfileView from "@/components/profile/SocialNetworkProfileView";
 
 interface UserProfilePanelProps {
   profile: ReikiUserProfile;
+  googlePhotoUrl?: string;
+  allProfiles?: Record<string, ReikiUserProfile>;
+  selectedTherapies?: string[];
+  activeRoleLabel?: "Consultante" | "Terapeuta";
   onSaveProfile: (updated: ReikiUserProfile) => void;
 }
 
@@ -28,8 +44,26 @@ function detectDeviceOS(): "Android" | "iOS" | "Windows" | "Other" {
 
 export default function UserProfilePanel({
   profile,
+  googlePhotoUrl,
+  allProfiles,
+  selectedTherapies,
+  activeRoleLabel = "Terapeuta",
   onSaveProfile,
 }: UserProfilePanelProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [fotoUrl, setFotoUrl] = useState(
+    profile.fotoUrl || googlePhotoUrl || ""
+  );
+  const [nickname, setNickname] = useState(
+    profile.nickname ||
+      sanitizeNickname(`${profile.nombre}${profile.apellido}`).toLowerCase() ||
+      "danielghiglione"
+  );
+  const [showSocialPreview, setShowSocialPreview] = useState(true);
+  const [visibleEnRed, setVisibleEnRed] = useState<boolean>(
+    profile.visibleEnRed ?? true
+  );
+
   const [nombre, setNombre] = useState(profile.nombre);
   const [apellido, setApellido] = useState(profile.apellido);
   const [dni, setDni] = useState(profile.dni);
@@ -122,6 +156,79 @@ export default function UserProfilePanel({
   const currentE164 = formatToE164(prefijoTelefono, telefono);
   const phoneChangedSinceVerification =
     currentE164 !== verifiedE164 || !whatsappVerified;
+
+  // Sincronizar foto de Google si el perfil no tenía foto personalizada aún
+  useEffect(() => {
+    if (!fotoUrl && googlePhotoUrl) {
+      setFotoUrl(googlePhotoUrl);
+    }
+  }, [googlePhotoUrl, fotoUrl]);
+
+  const cleanNickname = sanitizeNickname(nickname);
+  const nicknameLengthValid =
+    cleanNickname.length >= 4 && cleanNickname.length <= 16;
+  const nicknameFormatValid = isValidNickname(cleanNickname);
+  const nicknameTaken = useMemo(() => {
+    if (!cleanNickname || cleanNickname.length < 4) return false;
+    return isNicknameAlreadyInUse(
+      cleanNickname,
+      profile.email,
+      profile.id,
+      allProfiles
+    );
+  }, [cleanNickname, profile.email, profile.id, allProfiles]);
+
+  const initials = useMemo(() => {
+    const f = nombre.trim()[0] || "R";
+    const l = apellido.trim()[0] || "";
+    return (f + l).toUpperCase();
+  }, [nombre, apellido]);
+
+  function handlePhotoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      if (!result) return;
+
+      // Redimensionar en canvas para que sea liviana y rápida de guardar
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const maxDim = 320;
+          let w = img.width;
+          let h = img.height;
+          if (w > h && w > maxDim) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else if (h >= w && h > maxDim) {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, w, h);
+            const compressed = canvas.toDataURL("image/jpeg", 0.86);
+            setFotoUrl(compressed);
+            return;
+          }
+        } catch {
+          // Fallback al dataURL directo
+        }
+        setFotoUrl(result);
+      };
+      img.onerror = () => {
+        setFotoUrl(result);
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+  }
 
   const localidadFinal =
     pais !== "Argentina" || usarLocalidadManual ? localidadManual : localidad;
@@ -306,6 +413,22 @@ export default function UserProfilePanel({
     e.preventDefault();
     setSaveMessage(null);
 
+    if (!nicknameFormatValid) {
+      setSaveMessage({
+        type: "err",
+        text: "El nickname de tu Red Social (https://www.reikionline.com.ar/nickname) es obligatorio y debe tener entre 4 y 16 caracteres (solo letras y números).",
+      });
+      return;
+    }
+
+    if (nicknameTaken) {
+      setSaveMessage({
+        type: "err",
+        text: `El nickname «${cleanNickname}» ya está en uso. Por favor elegí otro nickname disponible.`,
+      });
+      return;
+    }
+
     if (
       !nombre.trim() ||
       !apellido.trim() ||
@@ -336,6 +459,9 @@ export default function UserProfilePanel({
 
     const updatedProfile: ReikiUserProfile = {
       ...profile,
+      nickname: cleanNickname,
+      visibleEnRed,
+      fotoUrl: fotoUrl.trim(),
       nombre: nombre.trim(),
       apellido: apellido.trim(),
       dni: dni.trim(),
@@ -444,6 +570,9 @@ export default function UserProfilePanel({
 
               const updatedAfterVerify: ReikiUserProfile = {
                 ...profile,
+                nickname: cleanNickname || profile.nickname || "danielghiglione",
+                visibleEnRed,
+                fotoUrl: fotoUrl.trim(),
                 nombre: nombre.trim(),
                 apellido: apellido.trim(),
                 dni: dni.trim(),
@@ -508,6 +637,189 @@ export default function UserProfilePanel({
       {/* Formulario principal de Mi Perfil */}
       <form onSubmit={handleSaveSubmit} className="space-y-4">
         <div className="rounded-2xl border border-[#DCE6F5] bg-[#F2F7FF] p-4 sm:p-5 space-y-4 shadow-inner">
+          {/* Fila 0 (ENCIMA DEL NOMBRE): Foto que trae de Google + Cambiar foto | Campo obligatorio https://www.reikionline.com.ar/nickname */}
+          <div className="rounded-2xl border border-[#CBD8EE] bg-white p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              {/* Foto de perfil (Google o personalizada) */}
+              <div className="flex items-center gap-3.5 shrink-0">
+                <div className="relative h-20 w-20 rounded-full border-2 border-[#836DAD] bg-[#F4F0FA] overflow-hidden shadow-sm flex items-center justify-center">
+                  {fotoUrl ? (
+                    <img
+                      src={fotoUrl}
+                      alt={`${nombre} ${apellido}`.trim() || "Foto de perfil"}
+                      referrerPolicy="no-referrer"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-2xl font-bold text-[#836DAD]">
+                      {initials}
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <span className="block text-xs font-bold text-[#2B3A55]">
+                    Foto de Perfil (Google)
+                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoFileChange}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-semibold text-white shadow-2xs hover:bg-[#5E4B8B] transition cursor-pointer"
+                    >
+                      <Camera className="h-3.5 w-3.5 text-[#F3D791]" />
+                      Cambiar foto
+                    </button>
+
+                    {googlePhotoUrl && fotoUrl !== googlePhotoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFotoUrl(googlePhotoUrl)}
+                        className="inline-flex items-center gap-1 rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-2.5 py-1.5 text-[11px] font-semibold text-[#5E4B8B] hover:bg-[#F4F0FA] transition cursor-pointer"
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Usar foto de Google
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#64748B]">
+                    Se carga tu foto de Google o podés subir otra imagen desde tu dispositivo.
+                  </p>
+                </div>
+              </div>
+
+              {/* Campo obligatorio https://www.reikionline.com.ar/nickname */}
+              <div className="flex-1 space-y-1.5">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <label
+                    htmlFor="ro-perfil-nickname"
+                    className="block text-xs font-bold text-[#2B3A55]"
+                  >
+                    Tu Red Social en Reiki Online (Nickname obligatorio) *
+                  </label>
+                  <span className="text-[11px] font-semibold text-[#5E4B8B]">
+                    {cleanNickname.length}/16 caracteres (mín. 4)
+                  </span>
+                </div>
+
+                <div
+                  className={`flex items-center rounded-xl border bg-white overflow-hidden transition ${
+                    nicknameTaken
+                      ? "border-red-500 ring-2 ring-red-100"
+                      : nicknameFormatValid
+                      ? "border-emerald-500/70 focus-within:border-[#836DAD]"
+                      : "border-[#CBD8EE] focus-within:border-[#836DAD]"
+                  }`}
+                >
+                  <span className="bg-[#F4F0FA] px-3 py-2.5 text-xs sm:text-sm font-mono font-semibold text-[#5E4B8B] border-r border-[#CBD8EE] select-none shrink-0">
+                    https://www.reikionline.com.ar/
+                  </span>
+                  <input
+                    id="ro-perfil-nickname"
+                    name="nickname"
+                    type="text"
+                    required
+                    minLength={4}
+                    maxLength={16}
+                    pattern="[A-Za-z0-9]{4,16}"
+                    autoComplete="username"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    aria-invalid={nicknameTaken || (cleanNickname.length > 0 && !nicknameLengthValid)}
+                    aria-describedby="ro-perfil-nickname-status"
+                    placeholder="juanperez"
+                    value={nickname}
+                    onChange={(e) => {
+                      const nextNick = sanitizeNickname(e.target.value);
+                      setNickname(nextNick);
+                    }}
+                    className="w-full px-3 py-2.5 text-sm font-mono font-bold text-[#1E293B] focus:outline-none"
+                  />
+                </div>
+
+                <div
+                  id="ro-perfil-nickname-status"
+                  aria-live="polite"
+                  className="flex flex-wrap items-center justify-between gap-2 pt-0.5"
+                >
+                  {nicknameTaken ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-red-600">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      El nickname «{cleanNickname}» ya está en uso. Elegí otro disponible.
+                    </span>
+                  ) : !nicknameLengthValid ? (
+                    <span className="text-[11px] text-amber-800 font-medium">
+                      Ingresá entre 4 y 16 caracteres (solo letras y números, sin espacios ni símbolos).
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                      Disponible: https://www.reikionline.com.ar/{cleanNickname}
+                    </span>
+                  )}
+
+                  {nicknameFormatValid && !nicknameTaken && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowSocialPreview((v) => !v)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#836DAD] underline cursor-pointer"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        {showSocialPreview
+                          ? "Ocultar vista de mi Red Social"
+                          : "Ver mi Red Social y reseñas"}
+                      </button>
+                      <a
+                        href={`/${cleanNickname}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5E4B8B] hover:text-[#836DAD]"
+                      >
+                        Abrir enlace ↗
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Opción de visibilidad del Consultante en la red */}
+            <label className="ro-choice-label flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-4 py-3">
+              <div>
+                <span className="block text-xs sm:text-sm font-bold text-[#2B1F42]">
+                  Perfil de Consultante visible en la red
+                </span>
+                <span className="text-[11px] text-[#2B1F42]/70">
+                  Si está activo, tu credencial de Consultante aparece cuando los Terapeutas buscan «Por Consultante».
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={visibleEnRed}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setVisibleEnRed(checked);
+                  onSaveProfile({
+                    ...profile,
+                    visibleEnRed: checked,
+                    updatedAt: new Date().toISOString(),
+                  });
+                }}
+                className="h-5 w-5 shrink-0 cursor-pointer rounded border-[#836DAD]"
+              />
+            </label>
+          </div>
+
           {/* Fila 1: Nombre * | Apellido * */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -1218,6 +1530,43 @@ export default function UserProfilePanel({
           </button>
         </div>
       </form>
+
+      {/* VISTA INTEGRADA DE LA RED SOCIAL DEL USUARIO (https://www.reikionline.com.ar/nickname)
+          Con calificación de 1 a 5 estrellas (solo luego de consultas efectuadas) y reseña de hasta 150 caracteres */}
+      {showSocialPreview && cleanNickname.length >= 4 && !nicknameTaken && (
+        <div className="pt-2 space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <h5 className="text-xs font-bold uppercase tracking-wider text-[#5E4B8B]">
+              Vista previa en vivo de tu Red Social (https://www.reikionline.com.ar/{cleanNickname})
+            </h5>
+          </div>
+          <SocialNetworkProfileView
+            nickname={cleanNickname}
+            compact
+            currentUserEmail={profile.email}
+            currentUserName={`${nombre} ${apellido}`.trim() || profile.nombre}
+            currentUserNickname={cleanNickname}
+            currentUserPhotoUrl={fotoUrl}
+            overrideProfile={{
+              nickname: cleanNickname,
+              displayName:
+                `${nombre} ${apellido}`.trim() ||
+                profile.nombre ||
+                cleanNickname,
+              role: activeRoleLabel,
+              fotoUrl: fotoUrl,
+              localidad: localidadFinal || profile.localidad,
+              provincia: provincia || profile.provincia,
+              pais: pais || profile.pais,
+              therapies:
+                selectedTherapies && selectedTherapies.length > 0
+                  ? selectedTherapies
+                  : undefined,
+              whatsappVerified: whatsappVerified,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
