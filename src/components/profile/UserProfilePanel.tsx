@@ -665,7 +665,7 @@ export default function UserProfilePanel({
 
                 <div className="space-y-2">
                   <span className="block text-xs sm:text-sm font-bold text-[#2B3A55]">
-                    Foto de Perfil (Google)
+                    Foto de Perfil
                   </span>
                   <div className="flex flex-wrap items-center gap-2">
                     <input
@@ -813,24 +813,14 @@ export default function UserProfilePanel({
                     Ingresá entre 4 y 16 caracteres (solo letras y números, sin espacios ni símbolos).
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 break-all">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
                     <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                    Disponible: https://www.reikionline.com.ar/{cleanNickname}
+                    Disponible
                   </span>
                 )}
 
                 {nicknameFormatValid && !nicknameTaken && (
                   <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowSocialPreview((v) => !v)}
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#836DAD] underline cursor-pointer"
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      {showSocialPreview
-                        ? "Ocultar vista de mi Red Social"
-                        : "Ver mi Red Social y reseñas"}
-                    </button>
                     <a
                       href={`/${cleanNickname}`}
                       target="_blank"
