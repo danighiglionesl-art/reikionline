@@ -38,6 +38,7 @@ import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep
 import UserProfilePanel from "@/components/profile/UserProfilePanel";
 import ModalityWorkflowPanel from "@/components/auth/ModalityWorkflowPanel";
 import UserCredentialPanel from "@/components/credential/UserCredentialPanel";
+import NetworkProfilesDirectory from "@/components/credential/NetworkProfilesDirectory";
 
 export type AccessTab = "login" | "register" | "recover" | "role-select";
 export type ActiveRole = "Consultante" | "Terapeuta";
@@ -193,6 +194,9 @@ export function TerapiasAccessPanel({
     string | null
   >(null);
   const [therapiesConfirmed, setTherapiesConfirmed] = useState(false);
+  const [searchMode, setSearchMode] = useState<
+    "Por Terapia" | "Por Persona" | null
+  >(null);
   const [selectedModality, setSelectedModality] = useState<
     "Presencial con turno" | "Online con turno" | "Online ahora" | null
   >(null);
@@ -572,6 +576,7 @@ export function TerapiasAccessPanel({
     setSelectedRole(role);
     setActiveSection(null);
     setSelectionSavedFeedback(null);
+    setSearchMode(null);
     setTherapiesConfirmed(false);
     setSelectedModality(null);
     try {
@@ -592,6 +597,10 @@ export function TerapiasAccessPanel({
       setSelectedModality(null);
       return;
     }
+    if (searchMode) {
+      setSearchMode(null);
+      return;
+    }
     setSelectedRole(null);
     setActiveSection(null);
     setSelectionSavedFeedback(null);
@@ -607,6 +616,7 @@ export function TerapiasAccessPanel({
     setAuthenticatedUser(null);
     setSelectedRole(null);
     setActiveSection(null);
+    setSearchMode(null);
     setTherapiesConfirmed(false);
     setSelectedModality(null);
     setPassword("");
@@ -1576,8 +1586,81 @@ export function TerapiasAccessPanel({
                 </div>
               )}
 
-              {/* SELECTOR MÚLTIPLE DE TERAPIAS SEGÚN ROL ELEGIDO (sin "(podés combinar opciones)" ni números redundantes) */}
-              {selectedRole && !activeSection && !therapiesConfirmed && (
+              {/* PANTALLA INTERMEDIA SIMPLE DESPUÉS DE ¿Cómo ingresas?:
+                  ¿Cómo buscas? -> Por Terapia | Por Terapeuta (Consultante) / Por Consultante (Terapeuta) */}
+              {selectedRole &&
+                !activeSection &&
+                !searchMode &&
+                !therapiesConfirmed && (
+                  <div className="space-y-4">
+                    <h4 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
+                      ¿Cómo buscas?
+                    </h4>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setSearchMode("Por Terapia")}
+                        className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-6 text-center text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md group"
+                      >
+                        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#836DAD] text-[#F3D791] group-hover:bg-white/20">
+                          <Sparkles className="h-6 w-6" />
+                        </span>
+                        <span className="text-lg font-semibold">
+                          Por Terapia
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSearchMode("Por Persona")}
+                        className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-6 text-center text-[#2B1F42] transition-all hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white hover:shadow-md group"
+                      >
+                        <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#F3D791] text-[#836DAD] group-hover:text-[#2B1F42]">
+                          {selectedRole === "Consultante" ? (
+                            <UserCheck className="h-6 w-6" />
+                          ) : (
+                            <HeartHandshake className="h-6 w-6" />
+                          )}
+                        </span>
+                        <span className="text-lg font-semibold">
+                          {selectedRole === "Consultante"
+                            ? "Por Terapeuta"
+                            : "Por Consultante"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              {/* SI ELIGE POR TERAPEUTA (Consultante) O POR CONSULTANTE (Terapeuta):
+                  Aparecen los perfiles con un formato similar a la Credencial */}
+              {selectedRole &&
+                !activeSection &&
+                searchMode === "Por Persona" &&
+                !therapiesConfirmed && (
+                  <NetworkProfilesDirectory
+                    viewerRole={selectedRole}
+                    viewerProfile={activeUserProfile}
+                    allStoredProfiles={profilesByEmail}
+                    onToggleViewerVisibility={(visible) => {
+                      saveUserProfile({
+                        ...activeUserProfile,
+                        visibleEnRed: visible,
+                        updatedAt: new Date().toISOString(),
+                      });
+                    }}
+                    onSelectProfileToConnect={() => {
+                      setTherapiesConfirmed(true);
+                      setSelectedModality(null);
+                    }}
+                  />
+                )}
+
+              {/* SELECTOR MÚLTIPLE DE TERAPIAS SEGÚN ROL ELEGIDO (cuando elige "Por Terapia") */}
+              {selectedRole &&
+                !activeSection &&
+                searchMode === "Por Terapia" &&
+                !therapiesConfirmed && (
                 <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4 sm:p-6 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
                     <div>
