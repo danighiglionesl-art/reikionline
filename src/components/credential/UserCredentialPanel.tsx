@@ -352,7 +352,7 @@ export default function UserCredentialPanel({
 
       cursorY += isFeed ? 30 : 46;
       ctx.fillStyle = "#F3D791";
-      ctx.font = `600 ${isFeed ? 24 : 32}px monospace`;
+      ctx.font = `600 ${isFeed ? 24 : 32}px sans-serif`;
       ctx.fillText(`@${cleanNickname}`, centerX, cursorY);
 
       cursorY += isFeed ? 28 : 48;
@@ -464,9 +464,6 @@ export default function UserCredentialPanel({
             <h4 className="text-base font-bold text-[#2B1F42]">
               Mi Credencial Oficial · Reiki Online
             </h4>
-            <p className="text-xs text-[#2B1F42]/70">
-              Disponible en Tamaño Feed (1:1) y Tamaño Estados (9:16) con código QR personal.
-            </p>
           </div>
         </div>
       </div>
@@ -765,7 +762,7 @@ export default function UserCredentialPanel({
                 </h3>
 
                 {/* Nickname */}
-                <p className="font-mono text-xs sm:text-sm font-semibold text-[#F3D791]">
+                <p className="text-xs sm:text-sm font-semibold text-[#F3D791]">
                   @{cleanNickname}
                 </p>
 
