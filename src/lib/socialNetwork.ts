@@ -136,7 +136,152 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     bio: "Terapeuta floral y biodescodificación emocional.",
     whatsappVerified: true,
   },
+  luciaperalta: {
+    nickname: "luciaperalta",
+    displayName: "Lucía Peralta",
+    role: "Terapeuta",
+    fotoUrl: "",
+    localidad: "Palermo",
+    provincia: "Ciudad Autónoma de Buenos Aires",
+    pais: "Argentina",
+    therapies: [
+      "Flores de Bach",
+      "Biodescodificación",
+      "Sonoterapia con cuencos tibetanos",
+    ],
+    bio: "Terapeuta holística especializada en esencias florales y armonización sonora.",
+    whatsappVerified: true,
+  },
+  sofiavillalba: {
+    nickname: "sofiavillalba",
+    displayName: "Sofía Villalba",
+    role: "Consultante",
+    fotoUrl: "",
+    localidad: "Villa María",
+    provincia: "Córdoba",
+    pais: "Argentina",
+    therapies: ["Reiki Usui", "Meditación mindfulness", "Flores de Bach"],
+    bio: "Consultante activa en la Red Social de Reiki Online.",
+    whatsappVerified: true,
+  },
+  nicoferreyra: {
+    nickname: "nicoferreyra",
+    displayName: "Nicolás Ferreyra",
+    role: "Consultante",
+    fotoUrl: "",
+    localidad: "Rosario",
+    provincia: "Santa Fe",
+    pais: "Argentina",
+    therapies: ["Alineación de chakras", "Carta natal", "Biodescodificación"],
+    bio: "Consultante en búsqueda de bienestar energético y autoconocimiento.",
+    whatsappVerified: true,
+  },
+  camilaquiroga: {
+    nickname: "camilaquiroga",
+    displayName: "Camila Quiroga",
+    role: "Consultante",
+    fotoUrl: "",
+    localidad: "Mendoza",
+    provincia: "Mendoza",
+    pais: "Argentina",
+    therapies: ["Constelaciones familiares", "Reiki con cristales"],
+    bio: "Integrante de la comunidad Reiki Online.",
+    whatsappVerified: true,
+  },
 };
+
+export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
+  {
+    id: "fol-demo-1",
+    followerNickname: "sofiavillalba",
+    followerName: "Sofía Villalba",
+    followerRole: "Consultante",
+    targetNickname: "danielghiglione",
+    targetName: "Daniel Alejandro Ghiglione",
+    targetRole: "Terapeuta",
+    createdAt: "2026-10-25T14:00:00.000Z",
+  },
+  {
+    id: "fol-demo-2",
+    followerNickname: "nicoferreyra",
+    followerName: "Nicolás Ferreyra",
+    followerRole: "Consultante",
+    targetNickname: "danielghiglione",
+    targetName: "Daniel Alejandro Ghiglione",
+    targetRole: "Terapeuta",
+    createdAt: "2026-10-26T16:30:00.000Z",
+  },
+  {
+    id: "fol-demo-3",
+    followerNickname: "valeriamendez",
+    followerName: "Valeria Méndez",
+    followerRole: "Terapeuta",
+    targetNickname: "danielghiglione",
+    targetName: "Daniel Alejandro Ghiglione",
+    targetRole: "Terapeuta",
+    createdAt: "2026-10-27T11:20:00.000Z",
+  },
+  {
+    id: "fol-demo-4",
+    followerNickname: "danielghiglione",
+    followerName: "Daniel Alejandro Ghiglione",
+    followerRole: "Terapeuta",
+    targetNickname: "valeriamendez",
+    targetName: "Valeria Méndez",
+    targetRole: "Terapeuta",
+    createdAt: "2026-10-27T12:00:00.000Z",
+  },
+  {
+    id: "fol-demo-5",
+    followerNickname: "danielghiglione",
+    followerName: "Daniel Alejandro Ghiglione",
+    followerRole: "Terapeuta",
+    targetNickname: "sofiavillalba",
+    targetName: "Sofía Villalba",
+    targetRole: "Consultante",
+    createdAt: "2026-10-28T09:15:00.000Z",
+  },
+  {
+    id: "fol-demo-6",
+    followerNickname: "camilaquiroga",
+    followerName: "Camila Quiroga",
+    followerRole: "Consultante",
+    targetNickname: "valeriamendez",
+    targetName: "Valeria Méndez",
+    targetRole: "Terapeuta",
+    createdAt: "2026-10-29T18:00:00.000Z",
+  },
+  {
+    id: "fol-demo-7",
+    followerNickname: "sofiavillalba",
+    followerName: "Sofía Villalba",
+    followerRole: "Consultante",
+    targetNickname: "martinarrieta",
+    targetName: "Martín Arrieta",
+    targetRole: "Terapeuta",
+    createdAt: "2026-10-30T10:45:00.000Z",
+  },
+  {
+    id: "fol-demo-8",
+    followerNickname: "martinarrieta",
+    followerName: "Martín Arrieta",
+    followerRole: "Terapeuta",
+    targetNickname: "nicoferreyra",
+    targetName: "Nicolás Ferreyra",
+    targetRole: "Consultante",
+    createdAt: "2026-10-30T15:10:00.000Z",
+  },
+  {
+    id: "fol-demo-9",
+    followerNickname: "nicoferreyra",
+    followerName: "Nicolás Ferreyra",
+    followerRole: "Consultante",
+    targetNickname: "luciaperalta",
+    targetName: "Lucía Peralta",
+    targetRole: "Terapeuta",
+    createdAt: "2026-10-31T13:00:00.000Z",
+  },
+];
 
 export const INITIAL_DEMO_REVIEWS: TherapistReview[] = [
   {
@@ -358,6 +503,118 @@ export function saveConsultations(list: ReikiConsultationRecord[]): void {
   } catch {
     // Ignore
   }
+}
+
+export function loadSocialFollows(): SocialFollowRecord[] {
+  if (typeof window === "undefined") return INITIAL_DEMO_FOLLOWS;
+  try {
+    const raw = window.localStorage.getItem(FOLLOWS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as SocialFollowRecord[];
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Ignore
+  }
+  return INITIAL_DEMO_FOLLOWS;
+}
+
+export function saveSocialFollows(list: SocialFollowRecord[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(FOLLOWS_STORAGE_KEY, JSON.stringify(list));
+    window.dispatchEvent(new Event(SYNC_EVENT_NAME));
+  } catch {
+    // Ignore
+  }
+}
+
+export function isFollowingProfile(
+  followerNickname: string,
+  targetNickname: string,
+  list?: SocialFollowRecord[]
+): boolean {
+  const f = sanitizeNickname(followerNickname).toLowerCase();
+  const t = sanitizeNickname(targetNickname).toLowerCase();
+  if (!f || !t || f === t) return false;
+  const source = list ?? loadSocialFollows();
+  return source.some(
+    (item) =>
+      item.followerNickname.toLowerCase() === f &&
+      item.targetNickname.toLowerCase() === t
+  );
+}
+
+export function getFollowersForNickname(
+  nickname: string,
+  list?: SocialFollowRecord[]
+): SocialFollowRecord[] {
+  const clean = sanitizeNickname(nickname).toLowerCase();
+  if (!clean) return [];
+  const source = list ?? loadSocialFollows();
+  return source.filter((item) => item.targetNickname.toLowerCase() === clean);
+}
+
+export function getFollowingForNickname(
+  nickname: string,
+  list?: SocialFollowRecord[]
+): SocialFollowRecord[] {
+  const clean = sanitizeNickname(nickname).toLowerCase();
+  if (!clean) return [];
+  const source = list ?? loadSocialFollows();
+  return source.filter((item) => item.followerNickname.toLowerCase() === clean);
+}
+
+export function toggleSocialFollow(params: {
+  followerNickname: string;
+  followerName: string;
+  followerRole: "Consultante" | "Terapeuta";
+  followerFotoUrl?: string;
+  targetNickname: string;
+  targetName: string;
+  targetRole: "Consultante" | "Terapeuta";
+  targetFotoUrl?: string;
+}): { following: boolean; list: SocialFollowRecord[] } {
+  const currentList = loadSocialFollows();
+  const fNick = sanitizeNickname(params.followerNickname).toLowerCase();
+  const tNick = sanitizeNickname(params.targetNickname).toLowerCase();
+  if (!fNick || !tNick || fNick === tNick) {
+    return { following: false, list: currentList };
+  }
+
+  const existingIdx = currentList.findIndex(
+    (item) =>
+      item.followerNickname.toLowerCase() === fNick &&
+      item.targetNickname.toLowerCase() === tNick
+  );
+
+  let nextList: SocialFollowRecord[];
+  let following: boolean;
+
+  if (existingIdx >= 0) {
+    nextList = currentList.filter((_, idx) => idx !== existingIdx);
+    following = false;
+  } else {
+    const newRecord: SocialFollowRecord = {
+      id: `fol-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      followerNickname: fNick,
+      followerName: params.followerName || fNick,
+      followerRole: params.followerRole,
+      followerFotoUrl: params.followerFotoUrl || "",
+      targetNickname: tNick,
+      targetName: params.targetName || tNick,
+      targetRole: params.targetRole,
+      targetFotoUrl: params.targetFotoUrl || "",
+      createdAt: new Date().toISOString(),
+    };
+    nextList = [newRecord, ...currentList];
+    following = true;
+  }
+
+  saveSocialFollows(nextList);
+  return { following, list: nextList };
 }
 
 export function resolvePublicProfileByNickname(

@@ -5,12 +5,27 @@ import QRCode from "qrcode";
 import {
   Search,
   UserCheck,
+  UserPlus,
+  Users,
   HeartHandshake,
   MapPin,
   ExternalLink,
   CalendarCheck,
+  Check,
 } from "lucide-react";
-import { ReikiUserProfile, sanitizeNickname } from "@/lib/geoData";
+import {
+  getEffectiveNickname,
+  ReikiUserProfile,
+} from "@/lib/geoData";
+import {
+  getFollowersForNickname,
+  getFollowingForNickname,
+  isFollowingProfile,
+  loadSocialFollows,
+  SocialFollowRecord,
+  SYNC_EVENT_NAME,
+  toggleSocialFollow,
+} from "@/lib/socialNetwork";
 
 interface NetworkProfileCardItem {
   id: string;
@@ -168,10 +183,7 @@ export default function NetworkProfilesDirectory({
     }
 
     for (const prof of Object.values(allStoredProfiles)) {
-      const nick =
-        sanitizeNickname(
-          prof.nickname || prof.username || `${prof.nombre}${prof.apellido}`
-        ).toLowerCase() || "usuario";
+      const nick = getEffectiveNickname(prof);
       const mappedRole: "Terapeuta" | "Consultante" =
         prof.role === "consultante" ? "Consultante" : "Terapeuta";
 

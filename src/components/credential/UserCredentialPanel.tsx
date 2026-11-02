@@ -16,7 +16,11 @@ import {
   Square,
   Smartphone,
 } from "lucide-react";
-import { ReikiUserProfile } from "@/lib/geoData";
+import {
+  getEffectiveNickname,
+  ReikiUserProfile,
+  sanitizeNickname,
+} from "@/lib/geoData";
 
 export type CredentialFormat = "feed" | "estados";
 export type CredentialRole = "Consultante" | "Terapeuta";
@@ -30,15 +34,6 @@ interface UserCredentialPanelProps {
   onBack?: () => void;
 }
 
-function sanitizeNickname(raw: string): string {
-  return raw
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9._-]/g, "");
-}
-
 export default function UserCredentialPanel({
   profile,
   activeRole,
@@ -48,10 +43,8 @@ export default function UserCredentialPanel({
   onBack,
 }: UserCredentialPanelProps) {
   const defaultNick = useMemo(() => {
-    if (profile.username) return sanitizeNickname(profile.username);
-    const full = `${profile.nombre}${profile.apellido}`;
-    return sanitizeNickname(full) || "reikionline";
-  }, [profile.username, profile.nombre, profile.apellido]);
+    return getEffectiveNickname(profile);
+  }, [profile]);
 
   const [format, setFormat] = useState<CredentialFormat>("feed");
   const [credentialRole, setCredentialRole] = useState<CredentialRole>(
@@ -74,12 +67,17 @@ export default function UserCredentialPanel({
   }, [activeRole]);
 
   useEffect(() => {
+    setNickname(getEffectiveNickname(profile));
+  }, [profile.nickname, profile.username, profile.nombre, profile.apellido]);
+
+  useEffect(() => {
     if (profile.fotoUrl && profile.fotoUrl !== photoDataUrl) {
       setPhotoDataUrl(profile.fotoUrl);
     }
   }, [profile.fotoUrl]);
 
-  const cleanNickname = sanitizeNickname(nickname) || "usuario";
+  const cleanNickname =
+    sanitizeNickname(nickname).toLowerCase() || defaultNick || "danielghiglione";
   const publicCredentialUrl = `https://www.reikionline.com.ar/${cleanNickname}`;
   const displayShortUrl = `www.reikionline.com.ar/${cleanNickname}`;
 
@@ -143,6 +141,7 @@ export default function UserCredentialPanel({
           onSaveProfile({
             ...profile,
             fotoUrl: compressed,
+            nickname: cleanNickname,
             username: cleanNickname,
             updatedAt: new Date().toISOString(),
           });
@@ -157,6 +156,7 @@ export default function UserCredentialPanel({
   const handleSaveNickname = () => {
     const updated: ReikiUserProfile = {
       ...profile,
+      nickname: cleanNickname,
       username: cleanNickname,
       fotoUrl: photoDataUrl,
       role: credentialRole === "Terapeuta" ? "terapeuta" : "consultante",

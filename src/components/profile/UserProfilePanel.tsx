@@ -13,6 +13,7 @@ import {
   buildGoogleMapsEmbedUrl,
   buildGoogleMapsExternalUrl,
   formatToE164,
+  getEffectiveNickname,
   getLocalidadesParaProvincia,
   isValidNickname,
   PAISES,
@@ -56,11 +57,7 @@ export default function UserProfilePanel({
   const [fotoUrl, setFotoUrl] = useState(
     profile.fotoUrl || googlePhotoUrl || ""
   );
-  const [nickname, setNickname] = useState(
-    profile.nickname ||
-      sanitizeNickname(`${profile.nombre}${profile.apellido}`).toLowerCase() ||
-      "danielghiglione"
-  );
+  const [nickname, setNickname] = useState(getEffectiveNickname(profile));
   const [showSocialPreview, setShowSocialPreview] = useState(true);
   const [visibleEnRed, setVisibleEnRed] = useState<boolean>(
     profile.visibleEnRed ?? true

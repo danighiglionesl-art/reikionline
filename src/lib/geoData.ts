@@ -154,9 +154,30 @@ export function isValidNickname(nickname: string): boolean {
   return NICKNAME_REGEX.test(nickname.trim());
 }
 
+/**
+ * Obtiene siempre el nickname personal del consultante o terapeuta (nunca el genérico "reikionline").
+ */
+export function getEffectiveNickname(profile: Partial<ReikiUserProfile>): string {
+  const rawNick = sanitizeNickname(profile.nickname || "").toLowerCase();
+  if (rawNick.length >= 4 && rawNick !== "reikionline") {
+    return rawNick;
+  }
+  const rawUser = sanitizeNickname(profile.username || "").toLowerCase();
+  if (rawUser.length >= 4 && rawUser !== "reikionline") {
+    return rawUser;
+  }
+  const fromName = sanitizeNickname(
+    `${profile.nombre?.split(" ")[0] || ""}${profile.apellido || ""}`
+  ).toLowerCase();
+  if (fromName.length >= 4) {
+    return fromName;
+  }
+  return "danielghiglione";
+}
+
 export const DEFAULT_ADMIN_PROFILE: ReikiUserProfile = {
   id: "admin-reikionline",
-  username: "ReikiOnline",
+  username: "danielghiglione",
   nickname: "danielghiglione",
   isAdmin: true,
   role: "terapeuta",
