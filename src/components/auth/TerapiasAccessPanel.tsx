@@ -31,6 +31,7 @@ import {
 } from "@/lib/reiki-data";
 import {
   DEFAULT_ADMIN_PROFILE,
+  getEffectiveNickname,
   ReikiUserProfile,
   sanitizeNickname,
 } from "@/lib/geoData";
@@ -232,9 +233,19 @@ export function TerapiasAccessPanel({
           string,
           ReikiUserProfile
         >;
+        const normalizedProfiles: Record<string, ReikiUserProfile> = {};
+        for (const [k, prof] of Object.entries(parsedProfiles)) {
+          if (!prof) continue;
+          const effNick = getEffectiveNickname(prof);
+          normalizedProfiles[k] = {
+            ...prof,
+            nickname: effNick,
+            username: effNick,
+          };
+        }
         setProfilesByEmail((prev) => ({
           ...prev,
-          ...parsedProfiles,
+          ...normalizedProfiles,
         }));
       }
     } catch {

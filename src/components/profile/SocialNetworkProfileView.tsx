@@ -13,18 +13,31 @@ import {
   CalendarCheck,
   MessageSquareHeart,
   ExternalLink,
+  UserPlus,
+  UserCheck,
+  Users,
+  HeartHandshake,
 } from "lucide-react";
 import {
+  DEMO_SOCIAL_PROFILES,
+  getFollowersForNickname,
+  getFollowingForNickname,
+  isFollowingProfile,
   loadConsultations,
+  loadSocialFollows,
   loadSocialReviews,
+  PROFILES_STORAGE_KEY,
   PublicSocialProfile,
   ReikiConsultationRecord,
   resolvePublicProfileByNickname,
   saveConsultations,
   saveSocialReviews,
+  SocialFollowRecord,
   SYNC_EVENT_NAME,
   TherapistReview,
+  toggleSocialFollow,
 } from "@/lib/socialNetwork";
+import { ReikiUserProfile, sanitizeNickname } from "@/lib/geoData";
 
 interface SocialNetworkProfileViewProps {
   nickname: string;
@@ -51,6 +64,21 @@ export default function SocialNetworkProfileView({
   const [consultations, setConsultations] = useState<ReikiConsultationRecord[]>(
     []
   );
+  const [followsList, setFollowsList] = useState<SocialFollowRecord[]>([]);
+  const [socialTab, setSocialTab] = useState<
+    "seguidores" | "siguiendo" | "explorar"
+  >("seguidores");
+  const [detectedViewer, setDetectedViewer] = useState<{
+    nickname: string;
+    name: string;
+    role: "Consultante" | "Terapeuta";
+    fotoUrl?: string;
+  }>({
+    nickname: currentUserNickname || "danielghiglione",
+    name: currentUserName || "Daniel Alejandro Ghiglione",
+    role: "Terapeuta",
+    fotoUrl: currentUserPhotoUrl || "",
+  });
   const [copiedUrl, setCopiedUrl] = useState(false);
 
   // Estado del formulario de calificación (1 a 5 estrellas) y reseña (hasta 150 caracteres)
@@ -77,6 +105,53 @@ export default function SocialNetworkProfileView({
     setReviews(loadedReviews);
     const loadedCons = loadConsultations();
     setConsultations(loadedCons);
+    const loadedFollows = loadSocialFollows();
+    setFollowsList(loadedFollows);
+
+    if (typeof window !== "undefined") {
+      try {
+        const rawSession = window.localStorage.getItem(
+          "reiki_online_session_v1"
+        );
+        const rawProfiles = window.localStorage.getItem(PROFILES_STORAGE_KEY);
+        const rawRole = window.localStorage.getItem(
+          "reiki_online_selected_role_v1"
+        );
+        if (rawSession && rawProfiles) {
+          const ses = JSON.parse(rawSession) as { email?: string; name?: string };
+          const profMap = JSON.parse(rawProfiles) as Record<
+            string,
+            ReikiUserProfile
+          >;
+          const key = (ses.email || "").toLowerCase();
+          const matched = profMap[key];
+          if (matched) {
+            const vNick =
+              sanitizeNickname(
+                matched.nickname ||
+                  matched.username ||
+                  `${matched.nombre}${matched.apellido}`
+              ).toLowerCase() || "danielghiglione";
+            setDetectedViewer({
+              nickname: currentUserNickname || vNick,
+              name:
+                currentUserName ||
+                `${matched.nombre} ${matched.apellido}`.trim() ||
+                vNick,
+              role:
+                rawRole === "Consultante"
+                  ? "Consultante"
+                  : matched.role === "consultante"
+                  ? "Consultante"
+                  : "Terapeuta",
+              fotoUrl: currentUserPhotoUrl || matched.fotoUrl || "",
+            });
+          }
+        }
+      } catch {
+        // Ignore
+      }
+    }
   };
 
   useEffect(() => {
@@ -282,6 +357,88 @@ export default function SocialNetworkProfileView({
     return (first + second).toUpperCase();
   }, [profileData.displayName]);
 
+  const effectiveViewerNick = useMemo(() => {
+    const candidate = sanitizeNickname(
+      currentUserNickname || detectedViewer.nickname || "danielghiglione"
+    ).toLowerCase();
+    // Si está viendo el perfil público de danielghiglione sin sesión distinta, permite simular como sofiavillalba para probar el botón Seguir en su propio perfil si quiere
+    if (candidate === cleanNick && !compact) {
+      return "sofiavillalba";
+    }
+    return candidate || "danielghiglione";
+  }, [currentUserNickname, detectedViewer.nickname, cleanNick, compact]);
+
+  const effectiveViewerName = useMemo(() => {
+    if (effectiveViewerNick === "sofiavillalba") return "Sofía Villalba";
+    return currentUserName || detectedViewer.name || effectiveViewerNick;
+  }, [effectiveViewerNick, currentUserName, detectedViewer.name]);
+
+  const effectiveViewerRole: "Consultante" | "Terapeuta" = useMemo(() => {
+    if (effectiveViewerNick === "sofiavillalba") return "Consultante";
+    return detectedViewer.role;
+  }, [effectiveViewerNick, detectedViewer.role]);
+
+  const profileFollowers = useMemo(
+    () => getFollowersForNickname(cleanNick, followsList),
+    [cleanNick, followsList]
+  );
+
+  const profileFollowing = useMemo(
+    () => getFollowingForNickname(cleanNick, followsList),
+    [cleanNick, followsList]
+  );
+
+  const viewerIsFollowingThisProfile = useMemo(
+    () => isFollowingProfile(effectiveViewerNick, cleanNick, followsList),
+    [effectiveViewerNick, cleanNick, followsList]
+  );
+
+  const suggestedProfiles = useMemo(() => {
+    return Object.values(DEMO_SOCIAL_PROFILES).filter(
+      (p) => p.nickname.toLowerCase() !== cleanNick
+    );
+  }, [cleanNick]);
+
+  const handleToggleFollowCurrentProfile = () => {
+    const res = toggleSocialFollow({
+      followerNickname: effectiveViewerNick,
+      followerName: effectiveViewerName,
+      followerRole: effectiveViewerRole,
+      followerFotoUrl: currentUserPhotoUrl || detectedViewer.fotoUrl || "",
+      targetNickname: cleanNick,
+      targetName: profileData.displayName,
+      targetRole: profileData.role,
+      targetFotoUrl: profileData.fotoUrl || "",
+    });
+    setFollowsList(res.list);
+  };
+
+  const handleToggleFollowOther = (target: {
+    nickname: string;
+    name: string;
+    role: "Consultante" | "Terapeuta";
+    fotoUrl?: string;
+  }) => {
+    const actorNick = compact ? cleanNick : effectiveViewerNick;
+    const actorName = compact ? profileData.displayName : effectiveViewerName;
+    const actorRole = compact ? profileData.role : effectiveViewerRole;
+    const actorFoto = compact
+      ? profileData.fotoUrl
+      : currentUserPhotoUrl || detectedViewer.fotoUrl || "";
+
+    const res = toggleSocialFollow({
+      followerNickname: actorNick,
+      followerName: actorName,
+      followerRole: actorRole,
+      followerFotoUrl: actorFoto,
+      targetNickname: target.nickname,
+      targetName: target.name,
+      targetRole: target.role,
+      targetFotoUrl: target.fotoUrl || "",
+    });
+    setFollowsList(res.list);
+  };
+
   return (
     <div className="rounded-3xl border border-[#836DAD]/25 bg-white shadow-md overflow-hidden">
       {/* Portada superior de la Red Social con colores e Isologotipo del Manual de Marca */}
@@ -314,15 +471,15 @@ export default function SocialNetworkProfileView({
               )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-bold text-[#2E2344]">
                   <Sparkles className="h-3 w-3" />
                   Red Social • {profileData.role}
                 </span>
                 {profileData.whatsappVerified && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/20 border border-emerald-300/40 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-100">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[#F3D791]/60 bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                    <ShieldCheck className="h-3.5 w-3.5 text-[#F3D791]" />
                     Perfil Verificado
                   </span>
                 )}
@@ -332,12 +489,70 @@ export default function SocialNetworkProfileView({
                 {profileData.displayName}
               </h3>
 
-              <div className="flex flex-wrap items-center gap-3 text-xs text-white/85">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-white/90">
+                <span className="font-mono font-semibold text-[#F3D791]">
+                  @{profileData.nickname}
+                </span>
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="h-3.5 w-3.5 text-[#F3D791]" />
                   {profileData.localidad}, {profileData.provincia},{" "}
                   {profileData.pais}
                 </span>
+              </div>
+
+              {/* Contadores interactivos de Seguidores y Siguiendo + Botón Seguir */}
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSocialTab("seguidores")}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/25"
+                >
+                  <Users className="h-3.5 w-3.5 text-[#F3D791]" />
+                  <span>
+                    <strong className="text-[#F3D791]">
+                      {profileFollowers.length}
+                    </strong>{" "}
+                    {profileFollowers.length === 1 ? "seguidor" : "seguidores"}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSocialTab("siguiendo")}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/25"
+                >
+                  <UserCheck className="h-3.5 w-3.5 text-[#F3D791]" />
+                  <span>
+                    <strong className="text-[#F3D791]">
+                      {profileFollowing.length}
+                    </strong>{" "}
+                    siguiendo
+                  </span>
+                </button>
+
+                {effectiveViewerNick !== cleanNick && (
+                  <button
+                    type="button"
+                    onClick={handleToggleFollowCurrentProfile}
+                    className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-4 py-1 text-xs font-bold shadow-xs transition-all ${
+                      viewerIsFollowingThisProfile
+                        ? "bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                        : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
+                    }`}
+                  >
+                    {viewerIsFollowingThisProfile ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Siguiendo</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
+                        <span>Seguir {profileData.role}</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -384,7 +599,7 @@ export default function SocialNetworkProfileView({
             >
               {copiedUrl ? (
                 <>
-                  <Check className="h-3.5 w-3.5 text-emerald-300" />
+                  <Check className="h-3.5 w-3.5 text-[#F3D791]" />
                   Copiado
                 </>
               ) : (
@@ -401,7 +616,7 @@ export default function SocialNetworkProfileView({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 rounded-lg bg-[#F3D791] px-2.5 py-1 text-[11px] font-bold text-[#2E2344] hover:bg-[#e7c875] transition"
               >
-                Abrir página pública
+                Abrir perfil (usuarios registrados)
                 <ExternalLink className="h-3 w-3" />
               </a>
             )}
@@ -411,6 +626,334 @@ export default function SocialNetworkProfileView({
 
       {/* Cuerpo de la Red Social */}
       <div className="p-5 sm:p-6 space-y-6 bg-[#FAF8FC]">
+        {/* RED SOCIAL DE SEGUIDORES (Consultantes y Terapeutas) */}
+        <div className="rounded-2xl border border-[#836DAD]/25 bg-white p-4 sm:p-5 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#836DAD] text-[#F3D791]">
+                <Users className="h-4 w-4" />
+              </span>
+              <div>
+                <h4 className="text-sm sm:text-base font-bold text-[#2B1F42]">
+                  Red de Seguidores en Reiki Online
+                </h4>
+                <p className="text-xs text-[#2B1F42]/70">
+                  Seguí a Consultantes y Terapeutas de la comunidad.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSocialTab("seguidores")}
+                className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                  socialTab === "seguidores"
+                    ? "bg-[#836DAD] text-white shadow-xs"
+                    : "border border-[#836DAD]/25 bg-[#FAF8FC] text-[#2B1F42] hover:border-[#836DAD]"
+                }`}
+              >
+                Seguidores ({profileFollowers.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSocialTab("siguiendo")}
+                className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                  socialTab === "siguiendo"
+                    ? "bg-[#836DAD] text-white shadow-xs"
+                    : "border border-[#836DAD]/25 bg-[#FAF8FC] text-[#2B1F42] hover:border-[#836DAD]"
+                }`}
+              >
+                Siguiendo ({profileFollowing.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSocialTab("explorar")}
+                className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                  socialTab === "explorar"
+                    ? "bg-[#836DAD] text-[#F3D791] shadow-xs"
+                    : "border border-[#836DAD]/25 bg-[#FAF8FC] text-[#836DAD] hover:border-[#836DAD]"
+                }`}
+              >
+                + Seguir perfiles
+              </button>
+            </div>
+          </div>
+
+          {socialTab === "seguidores" && (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {profileFollowers.length > 0 ? (
+                profileFollowers.map((fol) => {
+                  const actorNick = compact ? cleanNick : effectiveViewerNick;
+                  const iFollowBack = isFollowingProfile(
+                    actorNick,
+                    fol.followerNickname,
+                    followsList
+                  );
+                  const folInitials = fol.followerName
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={fol.id}
+                      className="flex items-center justify-between gap-2.5 rounded-xl border border-[#836DAD]/20 bg-[#FAF8FC] p-3"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#836DAD]/30 bg-white text-xs font-bold text-[#836DAD]">
+                          {folInitials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <a
+                              href={`/${fol.followerNickname}`}
+                              className="truncate text-xs sm:text-sm font-bold text-[#2B1F42] hover:text-[#836DAD] hover:underline"
+                            >
+                              {fol.followerName}
+                            </a>
+                            <span
+                              className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                fol.followerRole === "Terapeuta"
+                                  ? "bg-[#F3D791]/50 text-[#2B1F42]"
+                                  : "bg-[#836DAD]/15 text-[#836DAD]"
+                              }`}
+                            >
+                              {fol.followerRole === "Terapeuta" ? (
+                                <UserCheck className="h-2.5 w-2.5" />
+                              ) : (
+                                <HeartHandshake className="h-2.5 w-2.5" />
+                              )}
+                              {fol.followerRole}
+                            </span>
+                          </div>
+                          <p className="font-mono text-[11px] text-[#836DAD]">
+                            @{fol.followerNickname}
+                          </p>
+                        </div>
+                      </div>
+
+                      {fol.followerNickname.toLowerCase() !== actorNick && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleToggleFollowOther({
+                              nickname: fol.followerNickname,
+                              name: fol.followerName,
+                              role: fol.followerRole,
+                              fotoUrl: fol.followerFotoUrl,
+                            })
+                          }
+                          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                            iFollowBack
+                              ? "border border-[#836DAD]/30 bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                              : "bg-[#836DAD] text-white hover:bg-[#6F599B]"
+                          }`}
+                        >
+                          {iFollowBack ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              <span>Siguiendo</span>
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                              <span>Seguir</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="col-span-2 py-3 text-center text-xs text-[#2B1F42]/65">
+                  Aún no hay seguidores registrados en esta lista.
+                </p>
+              )}
+            </div>
+          )}
+
+          {socialTab === "siguiendo" && (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {profileFollowing.length > 0 ? (
+                profileFollowing.map((fol) => {
+                  const actorNick = compact ? cleanNick : effectiveViewerNick;
+                  const isFollowingItem = isFollowingProfile(
+                    actorNick,
+                    fol.targetNickname,
+                    followsList
+                  );
+                  const targetInitials = fol.targetName
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase();
+
+                  return (
+                    <div
+                      key={fol.id}
+                      className="flex items-center justify-between gap-2.5 rounded-xl border border-[#836DAD]/20 bg-[#FAF8FC] p-3"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#836DAD]/30 bg-white text-xs font-bold text-[#836DAD]">
+                          {targetInitials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <a
+                              href={`/${fol.targetNickname}`}
+                              className="truncate text-xs sm:text-sm font-bold text-[#2B1F42] hover:text-[#836DAD] hover:underline"
+                            >
+                              {fol.targetName}
+                            </a>
+                            <span
+                              className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                fol.targetRole === "Terapeuta"
+                                  ? "bg-[#F3D791]/50 text-[#2B1F42]"
+                                  : "bg-[#836DAD]/15 text-[#836DAD]"
+                              }`}
+                            >
+                              {fol.targetRole}
+                            </span>
+                          </div>
+                          <p className="font-mono text-[11px] text-[#836DAD]">
+                            @{fol.targetNickname}
+                          </p>
+                        </div>
+                      </div>
+
+                      {fol.targetNickname.toLowerCase() !== actorNick && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleToggleFollowOther({
+                              nickname: fol.targetNickname,
+                              name: fol.targetName,
+                              role: fol.targetRole,
+                              fotoUrl: fol.targetFotoUrl,
+                            })
+                          }
+                          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                            isFollowingItem
+                              ? "border border-[#836DAD]/30 bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                              : "bg-[#836DAD] text-white hover:bg-[#6F599B]"
+                          }`}
+                        >
+                          {isFollowingItem ? (
+                            <>
+                              <Check className="h-3.5 w-3.5" />
+                              <span>Siguiendo</span>
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                              <span>Seguir</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <p className="col-span-2 py-3 text-center text-xs text-[#2B1F42]/65">
+                  Aún no sigue a otros perfiles. Usá la pestaña «+ Seguir perfiles» para conectar.
+                </p>
+              )}
+            </div>
+          )}
+
+          {socialTab === "explorar" && (
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {suggestedProfiles.map((sug) => {
+                const actorNick = compact ? cleanNick : effectiveViewerNick;
+                const isFollowingSug = isFollowingProfile(
+                  actorNick,
+                  sug.nickname,
+                  followsList
+                );
+                const sugInitials = sug.displayName
+                  .split(" ")
+                  .filter(Boolean)
+                  .map((n) => n[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase();
+
+                return (
+                  <div
+                    key={sug.nickname}
+                    className="flex items-center justify-between gap-2.5 rounded-xl border border-[#836DAD]/20 bg-[#FAF8FC] p-3"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#836DAD]/30 bg-white text-xs font-bold text-[#836DAD]">
+                        {sugInitials}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <a
+                            href={`/${sug.nickname}`}
+                            className="truncate text-xs sm:text-sm font-bold text-[#2B1F42] hover:text-[#836DAD] hover:underline"
+                          >
+                            {sug.displayName}
+                          </a>
+                          <span
+                            className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              sug.role === "Terapeuta"
+                                ? "bg-[#F3D791]/50 text-[#2B1F42]"
+                                : "bg-[#836DAD]/15 text-[#836DAD]"
+                            }`}
+                          >
+                            {sug.role}
+                          </span>
+                        </div>
+                        <p className="font-mono text-[11px] text-[#836DAD]">
+                          @{sug.nickname} · {sug.localidad}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleToggleFollowOther({
+                          nickname: sug.nickname,
+                          name: sug.displayName,
+                          role: sug.role,
+                          fotoUrl: sug.fotoUrl,
+                        })
+                      }
+                      className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                        isFollowingSug
+                          ? "border border-[#836DAD]/30 bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                          : "bg-[#836DAD] text-white hover:bg-[#6F599B]"
+                      }`}
+                    >
+                      {isFollowingSug ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Siguiendo</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                          <span>Seguir</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Terapias que ofrece / busca */}
         {profileData.therapies && profileData.therapies.length > 0 && (
           <div className="space-y-2">

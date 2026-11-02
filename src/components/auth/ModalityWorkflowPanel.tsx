@@ -13,6 +13,9 @@ import {
   SlidersHorizontal,
   ArrowLeftRight,
   UserCheck,
+  UserPlus,
+  Users,
+  Check,
   Search,
   Maximize2,
 } from "lucide-react";
@@ -20,7 +23,15 @@ import {
   PROVINCIAS_ARGENTINA,
   getLocalidadesParaProvincia,
   ReikiUserProfile,
+  sanitizeNickname,
 } from "@/lib/geoData";
+import {
+  getFollowersForNickname,
+  isFollowingProfile,
+  loadSocialFollows,
+  SocialFollowRecord,
+  toggleSocialFollow,
+} from "@/lib/socialNetwork";
 
 export type ModalityType =
   | "Presencial con turno"
@@ -241,8 +252,48 @@ export default function ModalityWorkflowPanel({
     Record<string, TherapistAvailabilityConfig>
   >({});
   const [matchAlerts, setMatchAlerts] = useState<MatchAlertItem[]>([]);
+  const [followsList, setFollowsList] = useState<SocialFollowRecord[]>([]);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [bookingNotice, setBookingNotice] = useState<string | null>(null);
+
+  const viewerNickname = useMemo(() => {
+    return (
+      sanitizeNickname(
+        userProfile.nickname ||
+          userProfile.username ||
+          `${userProfile.nombre}${userProfile.apellido}`
+      ).toLowerCase() || "danielghiglione"
+    );
+  }, [
+    userProfile.nickname,
+    userProfile.username,
+    userProfile.nombre,
+    userProfile.apellido,
+  ]);
+
+  const viewerDisplayName = useMemo(() => {
+    return (
+      `${userProfile.nombre || ""} ${userProfile.apellido || ""}`.trim() ||
+      viewerNickname
+    );
+  }, [userProfile.nombre, userProfile.apellido, viewerNickname]);
+
+  const handleToggleFollowPerson = (target: {
+    nickname: string;
+    name: string;
+    role: "Consultante" | "Terapeuta";
+  }) => {
+    const res = toggleSocialFollow({
+      followerNickname: viewerNickname,
+      followerName: viewerDisplayName,
+      followerRole: role,
+      followerFotoUrl: userProfile.fotoUrl || "",
+      targetNickname: target.nickname,
+      targetName: target.name,
+      targetRole: target.role,
+    });
+    setFollowsList(res.list);
+  };
 
   // Filtros del Consultante para Presencial / Online con turno
   const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -290,6 +341,8 @@ export default function ModalityWorkflowPanel({
     } catch {
       // Ignore
     }
+
+    setFollowsList(loadSocialFollows());
   };
 
   useEffect(() => {

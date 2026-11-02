@@ -167,14 +167,59 @@ export default function NetworkProfilesDirectory({
   viewerRole,
   viewerProfile,
   allStoredProfiles,
-  onToggleViewerVisibility,
   onSelectProfileToConnect,
 }: NetworkProfilesDirectoryProps) {
-  const targetRole: "Terapeuta" | "Consultante" =
+  const defaultRoleFilter: "Terapeuta" | "Consultante" =
     viewerRole === "Consultante" ? "Terapeuta" : "Consultante";
 
+  const [roleFilter, setRoleFilter] = useState<
+    "Terapeuta" | "Consultante" | "Todos"
+  >(defaultRoleFilter);
+  const [socialFilter, setSocialFilter] = useState<
+    "todos" | "siguiendo" | "seguidores"
+  >("todos");
   const [query, setQuery] = useState("");
   const [qrByNick, setQrByNick] = useState<Record<string, string>>({});
+  const [followsList, setFollowsList] = useState<SocialFollowRecord[]>([]);
+
+  const viewerNickname = useMemo(
+    () => getEffectiveNickname(viewerProfile),
+    [viewerProfile]
+  );
+
+  const viewerDisplayName = useMemo(() => {
+    return (
+      `${viewerProfile.nombre || ""} ${viewerProfile.apellido || ""}`.trim() ||
+      viewerNickname
+    );
+  }, [viewerProfile.nombre, viewerProfile.apellido, viewerNickname]);
+
+  useEffect(() => {
+    setRoleFilter(viewerRole === "Consultante" ? "Terapeuta" : "Consultante");
+  }, [viewerRole]);
+
+  useEffect(() => {
+    const syncFollows = () => {
+      setFollowsList(loadSocialFollows());
+    };
+    syncFollows();
+    if (typeof window === "undefined") return;
+    window.addEventListener(SYNC_EVENT_NAME, syncFollows);
+    window.addEventListener("storage", syncFollows);
+    return () => {
+      window.removeEventListener(SYNC_EVENT_NAME, syncFollows);
+      window.removeEventListener("storage", syncFollows);
+    };
+  }, []);
+
+  const myFollowers = useMemo(
+    () => getFollowersForNickname(viewerNickname, followsList),
+    [viewerNickname, followsList]
+  );
+  const myFollowing = useMemo(
+    () => getFollowingForNickname(viewerNickname, followsList),
+    [viewerNickname, followsList]
+  );
 
   const combinedProfiles = useMemo(() => {
     const map = new Map<string, NetworkProfileCardItem>();
@@ -185,7 +230,9 @@ export default function NetworkProfilesDirectory({
     for (const prof of Object.values(allStoredProfiles)) {
       const nick = getEffectiveNickname(prof);
       const mappedRole: "Terapeuta" | "Consultante" =
-        prof.role === "consultante" ? "Consultante" : "Terapeuta";
+        prof.role === "consultante" && !prof.soyTerapeuta
+          ? "Consultante"
+          : "Terapeuta";
 
       map.set(nick, {
         id: prof.id,
@@ -205,9 +252,27 @@ export default function NetworkProfilesDirectory({
     const q = query.trim().toLowerCase();
     return Array.from(map.values())
       .filter((item) => {
-        if (item.role !== targetRole) return false;
         // Si es Consultante y eligió NO ser visible en la red, no aparece
         if (item.role === "Consultante" && !item.visibleEnRed) return false;
+
+        if (socialFilter === "siguiendo") {
+          const iFollow = isFollowingProfile(
+            viewerNickname,
+            item.nickname,
+            followsList
+          );
+          if (!iFollow) return false;
+        } else if (socialFilter === "seguidores") {
+          const followsMe = isFollowingProfile(
+            item.nickname,
+            viewerNickname,
+            followsList
+          );
+          if (!followsMe) return false;
+        } else {
+          if (roleFilter !== "Todos" && item.role !== roleFilter) return false;
+        }
+
         if (!q) return true;
         return (
           item.nombreCompleto.toLowerCase().includes(q) ||
@@ -227,7 +292,15 @@ export default function NetworkProfilesDirectory({
         ),
       }))
       .sort((a, b) => a.distanceKm - b.distanceKm);
-  }, [allStoredProfiles, targetRole, query, viewerProfile.geo]);
+  }, [
+    allStoredProfiles,
+    roleFilter,
+    socialFilter,
+    query,
+    viewerProfile.geo,
+    viewerNickname,
+    followsList,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -258,25 +331,100 @@ export default function NetworkProfilesDirectory({
     };
   }, [combinedProfiles]);
 
-  const viewerIsVisible = viewerProfile.visibleEnRed ?? true;
+  const handleToggleFollow = (target: NetworkProfileCardItem) => {
+    const res = toggleSocialFollow({
+      followerNickname: viewerNickname,
+      followerName: viewerDisplayName,
+      followerRole: viewerRole,
+      followerFotoUrl: viewerProfile.fotoUrl || "",
+      targetNickname: target.nickname,
+      targetName: target.nombreCompleto,
+      targetRole: target.role,
+      targetFotoUrl: target.fotoUrl || "",
+    });
+    setFollowsList(res.list);
+  };
 
   return (
     <div className="space-y-4">
-      {/* Barra superior: Buscador */}
-      <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4">
+      {/* Barra superior: Buscador + Filtros de Red Social (Terapeutas / Consultantes / Siguiendo / Mis Seguidores) */}
+      <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4 space-y-3">
         <div className="relative w-full">
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#836DAD]" />
           <input
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              targetRole === "Terapeuta"
-                ? "Buscar Terapeuta por nombre, @nickname, localidad o terapia..."
-                : "Buscar Consultante por nombre, @nickname o localidad..."
-            }
+            placeholder="Buscar Terapeuta o Consultante por nombre, @nickname, localidad o terapia..."
             className="w-full rounded-xl border border-[#836DAD]/30 bg-white py-2.5 pr-3.5 pl-9 text-xs sm:text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/45 focus:border-[#836DAD] focus:outline-none"
           />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {/* Selector de Rol en la Red */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(["Terapeuta", "Consultante", "Todos"] as const).map((r) => {
+              const active = socialFilter === "todos" && roleFilter === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => {
+                    setSocialFilter("todos");
+                    setRoleFilter(r);
+                  }}
+                  className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                    active
+                      ? "bg-[#836DAD] text-white shadow-xs"
+                      : "border border-[#836DAD]/25 bg-white text-[#2B1F42] hover:border-[#836DAD]"
+                  }`}
+                >
+                  {r === "Terapeuta"
+                    ? "Terapeutas"
+                    : r === "Consultante"
+                    ? "Consultantes"
+                    : "Toda la Red"}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Filtros de Seguidores / Siguiendo */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() =>
+                setSocialFilter((prev) =>
+                  prev === "siguiendo" ? "todos" : "siguiendo"
+                )
+              }
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                socialFilter === "siguiendo"
+                  ? "bg-[#836DAD] text-[#F3D791] shadow-xs"
+                  : "border border-[#836DAD]/25 bg-white text-[#836DAD] hover:border-[#836DAD]"
+              }`}
+            >
+              <UserCheck className="h-3.5 w-3.5" />
+              <span>Siguiendo ({myFollowing.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setSocialFilter((prev) =>
+                  prev === "seguidores" ? "todos" : "seguidores"
+                )
+              }
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                socialFilter === "seguidores"
+                  ? "bg-[#836DAD] text-[#F3D791] shadow-xs"
+                  : "border border-[#836DAD]/25 bg-white text-[#836DAD] hover:border-[#836DAD]"
+              }`}
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Mis Seguidores ({myFollowers.length})</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -291,6 +439,25 @@ export default function NetworkProfilesDirectory({
             .slice(0, 2)
             .toUpperCase();
           const qrUrl = qrByNick[item.nickname];
+          const isSelf = item.nickname.toLowerCase() === viewerNickname;
+          const isFollowing = isFollowingProfile(
+            viewerNickname,
+            item.nickname,
+            followsList
+          );
+          const followsMe = isFollowingProfile(
+            item.nickname,
+            viewerNickname,
+            followsList
+          );
+          const itemFollowersCount = getFollowersForNickname(
+            item.nickname,
+            followsList
+          ).length;
+          const itemFollowingCount = getFollowingForNickname(
+            item.nickname,
+            followsList
+          ).length;
 
           return (
             <div
@@ -299,6 +466,11 @@ export default function NetworkProfilesDirectory({
             >
               {/* 1. Cabecera Reiki Online con Isologotipo Oficial agrandado para mayor presencia */}
               <div className="relative flex w-full flex-col items-center pt-1">
+                {followsMe && !isSelf && (
+                  <span className="absolute top-0 left-0 inline-flex items-center gap-1 rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                    Te sigue
+                  </span>
+                )}
                 <span className="absolute top-0 right-0 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#F3D791]">
                   <MapPin className="h-3 w-3" />
                   {distanceKm} km
@@ -310,7 +482,7 @@ export default function NetworkProfilesDirectory({
                 />
               </div>
 
-              {/* 2. Foto + Rol + Nombre y Apellido + Nickname */}
+              {/* 2. Foto + Rol + Nombre y Apellido + Nickname + Seguidores */}
               <div className="my-3 flex flex-col items-center">
                 <div className="h-18 w-18 overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] shadow-md flex items-center justify-center">
                   {item.fotoUrl ? (
@@ -351,6 +523,23 @@ export default function NetworkProfilesDirectory({
                   {item.localidad}, {item.provincia}
                 </p>
 
+                {/* Contadores de Red Social: Seguidores y Siguiendo */}
+                <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
+                  <span>
+                    <strong className="text-[#F3D791]">
+                      {itemFollowersCount}
+                    </strong>{" "}
+                    {itemFollowersCount === 1 ? "seguidor" : "seguidores"}
+                  </span>
+                  <span className="text-white/40">•</span>
+                  <span>
+                    <strong className="text-[#F3D791]">
+                      {itemFollowingCount}
+                    </strong>{" "}
+                    siguiendo
+                  </span>
+                </div>
+
                 {item.role === "Terapeuta" && item.therapies.length > 0 && (
                   <div className="mt-2.5 flex flex-wrap justify-center gap-1">
                     {item.therapies.slice(0, 3).map((th) => (
@@ -365,8 +554,8 @@ export default function NetworkProfilesDirectory({
                 )}
               </div>
 
-              {/* 3. Código QR visible + Link + Acción */}
-              <div className="w-full space-y-3 border-t border-white/15 pt-3.5">
+              {/* 3. Código QR visible + Link + Botón Seguir + Botón Conectar */}
+              <div className="w-full space-y-2.5 border-t border-white/15 pt-3.5">
                 <div className="flex flex-col items-center gap-2">
                   {qrUrl ? (
                     <div className="shrink-0 rounded-2xl bg-white p-2 shadow-md">
@@ -400,18 +589,44 @@ export default function NetworkProfilesDirectory({
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => onSelectProfileToConnect(item)}
-                  className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#F3D791] px-3.5 py-2 text-xs font-bold text-[#2B1F42] transition-colors hover:bg-white"
-                >
-                  <CalendarCheck className="h-3.5 w-3.5 text-[#836DAD]" />
-                  <span>
-                    {item.role === "Terapeuta"
-                      ? "Elegir Terapeuta"
-                      : "Conectar con Consultante"}
-                  </span>
-                </button>
+                <div className="grid grid-cols-1 gap-2">
+                  {!isSelf && (
+                    <button
+                      type="button"
+                      onClick={() => handleToggleFollow(item)}
+                      className={`inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                        isFollowing
+                          ? "border border-white bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                          : "border border-[#F3D791] bg-white/15 text-white hover:bg-[#F3D791] hover:text-[#2B1F42]"
+                      }`}
+                    >
+                      {isFollowing ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Siguiendo</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                          <span>Seguir {item.role}</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => onSelectProfileToConnect(item)}
+                    className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#F3D791] px-3.5 py-2 text-xs font-bold text-[#2B1F42] transition-colors hover:bg-white"
+                  >
+                    <CalendarCheck className="h-3.5 w-3.5 text-[#836DAD]" />
+                    <span>
+                      {item.role === "Terapeuta"
+                        ? "Elegir Terapeuta"
+                        : "Conectar con Consultante"}
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
           );

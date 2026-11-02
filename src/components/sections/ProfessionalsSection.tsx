@@ -74,14 +74,13 @@ export function ProfessionalsSection({ onOpenAccess }: ProfessionalsSectionProps
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <span className="inline-block rounded-full bg-[#836DAD]/12 px-3 py-1 text-xs font-semibold text-[#836DAD]">
-                Exploración pública sin registro
+                Perfiles semi-públicos (requiere estar registrado)
               </span>
               <h3 className="mt-2.5 text-xl sm:text-3xl font-semibold text-[#2B1F42]">
                 Cómo se presentan los perfiles profesionales en la plataforma
               </h3>
               <p className="mt-1.5 text-sm text-[#2B1F42]/75">
-                Cada ficha identifica con precisión sus servicios, formación declarada y modalidad
-                de atención presencial o a distancia.
+                Tanto si sos consultante como terapeuta, los perfiles de la red y sus códigos QR solo se habilitan cuando estás registrado en Reiki Online.
               </p>
             </div>
           </div>
