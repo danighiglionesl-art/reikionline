@@ -19,6 +19,8 @@ import {
   Users,
   HeartHandshake,
   QrCode,
+  ArrowLeft,
+  Eye,
 } from "lucide-react";
 import {
   DEMO_SOCIAL_PROFILES,
@@ -71,6 +73,13 @@ export default function SocialNetworkProfileView({
     "seguidores" | "seguidos" | "historias" | "feed"
   >("seguidores");
   const [showExploreInFollows, setShowExploreInFollows] = useState(false);
+  const [activeViewedNickname, setActiveViewedNickname] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    setActiveViewedNickname(null);
+  }, [nickname]);
   const [detectedViewer, setDetectedViewer] = useState<{
     nickname: string;
     name: string;
@@ -97,10 +106,27 @@ export default function SocialNetworkProfileView({
     text: string;
   } | null>(null);
 
-  const cleanNick = nickname.trim().toLowerCase();
+  const rootNick = nickname.trim().toLowerCase();
+  const isViewingOtherProfile = Boolean(
+    activeViewedNickname && activeViewedNickname.trim().toLowerCase() !== rootNick
+  );
+  const cleanNick = (activeViewedNickname || nickname).trim().toLowerCase();
   const fullPublicUrl = `https://www.reikionline.com.ar/${
-    overrideProfile?.nickname || resolvedProfile?.nickname || nickname
+    (!isViewingOtherProfile && overrideProfile?.nickname) ||
+    resolvedProfile?.nickname ||
+    cleanNick
   }`;
+
+  const handleEnterProfileNetwork = (
+    targetNick: string,
+    initialTab: "feed" | "historias" = "feed"
+  ) => {
+    const normalized = targetNick.trim().toLowerCase();
+    if (!normalized) return;
+    setActiveViewedNickname(normalized === rootNick ? null : normalized);
+    setSocialTab(initialTab);
+    setShowExploreInFollows(false);
+  };
 
   useEffect(() => {
     let active = true;
@@ -197,8 +223,11 @@ export default function SocialNetworkProfileView({
 
   const profileData: PublicSocialProfile = useMemo(() => {
     const base: PublicSocialProfile = resolvedProfile || {
-      nickname: nickname || "usuario",
-      displayName: overrideProfile?.displayName || nickname || "Usuario Reiki",
+      nickname: cleanNick || "usuario",
+      displayName:
+        (!isViewingOtherProfile && overrideProfile?.displayName) ||
+        cleanNick ||
+        "Usuario Reiki",
       role: "Terapeuta",
       fotoUrl: "",
       localidad: "Alcira Gigena",
@@ -208,6 +237,9 @@ export default function SocialNetworkProfileView({
       bio: `Red Social en Reiki Online (${fullPublicUrl})`,
       whatsappVerified: true,
     };
+    if (isViewingOtherProfile) {
+      return base;
+    }
     return {
       ...base,
       ...overrideProfile,
@@ -222,7 +254,13 @@ export default function SocialNetworkProfileView({
           ? overrideProfile.therapies
           : base.therapies,
     };
-  }, [resolvedProfile, overrideProfile, nickname, fullPublicUrl]);
+  }, [
+    resolvedProfile,
+    overrideProfile,
+    cleanNick,
+    isViewingOtherProfile,
+    fullPublicUrl,
+  ]);
 
   // Reseñas de este terapeuta
   const profileReviews = useMemo(() => {
@@ -464,6 +502,56 @@ export default function SocialNetworkProfileView({
 
   return (
     <div className="rounded-3xl border border-[#836DAD]/25 bg-white shadow-md overflow-hidden">
+      {/* Barra superior cuando se ingresa a la Red Social de un Seguidor o Seguido */}
+      {isViewingOtherProfile && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#F3D791]/40 bg-[#2B1F42] px-5 py-3 text-white">
+          <div className="flex items-center gap-2 text-xs sm:text-sm">
+            <Eye className="h-4 w-4 text-[#F3D791] shrink-0" />
+            <span>
+              Viendo la Red Social de{" "}
+              <strong className="text-[#F3D791]">
+                {profileData.displayName} (@{profileData.nickname})
+              </strong>
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSocialTab("feed")}
+              className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                socialTab === "feed"
+                  ? "bg-[#F3D791] text-[#2B1F42]"
+                  : "border border-white/25 bg-white/10 text-white hover:bg-white/20"
+              }`}
+            >
+              Ver su Feed
+            </button>
+            <button
+              type="button"
+              onClick={() => setSocialTab("historias")}
+              className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-bold transition ${
+                socialTab === "historias"
+                  ? "bg-[#F3D791] text-[#2B1F42]"
+                  : "border border-white/25 bg-white/10 text-white hover:bg-white/20"
+              }`}
+            >
+              Ver sus Historias
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveViewedNickname(null);
+                setSocialTab("seguidores");
+              }}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#F3D791] bg-[#836DAD] px-3 py-1.5 text-xs font-bold text-white transition hover:bg-[#F3D791] hover:text-[#2B1F42]"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Volver a Mi Red (@{rootNick})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Portada superior de la Red Social con colores e Isologotipo del Manual de Marca */}
       <div className="bg-[#836DAD] px-5 py-6 text-white">
         <div className="mb-4 flex items-center justify-between border-b border-white/15 pb-3">
@@ -746,71 +834,118 @@ export default function SocialNetworkProfileView({
                     return (
                       <div
                         key={fol.id}
-                        className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
+                        className="flex flex-col justify-between gap-3 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3.5 text-white shadow-xs"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
-                            {folPhoto ? (
-                              <img
-                                src={folPhoto}
-                                alt={fol.followerName}
-                                referrerPolicy="no-referrer"
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              folInitials
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="truncate text-xs sm:text-sm font-bold text-white">
-                                {fol.followerName}
-                              </span>
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                                {fol.followerRole === "Terapeuta" ? (
-                                  <UserCheck className="h-2.5 w-2.5" />
-                                ) : (
-                                  <HeartHandshake className="h-2.5 w-2.5" />
-                                )}
-                                {fol.followerRole}
-                              </span>
-                            </div>
-                            <p className="text-[11px] font-semibold text-[#F3D791]">
-                              @{fol.followerNickname}
-                            </p>
-                          </div>
-                        </div>
-
-                        {fol.followerNickname.toLowerCase() !== actorNick && (
+                        <div className="flex items-center justify-between gap-2.5">
                           <button
                             type="button"
                             onClick={() =>
-                              handleToggleFollowOther({
-                                nickname: fol.followerNickname,
-                                name: fol.followerName,
-                                role: fol.followerRole,
-                                fotoUrl: folPhoto,
-                              })
+                              handleEnterProfileNetwork(
+                                fol.followerNickname,
+                                "feed"
+                              )
                             }
-                            className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                              iFollowBack
-                                ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                                : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
-                            }`}
+                            title={`Ingresar a la red de @${fol.followerNickname}`}
+                            className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer group"
                           >
-                            {iFollowBack ? (
-                              <>
-                                <Check className="h-3.5 w-3.5" />
-                                <span>Siguiendo</span>
-                              </>
-                            ) : (
-                              <>
-                                <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
-                                <span>Seguir</span>
-                              </>
-                            )}
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD] transition-transform group-hover:scale-105">
+                              {folPhoto ? (
+                                <img
+                                  src={folPhoto}
+                                  alt={fol.followerName}
+                                  referrerPolicy="no-referrer"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                folInitials
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="truncate text-xs sm:text-sm font-bold text-white group-hover:text-[#F3D791] underline-offset-2 group-hover:underline">
+                                  {fol.followerName}
+                                </span>
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                                  {fol.followerRole === "Terapeuta" ? (
+                                    <UserCheck className="h-2.5 w-2.5" />
+                                  ) : (
+                                    <HeartHandshake className="h-2.5 w-2.5" />
+                                  )}
+                                  {fol.followerRole}
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-semibold text-[#F3D791]">
+                                @{fol.followerNickname}
+                              </p>
+                            </div>
                           </button>
-                        )}
+
+                          {fol.followerNickname.toLowerCase() !== actorNick && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleToggleFollowOther({
+                                  nickname: fol.followerNickname,
+                                  name: fol.followerName,
+                                  role: fol.followerRole,
+                                  fotoUrl: folPhoto,
+                                })
+                              }
+                              className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                                iFollowBack
+                                  ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                                  : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
+                              }`}
+                            >
+                              {iFollowBack ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Siguiendo</span>
+                                </>
+                              ) : (
+                                <>
+                                  <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
+                                  <span>Seguir</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Botones para ingresar a su red y ver su Feed e Historias */}
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-white/15 pt-2.5">
+                          <span className="text-[11px] font-medium text-white/85">
+                            Ingresar a su red:
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleEnterProfileNetwork(
+                                  fol.followerNickname,
+                                  "feed"
+                                )
+                              }
+                              className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#F3D791]/70 bg-white/15 px-2.5 py-1 text-[11px] font-bold text-[#F3D791] transition hover:bg-[#F3D791] hover:text-[#2B1F42]"
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>Ver Feed</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleEnterProfileNetwork(
+                                  fol.followerNickname,
+                                  "historias"
+                                )
+                              }
+                              className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#F3D791]/70 bg-white/15 px-2.5 py-1 text-[11px] font-bold text-[#F3D791] transition hover:bg-[#F3D791] hover:text-[#2B1F42]"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              <span>Ver Historias</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     );
                   })
@@ -868,66 +1003,113 @@ export default function SocialNetworkProfileView({
                     return (
                       <div
                         key={fol.id}
-                        className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
+                        className="flex flex-col justify-between gap-3 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3.5 text-white shadow-xs"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
-                            {targetPhoto ? (
-                              <img
-                                src={targetPhoto}
-                                alt={fol.targetName}
-                                referrerPolicy="no-referrer"
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              targetInitials
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="truncate text-xs sm:text-sm font-bold text-white">
-                                {fol.targetName}
-                              </span>
-                              <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                                {fol.targetRole}
-                              </span>
-                            </div>
-                            <p className="text-[11px] font-semibold text-[#F3D791]">
-                              @{fol.targetNickname}
-                            </p>
-                          </div>
-                        </div>
-
-                        {fol.targetNickname.toLowerCase() !== actorNick && (
+                        <div className="flex items-center justify-between gap-2.5">
                           <button
                             type="button"
                             onClick={() =>
-                              handleToggleFollowOther({
-                                nickname: fol.targetNickname,
-                                name: fol.targetName,
-                                role: fol.targetRole,
-                                fotoUrl: targetPhoto,
-                              })
+                              handleEnterProfileNetwork(
+                                fol.targetNickname,
+                                "feed"
+                              )
                             }
-                            className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                              isFollowingItem
-                                ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                                : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
-                            }`}
+                            title={`Ingresar a la red de @${fol.targetNickname}`}
+                            className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer group"
                           >
-                            {isFollowingItem ? (
-                              <>
-                                <Check className="h-3.5 w-3.5" />
-                                <span>Siguiendo</span>
-                              </>
-                            ) : (
-                              <>
-                                <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
-                                <span>Seguir</span>
-                              </>
-                            )}
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD] transition-transform group-hover:scale-105">
+                              {targetPhoto ? (
+                                <img
+                                  src={targetPhoto}
+                                  alt={fol.targetName}
+                                  referrerPolicy="no-referrer"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                targetInitials
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="truncate text-xs sm:text-sm font-bold text-white group-hover:text-[#F3D791] underline-offset-2 group-hover:underline">
+                                  {fol.targetName}
+                                </span>
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                                  {fol.targetRole}
+                                </span>
+                              </div>
+                              <p className="text-[11px] font-semibold text-[#F3D791]">
+                                @{fol.targetNickname}
+                              </p>
+                            </div>
                           </button>
-                        )}
+
+                          {fol.targetNickname.toLowerCase() !== actorNick && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleToggleFollowOther({
+                                  nickname: fol.targetNickname,
+                                  name: fol.targetName,
+                                  role: fol.targetRole,
+                                  fotoUrl: targetPhoto,
+                                })
+                              }
+                              className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                                isFollowingItem
+                                  ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                                  : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
+                              }`}
+                            >
+                              {isFollowingItem ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Siguiendo</span>
+                                </>
+                              ) : (
+                                <>
+                                  <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
+                                  <span>Seguir</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Botones para ingresar a su red y ver su Feed e Historias */}
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-white/15 pt-2.5">
+                          <span className="text-[11px] font-medium text-white/85">
+                            Ingresar a su red:
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleEnterProfileNetwork(
+                                  fol.targetNickname,
+                                  "feed"
+                                )
+                              }
+                              className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#F3D791]/70 bg-white/15 px-2.5 py-1 text-[11px] font-bold text-[#F3D791] transition hover:bg-[#F3D791] hover:text-[#2B1F42]"
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>Ver Feed</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleEnterProfileNetwork(
+                                  fol.targetNickname,
+                                  "historias"
+                                )
+                              }
+                              className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#F3D791]/70 bg-white/15 px-2.5 py-1 text-[11px] font-bold text-[#F3D791] transition hover:bg-[#F3D791] hover:text-[#2B1F42]"
+                            >
+                              <Sparkles className="h-3 w-3" />
+                              <span>Ver Historias</span>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     );
                   })
@@ -964,64 +1146,107 @@ export default function SocialNetworkProfileView({
                       return (
                         <div
                           key={sug.nickname}
-                          className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
+                          className="flex flex-col justify-between gap-3 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3.5 text-white shadow-xs"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
-                              {sug.fotoUrl ? (
-                                <img
-                                  src={sug.fotoUrl}
-                                  alt={sug.displayName}
-                                  referrerPolicy="no-referrer"
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                sugInitials
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="truncate text-xs sm:text-sm font-bold text-white">
-                                  {sug.displayName}
-                                </span>
-                                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                                  {sug.role}
-                                </span>
+                          <div className="flex items-center justify-between gap-2.5">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleEnterProfileNetwork(sug.nickname, "feed")
+                              }
+                              title={`Ingresar a la red de @${sug.nickname}`}
+                              className="flex items-center gap-2.5 min-w-0 text-left cursor-pointer group"
+                            >
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD] transition-transform group-hover:scale-105">
+                                {sug.fotoUrl ? (
+                                  <img
+                                    src={sug.fotoUrl}
+                                    alt={sug.displayName}
+                                    referrerPolicy="no-referrer"
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  sugInitials
+                                )}
                               </div>
-                              <p className="text-[11px] font-semibold text-[#F3D791]">
-                                @{sug.nickname} · {sug.localidad}
-                              </p>
-                            </div>
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="truncate text-xs sm:text-sm font-bold text-white group-hover:text-[#F3D791] underline-offset-2 group-hover:underline">
+                                    {sug.displayName}
+                                  </span>
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                                    {sug.role}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] font-semibold text-[#F3D791]">
+                                  @{sug.nickname} · {sug.localidad}
+                                </p>
+                              </div>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleToggleFollowOther({
+                                  nickname: sug.nickname,
+                                  name: sug.displayName,
+                                  role: sug.role,
+                                  fotoUrl: sug.fotoUrl,
+                                })
+                              }
+                              className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                                isFollowingSug
+                                  ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                                  : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
+                              }`}
+                            >
+                              {isFollowingSug ? (
+                                <>
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Siguiendo</span>
+                                </>
+                              ) : (
+                                <>
+                                  <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
+                                  <span>Seguir</span>
+                                </>
+                              )}
+                            </button>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleToggleFollowOther({
-                                nickname: sug.nickname,
-                                name: sug.displayName,
-                                role: sug.role,
-                                fotoUrl: sug.fotoUrl,
-                              })
-                            }
-                            className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                              isFollowingSug
-                                ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                                : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
-                            }`}
-                          >
-                            {isFollowingSug ? (
-                              <>
-                                <Check className="h-3.5 w-3.5" />
-                                <span>Siguiendo</span>
-                              </>
-                            ) : (
-                              <>
-                                <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
-                                <span>Seguir</span>
-                              </>
-                            )}
-                          </button>
+                          <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-white/15 pt-2.5">
+                            <span className="text-[11px] font-medium text-white/85">
+                              Ingresar a su red:
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleEnterProfileNetwork(
+                                    sug.nickname,
+                                    "feed"
+                                  )
+                                }
+                                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#F3D791]/70 bg-white/15 px-2.5 py-1 text-[11px] font-bold text-[#F3D791] transition hover:bg-[#F3D791] hover:text-[#2B1F42]"
+                              >
+                                <Eye className="h-3 w-3" />
+                                <span>Ver Feed</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleEnterProfileNetwork(
+                                    sug.nickname,
+                                    "historias"
+                                  )
+                                }
+                                className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#F3D791]/70 bg-white/15 px-2.5 py-1 text-[11px] font-bold text-[#F3D791] transition hover:bg-[#F3D791] hover:text-[#2B1F42]"
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                <span>Ver Historias</span>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       );
                     })}
@@ -1032,40 +1257,173 @@ export default function SocialNetworkProfileView({
           )}
 
           {socialTab === "historias" && (
-            <div className="rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-white space-y-3 shadow-xs">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#F3D791]" />
-                  <h5 className="text-sm sm:text-base font-bold text-white">
-                    Historias • Mi Red Social (@{profileData.nickname})
-                  </h5>
+            <div className="space-y-4">
+              <div className="rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-white space-y-3 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-[#F3D791]" />
+                    <h5 className="text-sm sm:text-base font-bold text-white">
+                      Historias de {profileData.displayName} (@{profileData.nickname})
+                    </h5>
+                  </div>
+                  <span className="rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-bold text-[#2B1F42]">
+                    Formato Estados (9:16)
+                  </span>
                 </div>
-                <span className="rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-bold text-[#2B1F42]">
-                  Formato Estados (9:16)
-                </span>
+                <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+                  Historias activas en la Red Social de{" "}
+                  <strong>{profileData.displayName}</strong> con identidad visual de Reiki Online.
+                </p>
               </div>
-              <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-                Espacio reservado para las <strong>Historias</strong> de tu Red Social en Reiki Online, manteniendo la identidad visual de tu Credencial Oficial (colores, fotografía, isologotipo y QR).
-              </p>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {(profileData.therapies.length > 0
+                  ? profileData.therapies.slice(0, 2)
+                  : ["Reiki Usui", "Armonización energética"]
+                ).map((therapyTitle, idx) => (
+                  <div
+                    key={`${therapyTitle}-${idx}`}
+                    className="flex flex-col justify-between rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-4 text-white shadow-sm aspect-[9/12]"
+                  >
+                    <div className="flex items-center justify-between gap-2 border-b border-white/15 pb-2.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
+                          {profileData.fotoUrl ? (
+                            <img
+                              src={profileData.fotoUrl}
+                              alt={profileData.displayName}
+                              referrerPolicy="no-referrer"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            initials
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold text-white">
+                            {profileData.displayName}
+                          </p>
+                          <p className="text-[10px] font-semibold text-[#F3D791]">
+                            @{profileData.nickname} • Hace {idx === 0 ? "2 h" : "6 h"}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                        Historia {idx + 1}
+                      </span>
+                    </div>
+
+                    <div className="my-auto py-4 text-center space-y-2.5">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[#F3D791]/60 bg-white/15 px-3 py-1 text-xs font-bold text-[#F3D791]">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        {therapyTitle}
+                      </span>
+                      <p className="text-sm sm:text-base font-bold text-white px-2">
+                        {profileData.role === "Terapeuta"
+                          ? `Espacio de ${therapyTitle} abierto para sesiones y acompañamiento en Reiki Online.`
+                          : `Compartiendo mi camino de bienestar y ${therapyTitle} en la comunidad Reiki Online.`}
+                      </p>
+                      <p className="text-xs text-white/80">
+                        📍 {profileData.localidad}, {profileData.provincia}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-white/15 pt-2.5 text-[11px] text-[#F3D791]">
+                      <span>www.reikionline.com.ar/{profileData.nickname}</span>
+                      <span className="font-bold">Reiki Online</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {socialTab === "feed" && (
-            <div className="rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-white space-y-3 shadow-xs">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#F3D791]" />
-                  <h5 className="text-sm sm:text-base font-bold text-white">
-                    Feed • Mi Red Social (@{profileData.nickname})
-                  </h5>
+            <div className="space-y-4">
+              <div className="rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-white space-y-3 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-[#F3D791]" />
+                    <h5 className="text-sm sm:text-base font-bold text-white">
+                      Feed de {profileData.displayName} (@{profileData.nickname})
+                    </h5>
+                  </div>
+                  <span className="rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-bold text-[#2B1F42]">
+                    Formato Feed (4:5)
+                  </span>
                 </div>
-                <span className="rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-bold text-[#2B1F42]">
-                  Formato Feed (4:5)
-                </span>
+                <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+                  Publicaciones y novedades del <strong>Feed</strong> de{" "}
+                  <strong>{profileData.displayName}</strong> en la Red Social de Reiki Online.
+                </p>
               </div>
-              <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-                Espacio reservado para las publicaciones del <strong>Feed</strong> de tu Red Social en Reiki Online, manteniendo la identidad visual de tu Credencial Oficial (colores, fotografía, isologotipo y QR).
-              </p>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {(profileData.therapies.length > 0
+                  ? profileData.therapies
+                  : ["Reiki Usui", "Alineación de chakras"]
+                )
+                  .slice(0, 4)
+                  .map((therapyItem, idx) => (
+                    <article
+                      key={`${therapyItem}-feed-${idx}`}
+                      className="flex flex-col justify-between rounded-2xl border border-[#836DAD]/25 bg-[#FAF8FC] p-4 shadow-xs space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#836DAD] bg-white text-xs font-bold text-[#836DAD]">
+                            {profileData.fotoUrl ? (
+                              <img
+                                src={profileData.fotoUrl}
+                                alt={profileData.displayName}
+                                referrerPolicy="no-referrer"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              initials
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-xs sm:text-sm font-bold text-[#2B1F42]">
+                              {profileData.displayName}
+                            </p>
+                            <p className="text-[11px] font-semibold text-[#836DAD]">
+                              @{profileData.nickname} • {profileData.role}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="rounded-full bg-[#836DAD] px-2.5 py-0.5 text-[10px] font-bold text-[#F3D791]">
+                          Feed #{idx + 1}
+                        </span>
+                      </div>
+
+                      <div className="rounded-xl border border-[#836DAD]/20 bg-[#836DAD] p-4 text-white space-y-2">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                          <Sparkles className="h-3 w-3" />
+                          {therapyItem}
+                        </span>
+                        <p className="text-xs sm:text-sm font-medium leading-relaxed text-white">
+                          {profileData.role === "Terapeuta"
+                            ? `Sesiones personalizadas de ${therapyItem} disponibles en modalidad Online y Presencial desde ${profileData.localidad}, ${profileData.provincia}.`
+                            : `Conectando con prácticas de ${therapyItem} y bienestar integral dentro de la comunidad de Reiki Online.`}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-[#2B1F42]/70 pt-1">
+                        <span>
+                          📍 {profileData.localidad}, {profileData.provincia}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSocialTab("historias")}
+                          className="cursor-pointer font-bold text-[#836DAD] hover:underline"
+                        >
+                          Ver Historias →
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+              </div>
             </div>
           )}
         </div>
