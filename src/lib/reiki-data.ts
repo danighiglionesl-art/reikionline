@@ -23,6 +23,8 @@ export interface TherapyCategory {
 export interface IllustrativeProfessional {
   id: string;
   name: string;
+  nickname: string;
+  city: string;
   roleTitle: string;
   categoryTitle: string;
   services: string[];
@@ -31,6 +33,8 @@ export interface IllustrativeProfessional {
   location: string;
   availability: string;
   illustrativePhoto: string;
+  followersCount: number;
+  followingCount: number;
 }
 
 export interface FaqItem {
@@ -268,7 +272,9 @@ export const THERAPY_CATEGORIES: TherapyCategory[] = ROLE_THERAPY_CATEGORIES.map
 export const ILLUSTRATIVE_PROFESSIONALS: IllustrativeProfessional[] = [
   {
     id: "prof-energia",
-    name: "Perfil ilustrativo · Especialista en Reiki",
+    name: "Valeria Méndez",
+    nickname: "valeriamendez",
+    city: "Córdoba, Córdoba",
     roleTitle: "Reikista y Armonización Energética",
     categoryTitle: "Energía y armonización",
     services: ["Reiki Usui a distancia", "Alineación de chakras", "Péndulo integrativo"],
@@ -276,31 +282,44 @@ export const ILLUSTRATIVE_PROFESSIONALS: IllustrativeProfessional[] = [
     modality: "Presencial y a distancia",
     location: "Atención online sin fronteras",
     availability: "Turnos disponibles de lunes a sábados",
-    illustrativePhoto: "/images/cat-energia-armonizacion.png",
+    illustrativePhoto:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
+    followersCount: 18,
+    followingCount: 12,
   },
   {
     id: "prof-meditacion",
-    name: "Perfil ilustrativo · Guía de Meditación",
-    roleTitle: "Facilitadora de Mindfulness y Relajación",
+    name: "Martín Arrieta",
+    nickname: "martinarrieta",
+    city: "Río Cuarto, Córdoba",
+    roleTitle: "Facilitador de Mindfulness y Registros Akáshicos",
     categoryTitle: "Meditación y bienestar",
-    services: ["Meditación guiada 1 a 1", "Respiración consciente", "Prácticas de atención plena"],
-    declaredFormation: "Instructorado en Mindfulness y Meditación Contemplativa",
+    services: ["Meditación guiada 1 a 1", "Reiki Karuna", "Registros akáshicos"],
+    declaredFormation: "Instructorado en Mindfulness, Meditación Contemplativa y Reiki Karuna",
     modality: "Online a distancia",
     location: "Sesiones en vivo por videollamada",
     availability: "Horarios flexibles de mañana y tarde",
-    illustrativePhoto: "/images/galeria-meditacion.png",
+    illustrativePhoto:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
+    followersCount: 14,
+    followingCount: 9,
   },
   {
     id: "prof-holistica",
-    name: "Perfil ilustrativo · Terapeuta Holístico",
+    name: "Sofía Benítez",
+    nickname: "sofiabenitez",
+    city: "Villa María, Córdoba",
     roleTitle: "Sonoterapia, Flores de Bach y Autoconocimiento",
     categoryTitle: "Terapias holísticas",
     services: ["Consulta de Flores de Bach", "Armonización sonora", "Constelaciones individuales"],
-    declaredFormation: "Terapeuta Floral diplomado · Formación en Sonoterapia y Enfoque Sistémico",
+    declaredFormation: "Terapeuta Floral diplomada · Formación en Sonoterapia y Enfoque Sistémico",
     modality: "Presencial y a distancia",
     location: "Consultorio y modalidad online",
     availability: "Agenda abierta con reserva previa",
-    illustrativePhoto: "/images/galeria-cuencos.png",
+    illustrativePhoto:
+      "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80",
+    followersCount: 22,
+    followingCount: 15,
   },
 ];
 
