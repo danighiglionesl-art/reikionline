@@ -996,7 +996,7 @@ export default function UserProfilePanel({
                 />
               </div>
               <p className="mt-1 text-[11px] text-[#64748B]">
-                El número de WhatsApp, a todos los fines, <strong>no será publicable bajo ningún concepto</strong> (ni de consultantes ni de terapeutas). Sirve a los fines de mostrar seriedad, transparencia y tranquilidad.
+                El número de WhatsApp, tanto de consultantes como de terapeutas a todos los fines, <strong>no será publicable bajo ningún concepto</strong>. Sirve a los fines de brindar seriedad, transparencia y tranquilidad de sus datos personales.
               </p>
             </div>
 
