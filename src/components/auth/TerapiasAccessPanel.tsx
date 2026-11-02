@@ -59,6 +59,7 @@ import {
   BOOKING_TIMING_LABELS,
   formatArs,
   loadMpTransactions,
+  saveMpTransactions,
 } from "@/lib/mercadoPagoSplit";
 
 export type AccessTab = "login" | "register" | "recover" | "role-select";
@@ -1994,46 +1995,51 @@ export function TerapiasAccessPanel({
                         {/* OPCIÓN 2: SESIONES PROGRAMADAS */}
                         {consultasSubTab === "programadas" && (
                           <div className="space-y-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#836DAD]/20 bg-white px-4 py-3">
-                              <span className="text-xs font-semibold text-[#2B1F42]">
-                                Videollamada privada 1:1 integrada (sin exponer WhatsApp ni correo personal)
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const myFullName =
-                                    `${activeUserProfile.nombre} ${activeUserProfile.apellido}`.trim() ||
-                                    activeUserProfile.nombre ||
-                                    myNick;
-                                  const isTherapistRole =
-                                    selectedRole === "Terapeuta";
-                                  setActiveConsultasVideoRoom({
-                                    sessionId: `daily-direct-${myNick}-${new Date()
-                                      .toISOString()
-                                      .slice(0, 10)}`,
-                                    therapistName: isTherapistRole
-                                      ? myFullName
-                                      : "Valeria Méndez",
-                                    therapistNickname: isTherapistRole
-                                      ? myNick
-                                      : "valeriamendez",
-                                    consultanteName: isTherapistRole
-                                      ? "Consultante en Sala"
-                                      : myFullName,
-                                    consultanteEmail: activeUserProfile.email,
-                                    consultanteNickname: myNick,
-                                    therapyName:
-                                      (activeSelections && activeSelections[0]) ||
-                                      "Sesión Online Reiki",
-                                    modalityLabel: "Online ahora",
-                                    scheduledSlotLabel: "Sala activa · 1 hora",
-                                  });
-                                }}
-                                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#6D5898]"
-                              >
-                                <Video className="h-3.5 w-3.5 text-[#F3D791]" />
-                                Abrir Sala de Videollamada Daily.co
-                              </button>
+                            <div className="rounded-xl border border-[#836DAD]/25 bg-white px-4 py-3 space-y-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-xs font-semibold text-[#2B1F42]">
+                                  Videollamada privada 1:1 integrada (sin exponer WhatsApp ni correo personal)
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const myFullName =
+                                      `${activeUserProfile.nombre} ${activeUserProfile.apellido}`.trim() ||
+                                      activeUserProfile.nombre ||
+                                      myNick;
+                                    const isTherapistRole =
+                                      selectedRole === "Terapeuta";
+                                    setActiveConsultasVideoRoom({
+                                      sessionId: `daily-direct-${myNick}-${new Date()
+                                        .toISOString()
+                                        .slice(0, 10)}`,
+                                      therapistName: isTherapistRole
+                                        ? myFullName
+                                        : "Valeria Méndez",
+                                      therapistNickname: isTherapistRole
+                                        ? myNick
+                                        : "valeriamendez",
+                                      consultanteName: isTherapistRole
+                                        ? "Consultante en Sala"
+                                        : myFullName,
+                                      consultanteEmail: activeUserProfile.email,
+                                      consultanteNickname: myNick,
+                                      therapyName:
+                                        (activeSelections && activeSelections[0]) ||
+                                        "Sesión Online Reiki",
+                                      modalityLabel: "Online ahora",
+                                      scheduledSlotLabel: "Sala activa · 1 hora",
+                                    });
+                                  }}
+                                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#6D5898]"
+                                >
+                                  <Video className="h-3.5 w-3.5 text-[#F3D791]" />
+                                  Abrir Sala de Videollamada Daily.co
+                                </button>
+                              </div>
+                              <div className="border-t border-[#836DAD]/15 pt-2 text-[11px] text-[#2B1F42]/80">
+                                <strong>Política de sesiones confirmadas:</strong> El pago se confirma al reservar la sesión (con turno o inmediata). Si el <strong>consultante desiste</strong>, la sesión <strong>se reprograma en los turnos habilitados por el terapeuta</strong>. Si el <strong>terapeuta cancela</strong> la reunión, <strong>deberá devolver el dinero al consultante sin descontar la comisión de Reiki Online</strong>, que queda firme.
+                              </div>
                             </div>
 
                             {totalProgramadas === 0 ? (

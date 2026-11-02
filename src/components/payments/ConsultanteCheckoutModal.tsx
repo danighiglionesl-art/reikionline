@@ -384,7 +384,7 @@ export default function ConsultanteCheckoutModal({
               ? "Presencial con turno"
               : "Online con turno",
           scheduledAt: scheduledSlotLabel,
-          status: "efectuada",
+          status: "programada",
           reviewed: false,
         };
         saveConsultations([newCons, ...consultations]);
