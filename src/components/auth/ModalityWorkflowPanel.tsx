@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import QRCode from "qrcode";
 import {
   Calendar,
   Clock,
@@ -18,6 +19,7 @@ import {
   Check,
   Search,
   Maximize2,
+  ExternalLink,
 } from "lucide-react";
 import {
   PROVINCIAS_ARGENTINA,
@@ -26,12 +28,23 @@ import {
   sanitizeNickname,
 } from "@/lib/geoData";
 import {
+  DEMO_SOCIAL_PROFILES,
   getFollowersForNickname,
+  getFollowingForNickname,
   isFollowingProfile,
   loadSocialFollows,
   SocialFollowRecord,
   toggleSocialFollow,
 } from "@/lib/socialNetwork";
+import {
+  AttentionModality,
+  BookingTimingType,
+  formatArs,
+  loadMpAccounts,
+  MP_SYNC_EVENT,
+} from "@/lib/mercadoPagoSplit";
+import ConsultanteCheckoutModal from "@/components/payments/ConsultanteCheckoutModal";
+import TherapistMercadoPagoSection from "@/components/payments/TherapistMercadoPagoSection";
 
 export type ModalityType =
   | "Presencial con turno"
@@ -49,6 +62,8 @@ interface ModalityWorkflowPanelProps {
 export interface TherapistAvailabilityConfig {
   therapistId: string;
   therapistName: string;
+  nickname?: string;
+  fotoUrl?: string;
   provincia: string;
   localidad: string;
   lat: number;
@@ -127,6 +142,9 @@ const DEMO_THERAPISTS: TherapistAvailabilityConfig[] = [
   {
     therapistId: "demo-terapeuta-1",
     therapistName: "Valeria Méndez",
+    nickname: "valeriamendez",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
     provincia: "Córdoba",
     localidad: "Córdoba",
     lat: -31.4201,
@@ -170,6 +188,9 @@ const DEMO_THERAPISTS: TherapistAvailabilityConfig[] = [
   {
     therapistId: "demo-terapeuta-2",
     therapistName: "Martín Arrieta",
+    nickname: "martinarrieta",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
     provincia: "Córdoba",
     localidad: "Río Cuarto",
     lat: -33.1232,
@@ -208,6 +229,9 @@ const DEMO_THERAPISTS: TherapistAvailabilityConfig[] = [
   {
     therapistId: "demo-terapeuta-3",
     therapistName: "Lucía Peralta",
+    nickname: "luciaperalta",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
     provincia: "Ciudad Autónoma de Buenos Aires",
     localidad: "Palermo",
     lat: -34.5889,
@@ -255,6 +279,25 @@ export default function ModalityWorkflowPanel({
   const [followsList, setFollowsList] = useState<SocialFollowRecord[]>([]);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [bookingNotice, setBookingNotice] = useState<string | null>(null);
+  const [mpAccounts, setMpAccounts] = useState(() => loadMpAccounts());
+  const [checkoutTarget, setCheckoutTarget] = useState<{
+    therapist: TherapistAvailabilityConfig;
+    distanceKm: number;
+    bookingTiming: BookingTimingType;
+    attentionModality: AttentionModality;
+    scheduledSlotLabel: string;
+    slotKey: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const syncMp = () => setMpAccounts(loadMpAccounts());
+    window.addEventListener(MP_SYNC_EVENT, syncMp);
+    window.addEventListener("storage", syncMp);
+    return () => {
+      window.removeEventListener(MP_SYNC_EVENT, syncMp);
+      window.removeEventListener("storage", syncMp);
+    };
+  }, []);
 
   const viewerNickname = useMemo(() => {
     return (
@@ -1112,13 +1155,23 @@ export default function ModalityWorkflowPanel({
                           key={`${slot.dayLabel}-${slot.hour}-${idx}`}
                           type="button"
                           onClick={() =>
-                            setBookingNotice(
-                              `Turno reservado con ${therapist.therapistName}: ${slot.dayLabel} ${formatHourRange(slot.hour)} (${modality}).`
-                            )
+                            setCheckoutTarget({
+                              therapist,
+                              distanceKm,
+                              bookingTiming: "con_turno",
+                              attentionModality:
+                                modality === "Presencial con turno"
+                                  ? "presencial"
+                                  : "distancia_con_video",
+                              scheduledSlotLabel: `${slot.dayLabel} · ${formatHourRange(
+                                slot.hour
+                              )}`,
+                              slotKey: `${slot.dayLabel}-${slot.hour}`,
+                            })
                           }
                           className="cursor-pointer rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-3 py-1.5 text-xs font-semibold text-[#2B1F42] transition-colors hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white"
                         >
-                          {slot.dayLabel} · {formatHourSlot(slot.hour)}
+                          {slot.dayLabel} · {formatHourSlot(slot.hour)} · Contratar
                         </button>
                       ))}
                     </div>
@@ -1146,6 +1199,35 @@ export default function ModalityWorkflowPanel({
             </div>
           )}
         </div>
+
+        {checkoutTarget && (
+          <ConsultanteCheckoutModal
+            isOpen={Boolean(checkoutTarget)}
+            onClose={() => setCheckoutTarget(null)}
+            consultanteProfile={userProfile}
+            therapistId={checkoutTarget.therapist.therapistId}
+            therapistName={checkoutTarget.therapist.therapistName}
+            therapistNickname={sanitizeNickname(
+              checkoutTarget.therapist.therapistName
+            ).toLowerCase()}
+            therapistLocalidad={checkoutTarget.therapist.localidad}
+            therapistProvincia={checkoutTarget.therapist.provincia}
+            availableTherapies={checkoutTarget.therapist.therapies}
+            initialBookingTiming={checkoutTarget.bookingTiming}
+            initialAttentionModality={checkoutTarget.attentionModality}
+            scheduledSlotLabel={checkoutTarget.scheduledSlotLabel}
+            slotKey={checkoutTarget.slotKey}
+            onPaymentConfirmed={(tx) => {
+              setBookingNotice(
+                `¡Contratación confirmada con ${
+                  tx.therapistName
+                }! Pago único aprobado (${formatArs(
+                  tx.sessionPriceArs
+                )}) con Split 1:1 Mercado Pago. Turno: ${tx.scheduledSlotLabel}.`
+              );
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -1458,17 +1540,66 @@ export default function ModalityWorkflowPanel({
 
                 <button
                   type="button"
-                  onClick={() => handleTriggerMatchNow(therapist, distanceKm)}
+                  onClick={() =>
+                    setCheckoutTarget({
+                      therapist,
+                      distanceKm,
+                      bookingTiming: "inmediata",
+                      attentionModality: "distancia_con_video",
+                      scheduledSlotLabel: "Contratación inmediata online",
+                      slotKey: "inmediata",
+                    })
+                  }
                   className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#6F599B]"
                 >
                   <Sparkles className="h-3.5 w-3.5 text-[#F3D791]" />
-                  <span>Match ahora</span>
+                  <span>
+                    Match ahora ·{" "}
+                    {formatArs(
+                      mpAccounts[therapist.therapistId]?.sessionPriceArs ||
+                        mpAccounts[tNick]?.sessionPriceArs ||
+                        30000
+                    )}
+                  </span>
                 </button>
               </div>
             </div>
           );
         })}
       </div>
+
+      {checkoutTarget && (
+        <ConsultanteCheckoutModal
+          isOpen={Boolean(checkoutTarget)}
+          onClose={() => setCheckoutTarget(null)}
+          consultanteProfile={userProfile}
+          therapistId={checkoutTarget.therapist.therapistId}
+          therapistName={checkoutTarget.therapist.therapistName}
+          therapistNickname={sanitizeNickname(
+            checkoutTarget.therapist.therapistName
+          ).toLowerCase()}
+          therapistLocalidad={checkoutTarget.therapist.localidad}
+          therapistProvincia={checkoutTarget.therapist.provincia}
+          availableTherapies={checkoutTarget.therapist.therapies}
+          initialBookingTiming={checkoutTarget.bookingTiming}
+          initialAttentionModality={checkoutTarget.attentionModality}
+          scheduledSlotLabel={checkoutTarget.scheduledSlotLabel}
+          slotKey={checkoutTarget.slotKey}
+          onPaymentConfirmed={(tx) => {
+            handleTriggerMatchNow(
+              checkoutTarget.therapist,
+              checkoutTarget.distanceKm
+            );
+            setBookingNotice(
+              `¡Match inmediato y pago confirmado con ${
+                tx.therapistName
+              } (${formatArs(
+                tx.sessionPriceArs
+              )})! Acceso habilitado a la sesión online.`
+            );
+          }}
+        />
+      )}
     </div>
   );
 }

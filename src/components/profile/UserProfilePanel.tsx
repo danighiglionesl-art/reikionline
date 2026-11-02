@@ -24,6 +24,7 @@ import {
 import { isNicknameAlreadyInUse } from "@/lib/socialNetwork";
 import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
 import SocialNetworkProfileView from "@/components/profile/SocialNetworkProfileView";
+import TherapistMercadoPagoSection from "@/components/payments/TherapistMercadoPagoSection";
 
 interface UserProfilePanelProps {
   profile: ReikiUserProfile;
@@ -1551,6 +1552,21 @@ export default function UserProfilePanel({
           </button>
         </div>
       </form>
+
+      {/* SECCIÓN OFICIAL: COBROS Y CUENTA DE MERCADO PAGO (PERFIL DEL TERAPEUTA) */}
+      {(soyTerapeuta || activeRoleLabel === "Terapeuta") && (
+        <div className="pt-2">
+          <TherapistMercadoPagoSection
+            profile={{
+              ...profile,
+              nickname: cleanNickname || profile.nickname,
+              nombre: nombre.trim() || profile.nombre,
+              apellido: apellido.trim() || profile.apellido,
+              soyTerapeuta: true,
+            }}
+          />
+        </div>
+      )}
 
       {/* VISTA INTEGRADA DE LA RED SOCIAL DEL USUARIO (https://www.reikionline.com.ar/nickname)
           Con calificación de 1 a 5 estrellas (solo luego de consultas efectuadas) y reseña de hasta 150 caracteres */}

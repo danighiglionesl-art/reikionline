@@ -40,6 +40,14 @@ import UserProfilePanel from "@/components/profile/UserProfilePanel";
 import ModalityWorkflowPanel from "@/components/auth/ModalityWorkflowPanel";
 import UserCredentialPanel from "@/components/credential/UserCredentialPanel";
 import NetworkProfilesDirectory from "@/components/credential/NetworkProfilesDirectory";
+import AdminPaymentsCommissionsPanel from "@/components/payments/AdminPaymentsCommissionsPanel";
+import TherapistMercadoPagoSection from "@/components/payments/TherapistMercadoPagoSection";
+import {
+  ATTENTION_MODALITY_LABELS,
+  BOOKING_TIMING_LABELS,
+  formatArs,
+  loadMpTransactions,
+} from "@/lib/mercadoPagoSplit";
 
 export type AccessTab = "login" | "register" | "recover" | "role-select";
 export type ActiveRole = "Consultante" | "Terapeuta";
@@ -1113,6 +1121,14 @@ export function TerapiasAccessPanel({
               </div>
             </div>
           )}
+
+          {/* SECCIÓN EXCLUSIVA PARA EL ADMINISTRADOR (INVISIBLE EN NAVEGACIÓN PÚBLICA):
+              PAGOS Y COMISIONES — MERCADO PAGO SPLIT 1:1 */}
+          {authenticatedUser?.isAdmin && (
+            <AdminPaymentsCommissionsPanel
+              adminUser={authenticatedUser.email}
+            />
+          )}
         </div>
       )}
 
@@ -1521,27 +1537,116 @@ export function TerapiasAccessPanel({
                 />
               )}
 
-              {activeSection &&
-                activeSection !== "Mi Perfil" &&
-                activeSection !== "Mi Credencial" && (
-                  <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 text-sm text-[#2B1F42]">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-bold text-[#836DAD]">
-                        {activeSection}
+              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI BILLETERA (Cobros y cuenta de Mercado Pago Split 1:1) */}
+              {activeSection === "Mi Billetera" && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-[#2B1F42]">
+                        Mi Billetera · Cobros y Cuenta de Mercado Pago
                       </h4>
-                      <button
-                        type="button"
-                        onClick={handleGoToComoIngresas}
-                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
-                      >
-                        <span>← Volver a ¿Cómo ingresas?</span>
-                      </button>
+                      <p className="text-xs text-[#2B1F42]/70">
+                        Vinculación OAuth 2.0 y liquidación automática por Split de Pagos 1:1.
+                      </p>
                     </div>
-                    <p className="mt-2 text-xs text-[#2B1F42]/75">
-                      Sección {activeSection} vinculada a tu cuenta.
-                    </p>
+                    <button
+                      type="button"
+                      onClick={handleGoToComoIngresas}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
+                    >
+                      <span>← Volver a ¿Cómo ingresas?</span>
+                    </button>
                   </div>
-                )}
+                  <TherapistMercadoPagoSection profile={activeUserProfile} />
+                </div>
+              )}
+
+              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MIS CONSULTAS */}
+              {activeSection === "Mis Consultas" && (
+                <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 text-sm text-[#2B1F42] space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-[#836DAD]">
+                        Mis Consultas y Contrataciones
+                      </h4>
+                      <p className="text-xs text-[#2B1F42]/70">
+                        Historial de sesiones confirmadas y estado de pagos procesados con Mercado Pago.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGoToComoIngresas}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
+                    >
+                      <span>← Volver a ¿Cómo ingresas?</span>
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const allTxs = loadMpTransactions();
+                    const myNick = sanitizeNickname(
+                      activeUserProfile.nickname ||
+                        `${activeUserProfile.nombre}${activeUserProfile.apellido}`
+                    ).toLowerCase();
+                    const myTxs = allTxs.filter(
+                      (t) =>
+                        t.consultanteEmail.toLowerCase() ===
+                          activeUserProfile.email.toLowerCase() ||
+                        t.therapistNickname.toLowerCase() === myNick ||
+                        authenticatedUser.isAdmin
+                    );
+                    if (myTxs.length === 0) {
+                      return (
+                        <p className="rounded-xl border border-[#836DAD]/15 bg-white p-4 text-xs text-[#2B1F42]/75">
+                          Aún no registrás sesiones contratadas. Podés seleccionar una terapia o terapeuta para agendar con turno o contratar una sesión inmediata online.
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="space-y-2.5">
+                        {myTxs.map((tx) => (
+                          <div
+                            key={tx.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#836DAD]/20 bg-white p-3.5 text-xs"
+                          >
+                            <div>
+                              <p className="font-bold text-[#2B1F42]">
+                                {tx.therapyName} · Terapeuta: {tx.therapistName}{" "}
+                                ↔ Consultante: {tx.consultanteName}
+                              </p>
+                              <p className="text-[11px] text-[#2B1F42]/70">
+                                {
+                                  ATTENTION_MODALITY_LABELS[
+                                    tx.attentionModality
+                                  ]
+                                }{" "}
+                                · {BOOKING_TIMING_LABELS[tx.bookingTiming]} (
+                                {tx.scheduledSlotLabel})
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-extrabold text-[#836DAD]">
+                                {formatArs(tx.sessionPriceArs)}
+                              </p>
+                              <span
+                                className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                  tx.sessionConfirmed
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                {tx.sessionConfirmed
+                                  ? "✓ Sesión Confirmada"
+                                  : `Estado: ${tx.status} (Sin confirmar)`}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
               {/* NUEVA VENTANA LIMPIA TRAS CONFIRMAR/GUARDAR TERAPIAS:
                   - Presencial con turno
