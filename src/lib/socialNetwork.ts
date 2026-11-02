@@ -3,6 +3,7 @@ import {
   ReikiUserProfile,
   sanitizeNickname,
 } from "@/lib/geoData";
+import { isBiometricVerifiedAndValid } from "@/lib/biometricIdentity";
 
 export const PROFILES_STORAGE_KEY = "reiki_online_user_profiles_v1";
 export const REVIEWS_STORAGE_KEY = "reiki_online_social_reviews_v1";
@@ -64,6 +65,7 @@ export interface PublicSocialProfile {
   bio: string;
   email?: string;
   whatsappVerified: boolean;
+  identityVerified?: boolean;
 }
 
 export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
@@ -71,7 +73,8 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     nickname: "danielghiglione",
     displayName: "Daniel Alejandro Ghiglione",
     role: "Terapeuta",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80",
     localidad: "Alcira Gigena",
     provincia: "Córdoba",
     pais: "Argentina",
@@ -84,12 +87,14 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     bio: "Terapeuta holístico y reikista en Reiki Online. Sesiones presenciales y a distancia de armonización energética y bienestar integral.",
     email: "danighiglione@gmail.com",
     whatsappVerified: true,
+    identityVerified: true,
   },
   valeriamendez: {
     nickname: "valeriamendez",
     displayName: "Valeria Méndez",
     role: "Terapeuta",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
     localidad: "Córdoba",
     provincia: "Córdoba",
     pais: "Argentina",
@@ -101,12 +106,14 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     ],
     bio: "Master Reiki Usui y guía de meditación consciente. Acompañamiento energético personalizado.",
     whatsappVerified: true,
+    identityVerified: true,
   },
   martinarrieta: {
     nickname: "martinarrieta",
     displayName: "Martín Arrieta",
     role: "Terapeuta",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
     localidad: "Río Cuarto",
     provincia: "Córdoba",
     pais: "Argentina",
@@ -118,12 +125,14 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     ],
     bio: "Lector de Registros Akáshicos y practicante de Reiki Karuna.",
     whatsappVerified: true,
+    identityVerified: true,
   },
   sofiabenitez: {
     nickname: "sofiabenitez",
     displayName: "Sofía Benítez",
     role: "Terapeuta",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80",
     localidad: "Villa María",
     provincia: "Córdoba",
     pais: "Argentina",
@@ -135,12 +144,14 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     ],
     bio: "Terapeuta floral y biodescodificación emocional.",
     whatsappVerified: true,
+    identityVerified: true,
   },
   luciaperalta: {
     nickname: "luciaperalta",
     displayName: "Lucía Peralta",
     role: "Terapeuta",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
     localidad: "Palermo",
     provincia: "Ciudad Autónoma de Buenos Aires",
     pais: "Argentina",
@@ -151,12 +162,14 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     ],
     bio: "Terapeuta holística especializada en esencias florales y armonización sonora.",
     whatsappVerified: true,
+    identityVerified: true,
   },
   sofiavillalba: {
     nickname: "sofiavillalba",
     displayName: "Sofía Villalba",
     role: "Consultante",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
     localidad: "Villa María",
     provincia: "Córdoba",
     pais: "Argentina",
@@ -168,7 +181,8 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     nickname: "nicoferreyra",
     displayName: "Nicolás Ferreyra",
     role: "Consultante",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
     localidad: "Rosario",
     provincia: "Santa Fe",
     pais: "Argentina",
@@ -180,7 +194,8 @@ export const DEMO_SOCIAL_PROFILES: Record<string, PublicSocialProfile> = {
     nickname: "camilaquiroga",
     displayName: "Camila Quiroga",
     role: "Consultante",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80",
     localidad: "Mendoza",
     provincia: "Mendoza",
     pais: "Argentina",
@@ -196,9 +211,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "sofiavillalba",
     followerName: "Sofía Villalba",
     followerRole: "Consultante",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
     targetNickname: "danielghiglione",
     targetName: "Daniel Alejandro Ghiglione",
     targetRole: "Terapeuta",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-25T14:00:00.000Z",
   },
   {
@@ -206,9 +225,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "nicoferreyra",
     followerName: "Nicolás Ferreyra",
     followerRole: "Consultante",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
     targetNickname: "danielghiglione",
     targetName: "Daniel Alejandro Ghiglione",
     targetRole: "Terapeuta",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-26T16:30:00.000Z",
   },
   {
@@ -216,9 +239,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "valeriamendez",
     followerName: "Valeria Méndez",
     followerRole: "Terapeuta",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
     targetNickname: "danielghiglione",
     targetName: "Daniel Alejandro Ghiglione",
     targetRole: "Terapeuta",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-27T11:20:00.000Z",
   },
   {
@@ -226,9 +253,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "danielghiglione",
     followerName: "Daniel Alejandro Ghiglione",
     followerRole: "Terapeuta",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80",
     targetNickname: "valeriamendez",
     targetName: "Valeria Méndez",
     targetRole: "Terapeuta",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-27T12:00:00.000Z",
   },
   {
@@ -236,9 +267,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "danielghiglione",
     followerName: "Daniel Alejandro Ghiglione",
     followerRole: "Terapeuta",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80",
     targetNickname: "sofiavillalba",
     targetName: "Sofía Villalba",
     targetRole: "Consultante",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-28T09:15:00.000Z",
   },
   {
@@ -246,9 +281,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "camilaquiroga",
     followerName: "Camila Quiroga",
     followerRole: "Consultante",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80",
     targetNickname: "valeriamendez",
     targetName: "Valeria Méndez",
     targetRole: "Terapeuta",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-29T18:00:00.000Z",
   },
   {
@@ -256,9 +295,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "sofiavillalba",
     followerName: "Sofía Villalba",
     followerRole: "Consultante",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
     targetNickname: "martinarrieta",
     targetName: "Martín Arrieta",
     targetRole: "Terapeuta",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-30T10:45:00.000Z",
   },
   {
@@ -266,9 +309,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "martinarrieta",
     followerName: "Martín Arrieta",
     followerRole: "Terapeuta",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
     targetNickname: "nicoferreyra",
     targetName: "Nicolás Ferreyra",
     targetRole: "Consultante",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-30T15:10:00.000Z",
   },
   {
@@ -276,9 +323,13 @@ export const INITIAL_DEMO_FOLLOWS: SocialFollowRecord[] = [
     followerNickname: "nicoferreyra",
     followerName: "Nicolás Ferreyra",
     followerRole: "Consultante",
+    followerFotoUrl:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
     targetNickname: "luciaperalta",
     targetName: "Lucía Peralta",
     targetRole: "Terapeuta",
+    targetFotoUrl:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
     createdAt: "2026-10-31T13:00:00.000Z",
   },
 ];
@@ -665,6 +716,9 @@ export function resolvePublicProfileByNickname(
               bio: `Perfil oficial en la Red Social de Reiki Online (reikionline.com.ar/${prof.nickname}).`,
               email: prof.email,
               whatsappVerified: prof.whatsappVerified,
+              identityVerified:
+                prof.isAdmin ||
+                isBiometricVerifiedAndValid(prof.biometricVerification),
             };
           }
         }

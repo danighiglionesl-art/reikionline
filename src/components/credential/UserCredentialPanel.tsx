@@ -21,6 +21,7 @@ import {
   ReikiUserProfile,
   sanitizeNickname,
 } from "@/lib/geoData";
+import { isBiometricVerifiedAndValid } from "@/lib/biometricIdentity";
 
 export type CredentialFormat = "feed" | "estados";
 export type CredentialRole = "Consultante" | "Terapeuta";
@@ -646,21 +647,29 @@ export default function UserCredentialPanel({
               </button>
             </div>
 
-            {/* Insignia Consultante / Terapeuta */}
-            <span
-              className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[10px] sm:text-[11px] font-bold tracking-wide uppercase shadow-xs ${
-                credentialRole === "Terapeuta"
-                  ? "bg-[#F3D791] text-[#2B1F42]"
-                  : "border border-[#F3D791] bg-white/15 text-white"
-              }`}
-            >
-              {credentialRole === "Terapeuta" ? (
-                <UserCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              ) : (
-                <HeartHandshake className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#F3D791]" />
+            {/* Insignia Consultante / Terapeuta + Distintivo ✓ Identidad verificada */}
+            <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[10px] sm:text-[11px] font-bold tracking-wide uppercase shadow-xs ${
+                  credentialRole === "Terapeuta"
+                    ? "bg-[#F3D791] text-[#2B1F42]"
+                    : "border border-[#F3D791] bg-white/15 text-white"
+                }`}
+              >
+                {credentialRole === "Terapeuta" ? (
+                  <UserCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                ) : (
+                  <HeartHandshake className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#F3D791]" />
+                )}
+                <span>{credentialRole}</span>
+              </span>
+              {(profile.isAdmin ||
+                isBiometricVerifiedAndValid(profile.biometricVerification)) && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#F3D791]/70 bg-white/15 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-[#F3D791]">
+                  <span>✓ Identidad verificada</span>
+                </span>
               )}
-              <span>{credentialRole}</span>
-            </span>
+            </div>
 
             {/* Nombre y Apellido */}
             <h3

@@ -1,4 +1,8 @@
 import localidadesData from "@/lib/data/localidadesArgentina.json";
+import {
+  BiometricVerificationRecord,
+  createInitialBiometricRecord,
+} from "@/lib/biometricIdentity";
 
 export interface PaisOption {
   nombre: string;
@@ -141,13 +145,19 @@ export interface ReikiUserProfile {
   geo: UserGeoLocation;
   // Consentimientos específicos WhatsApp
   consents: UserConsents;
+  // Verificación de identidad biométrica (asociada a la identidad única del usuario)
+  biometricVerification?: BiometricVerificationRecord;
   updatedAt: string;
 }
 
 export const NICKNAME_REGEX = /^[a-zA-Z0-9]{4,16}$/;
 
 export function sanitizeNickname(raw: string): string {
-  return raw.replace(/[^a-zA-Z0-9]/g, "").slice(0, 16);
+  return raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 16);
 }
 
 export function isValidNickname(nickname: string): boolean {
@@ -222,6 +232,7 @@ export const DEFAULT_ADMIN_PROFILE: ReikiUserProfile = {
     notificacionesComerciales: true,
     updatedAt: "2026-11-01T14:30:00.000Z",
   },
+  biometricVerification: createInitialBiometricRecord("admin-reikionline", true),
   updatedAt: "2026-11-01T14:30:00.000Z",
 };
 

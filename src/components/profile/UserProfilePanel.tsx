@@ -542,6 +542,12 @@ export default function UserProfilePanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {(profile.isAdmin ||
+            profile.biometricVerification?.status === "verificada") && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#836DAD] px-3 py-1 text-xs font-bold text-[#F3D791] shadow-2xs">
+              ✓ Identidad verificada
+            </span>
+          )}
           {(phoneChangedSinceVerification || !whatsappVerified) && (
             <button
               type="button"

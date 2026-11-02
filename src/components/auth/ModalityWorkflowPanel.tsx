@@ -277,6 +277,7 @@ export default function ModalityWorkflowPanel({
   >({});
   const [matchAlerts, setMatchAlerts] = useState<MatchAlertItem[]>([]);
   const [followsList, setFollowsList] = useState<SocialFollowRecord[]>([]);
+  const [qrByNick, setQrByNick] = useState<Record<string, string>>({});
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
   const [bookingNotice, setBookingNotice] = useState<string | null>(null);
   const [mpAccounts, setMpAccounts] = useState(() => loadMpAccounts());
@@ -366,7 +367,23 @@ export default function ModalityWorkflowPanel({
       for (const demo of DEMO_THERAPISTS) {
         merged[demo.therapistId] = demo;
       }
-      Object.assign(merged, parsed);
+      for (const [key, val] of Object.entries(parsed)) {
+        const baseDemo = merged[key];
+        const nick =
+          val.nickname ||
+          baseDemo?.nickname ||
+          sanitizeNickname(val.therapistName || "").toLowerCase();
+        merged[key] = {
+          ...baseDemo,
+          ...val,
+          nickname: nick,
+          fotoUrl:
+            val.fotoUrl ||
+            baseDemo?.fotoUrl ||
+            DEMO_SOCIAL_PROFILES[nick]?.fotoUrl ||
+            "",
+        };
+      }
       setTherapistsMap(merged);
     } catch {
       const fallback: Record<string, TherapistAvailabilityConfig> = {};
@@ -398,6 +415,41 @@ export default function ModalityWorkflowPanel({
       window.removeEventListener("storage", handleSync);
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    const allTherapists = Object.values(therapistsMap);
+    if (allTherapists.length === 0) return;
+
+    Promise.all(
+      allTherapists.map(async (th) => {
+        const nick =
+          th.nickname || sanitizeNickname(th.therapistName).toLowerCase();
+        const url = `https://www.reikionline.com.ar/${nick}`;
+        try {
+          const dataUrl = await QRCode.toDataURL(url, {
+            width: 180,
+            margin: 1,
+            color: { dark: "#2B1F42", light: "#FFFFFF" },
+          });
+          return [nick, dataUrl] as const;
+        } catch {
+          return [nick, ""] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!active) return;
+      const next: Record<string, string> = {};
+      for (const [k, v] of entries) {
+        if (v) next[k] = v;
+      }
+      setQrByNick(next);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [therapistsMap]);
 
   const currentTherapistConfig: TherapistAvailabilityConfig = useMemo(() => {
     const existing = therapistsMap[userProfile.id];
@@ -1058,56 +1110,176 @@ export default function ModalityWorkflowPanel({
           </div>
         )}
 
-        {/* Listado de Terapeutas disponibles */}
-        <div className="space-y-3">
+        {/* Listado de Terapeutas disponibles con la misma Identidad Visual de la Credencial Oficial */}
+        <div>
           {matchingScheduledTherapists.length > 0 ? (
-            matchingScheduledTherapists.map(
-              ({ therapist, distanceKm, availableHoursOnDay }) => {
-                const canConvert =
-                  modality === "Presencial con turno"
-                    ? therapist.presencialConvertibleToOnline
-                    : therapist.onlineConvertibleToPresencial;
-                const tNick = sanitizeNickname(
-                  therapist.therapistName
-                ).toLowerCase();
-                const isFollowing = isFollowingProfile(
-                  viewerNickname,
-                  tNick,
-                  followsList
-                );
-                const followersCount = getFollowersForNickname(
-                  tNick,
-                  followsList
-                ).length;
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {matchingScheduledTherapists.map(
+                ({ therapist, distanceKm, availableHoursOnDay }) => {
+                  const canConvert =
+                    modality === "Presencial con turno"
+                      ? therapist.presencialConvertibleToOnline
+                      : therapist.onlineConvertibleToPresencial;
+                  const tNick = (
+                    therapist.nickname ||
+                    sanitizeNickname(therapist.therapistName)
+                  ).toLowerCase();
+                  const photoUrl =
+                    therapist.fotoUrl ||
+                    DEMO_SOCIAL_PROFILES[tNick]?.fotoUrl ||
+                    "";
+                  const initials = therapist.therapistName
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((p) => p[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase();
+                  const qrUrl = qrByNick[tNick];
+                  const isFollowing = isFollowingProfile(
+                    viewerNickname,
+                    tNick,
+                    followsList
+                  );
+                  const followsMe = isFollowingProfile(
+                    tNick,
+                    viewerNickname,
+                    followsList
+                  );
+                  const followersCount = getFollowersForNickname(
+                    tNick,
+                    followsList
+                  ).length;
+                  const followingCount = getFollowingForNickname(
+                    tNick,
+                    followsList
+                  ).length;
 
-                return (
-                  <div
-                    key={therapist.therapistId}
-                    className="rounded-2xl border border-[#836DAD]/25 bg-white p-4 shadow-xs space-y-3"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h5 className="text-sm sm:text-base font-bold text-[#2B1F42]">
-                            {therapist.therapistName}
-                          </h5>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#836DAD]/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-                            <MapPin className="h-3 w-3" />
-                            {therapist.localidad}, {therapist.provincia} · a{" "}
-                            {distanceKm} km
+                  return (
+                    <div
+                      key={therapist.therapistId}
+                      className="relative flex flex-col items-center justify-between overflow-hidden rounded-3xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-center text-white shadow-xl"
+                    >
+                      {/* 1. Cabecera Credencial con Isologotipo Oficial de Reiki Online */}
+                      <div className="relative flex w-full flex-col items-center pt-1">
+                        {followsMe && tNick !== viewerNickname && (
+                          <span className="absolute top-0 left-0 inline-flex items-center gap-1 rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                            Te sigue
                           </span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#F6F3FA] px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-                            <Users className="h-3 w-3" />
-                            {followersCount}{" "}
-                            {followersCount === 1 ? "seguidor" : "seguidores"}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-[#2B1F42]/75">
-                          Terapias: {therapist.therapies.join(" · ")}
-                        </p>
+                        )}
+                        <span className="absolute top-0 right-0 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#F3D791]">
+                          <MapPin className="h-3 w-3" />
+                          {distanceKm} km
+                        </span>
+                        <img
+                          src="/brand/Reiki_Online_Lavanda_Unificado.png"
+                          alt="Reiki online — CONECTANDO BIENESTAR"
+                          className="h-18 sm:h-20 w-auto max-w-[82%] object-contain"
+                        />
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
+                      {/* 2. Fotografía circular con aro Champán + Rol + Nombre + @nickname + Seguidores + Terapias */}
+                      <div className="my-3 flex flex-col items-center">
+                        <div className="h-18 w-18 overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] shadow-md flex items-center justify-center">
+                          {photoUrl ? (
+                            <img
+                              src={photoUrl}
+                              alt={therapist.therapistName}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xl font-bold text-[#836DAD]">
+                              {initials}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791] px-3 py-0.5 text-[10px] font-bold uppercase text-[#2B1F42]">
+                            <UserCheck className="h-3 w-3" />
+                            <span>Terapeuta</span>
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full border border-[#F3D791]/70 bg-white/15 px-2.5 py-0.5 text-[10px] font-bold text-[#F3D791]">
+                            ✓ Identidad verificada
+                          </span>
+                        </div>
+
+                        <h5 className="mt-1.5 text-base font-bold text-white">
+                          {therapist.therapistName}
+                        </h5>
+                        <p className="font-mono text-xs font-semibold text-[#F3D791]">
+                          @{tNick}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-white/90">
+                          {therapist.localidad}, {therapist.provincia}
+                        </p>
+
+                        <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
+                          <span>
+                            <strong className="text-[#F3D791]">
+                              {followersCount}
+                            </strong>{" "}
+                            {followersCount === 1 ? "seguidor" : "seguidores"}
+                          </span>
+                          <span className="text-white/40">•</span>
+                          <span>
+                            <strong className="text-[#F3D791]">
+                              {followingCount}
+                            </strong>{" "}
+                            siguiendo
+                          </span>
+                        </div>
+
+                        {canConvert && (
+                          <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#F3D791]">
+                            <ArrowLeftRight className="h-3 w-3" />
+                            {modality === "Presencial con turno"
+                              ? "Acepta convertir a Online"
+                              : "Acepta convertir a Presencial"}
+                          </span>
+                        )}
+
+                        <div className="mt-2.5 flex flex-wrap justify-center gap-1">
+                          {therapist.therapies.slice(0, 3).map((th) => (
+                            <span
+                              key={th}
+                              className="rounded-full border border-[#F3D791]/50 bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white"
+                            >
+                              {th}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 3. Código QR + Link + Seguir + Turnos disponibles de 1 hora */}
+                      <div className="w-full space-y-2.5 border-t border-white/15 pt-3.5">
+                        <div className="flex flex-col items-center gap-1.5">
+                          {qrUrl ? (
+                            <div className="shrink-0 rounded-2xl bg-white p-2 shadow-md">
+                              <img
+                                src={qrUrl}
+                                alt={`QR ${tNick}`}
+                                width={76}
+                                height={76}
+                                className="block h-[76px] w-[76px] shrink-0 object-contain"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-2xl bg-white p-2 text-[10px] font-bold text-[#2B1F42] shadow-md">
+                              QR...
+                            </div>
+                          )}
+                          <a
+                            href={`/${tNick}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline break-all"
+                          >
+                            <span>reikionline.com.ar/{tNick}</span>
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                        </div>
+
                         {tNick !== viewerNickname && (
                           <button
                             type="button"
@@ -1118,67 +1290,63 @@ export default function ModalityWorkflowPanel({
                                 role: "Terapeuta",
                               })
                             }
-                            className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold transition-all ${
+                            className={`inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
                               isFollowing
-                                ? "border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD]"
-                                : "bg-[#836DAD] text-white hover:bg-[#6F599B]"
+                                ? "border border-white bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                                : "border border-[#F3D791] bg-white/15 text-white hover:bg-[#F3D791] hover:text-[#2B1F42]"
                             }`}
                           >
                             {isFollowing ? (
                               <>
-                                <Check className="h-3 w-3" />
+                                <Check className="h-3.5 w-3.5" />
                                 <span>Siguiendo</span>
                               </>
                             ) : (
                               <>
-                                <UserPlus className="h-3 w-3 text-[#F3D791]" />
-                                <span>Seguir</span>
+                                <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                                <span>Seguir Terapeuta</span>
                               </>
                             )}
                           </button>
                         )}
 
-                        {canConvert && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791]/45 px-2.5 py-1 text-[11px] font-semibold text-[#2B1F42]">
-                            <ArrowLeftRight className="h-3 w-3 text-[#836DAD]" />
-                            {modality === "Presencial con turno"
-                              ? "Acepta convertir a Online"
-                              : "Acepta convertir a Presencial"}
+                        <div className="space-y-1.5 pt-1">
+                          <span className="block text-[10px] font-bold uppercase tracking-wider text-[#F3D791]">
+                            Turnos disponibles (1 h):
                           </span>
-                        )}
+                          <div className="flex flex-wrap justify-center gap-1.5">
+                            {availableHoursOnDay.slice(0, 6).map((slot, idx) => (
+                              <button
+                                key={`${slot.dayLabel}-${slot.hour}-${idx}`}
+                                type="button"
+                                onClick={() =>
+                                  setCheckoutTarget({
+                                    therapist,
+                                    distanceKm,
+                                    bookingTiming: "con_turno",
+                                    attentionModality:
+                                      modality === "Presencial con turno"
+                                        ? "presencial"
+                                        : "distancia_con_video",
+                                    scheduledSlotLabel: `${slot.dayLabel} · ${formatHourRange(
+                                      slot.hour
+                                    )}`,
+                                    slotKey: `${slot.dayLabel}-${slot.hour}`,
+                                  })
+                                }
+                                className="cursor-pointer rounded-xl bg-[#F3D791] px-2.5 py-1.5 text-[11px] font-bold text-[#2B1F42] transition-colors hover:bg-white"
+                              >
+                                {slot.dayLabel} · {formatHourSlot(slot.hour)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
-
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {availableHoursOnDay.slice(0, 8).map((slot, idx) => (
-                        <button
-                          key={`${slot.dayLabel}-${slot.hour}-${idx}`}
-                          type="button"
-                          onClick={() =>
-                            setCheckoutTarget({
-                              therapist,
-                              distanceKm,
-                              bookingTiming: "con_turno",
-                              attentionModality:
-                                modality === "Presencial con turno"
-                                  ? "presencial"
-                                  : "distancia_con_video",
-                              scheduledSlotLabel: `${slot.dayLabel} · ${formatHourRange(
-                                slot.hour
-                              )}`,
-                              slotKey: `${slot.dayLabel}-${slot.hour}`,
-                            })
-                          }
-                          className="cursor-pointer rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-3 py-1.5 text-xs font-semibold text-[#2B1F42] transition-colors hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white"
-                        >
-                          {slot.dayLabel} · {formatHourSlot(slot.hour)} · Contratar
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              }
-            )
+                  );
+                }
+              )}
+            </div>
           ) : (
             <div className="rounded-2xl border border-[#836DAD]/20 bg-white p-6 text-center space-y-3">
               <p className="text-sm font-semibold text-[#2B1F42]">
@@ -1442,22 +1610,37 @@ export default function ModalityWorkflowPanel({
         </div>
       )}
 
-      {/* Grilla visual estilo Grindr con la paleta oficial (#836DAD, #F3D791, #F6F3FA, #2B1F42) */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      {/* Grilla en vivo con la Identidad Visual exacta de la Credencial Oficial (colores #836DAD y #F3D791, fotografía, isologotipo agrandado y QR) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {onlineNowTherapists.map(({ therapist, distanceKm }) => {
           const initials = therapist.therapistName
             .split(" ")
+            .filter(Boolean)
             .map((p) => p[0])
             .join("")
             .slice(0, 2)
             .toUpperCase();
-          const tNick = sanitizeNickname(therapist.therapistName).toLowerCase();
+          const tNick = (
+            therapist.nickname || sanitizeNickname(therapist.therapistName)
+          ).toLowerCase();
+          const photoUrl =
+            therapist.fotoUrl || DEMO_SOCIAL_PROFILES[tNick]?.fotoUrl || "";
+          const qrUrl = qrByNick[tNick];
           const isFollowing = isFollowingProfile(
             viewerNickname,
             tNick,
             followsList
           );
+          const followsMe = isFollowingProfile(
+            tNick,
+            viewerNickname,
+            followsList
+          );
           const followersCount = getFollowersForNickname(
+            tNick,
+            followsList
+          ).length;
+          const followingCount = getFollowingForNickname(
             tNick,
             followsList
           ).length;
@@ -1465,41 +1648,84 @@ export default function ModalityWorkflowPanel({
           return (
             <div
               key={therapist.therapistId}
-              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#836DAD]/25 bg-white p-4 text-[#2B1F42] shadow-sm transition-all hover:border-[#836DAD] hover:shadow-md"
+              className="relative flex flex-col items-center justify-between overflow-hidden rounded-3xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-center text-white shadow-xl"
             >
-              <div>
-                <div className="flex items-center justify-between gap-1">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791]/45 px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                    <span className="h-2 w-2 rounded-full bg-[#836DAD]" />
-                    Online
-                  </span>
-                  <span className="text-[11px] font-semibold text-[#836DAD]">
-                    {distanceKm} km
-                  </span>
+              {/* 1. Cabecera Reiki Online con Isologotipo Oficial agrandado + Online + Distancia */}
+              <div className="relative flex w-full flex-col items-center pt-1">
+                <span className="absolute top-0 left-0 inline-flex items-center gap-1 rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                  <span className="h-2 w-2 rounded-full bg-[#836DAD]" />
+                  Online
+                </span>
+                <span className="absolute top-0 right-0 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold text-[#F3D791]">
+                  <MapPin className="h-3 w-3" />
+                  {distanceKm} km
+                </span>
+                <img
+                  src="/brand/Reiki_Online_Lavanda_Unificado.png"
+                  alt="Reiki online — CONECTANDO BIENESTAR"
+                  className="h-18 sm:h-20 w-auto max-w-[82%] object-contain"
+                />
+              </div>
+
+              {/* 2. Fotografía circular con aro Champán + Rol + Nombre + @nickname + Seguidores + Terapias */}
+              <div className="my-3 flex flex-col items-center">
+                <div className="h-18 w-18 overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] shadow-md flex items-center justify-center">
+                  {photoUrl ? (
+                    <img
+                      src={photoUrl}
+                      alt={therapist.therapistName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xl font-bold text-[#836DAD]">
+                      {initials}
+                    </span>
+                  )}
                 </div>
 
-                <div className="my-3 flex flex-col items-center text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#836DAD] text-lg font-bold text-[#F3D791] shadow-sm">
-                    {initials}
-                  </div>
-                  <h5 className="mt-2 text-sm font-bold text-[#2B1F42]">
-                    {therapist.therapistName}
-                  </h5>
-                  <p className="text-[11px] text-[#2B1F42]/70">
-                    {therapist.localidad}, {therapist.provincia}
-                  </p>
-                  <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#F6F3FA] px-2.5 py-0.5 text-[10px] font-semibold text-[#836DAD]">
-                    <Users className="h-3 w-3" />
-                    {followersCount}{" "}
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791] px-3 py-0.5 text-[10px] font-bold uppercase text-[#2B1F42]">
+                    <UserCheck className="h-3 w-3" />
+                    <span>Terapeuta</span>
+                  </span>
+                  {followsMe && tNick !== viewerNickname && (
+                    <span className="inline-flex items-center rounded-full border border-[#F3D791] bg-white/15 px-2.5 py-0.5 text-[10px] font-bold text-[#F3D791]">
+                      Te sigue
+                    </span>
+                  )}
+                </div>
+
+                <h5 className="mt-1.5 text-base font-bold text-white">
+                  {therapist.therapistName}
+                </h5>
+                <p className="font-mono text-xs font-semibold text-[#F3D791]">
+                  @{tNick}
+                </p>
+                <p className="mt-0.5 text-[11px] text-white/90">
+                  {therapist.localidad}, {therapist.provincia}
+                </p>
+
+                <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white">
+                  <span>
+                    <strong className="text-[#F3D791]">
+                      {followersCount}
+                    </strong>{" "}
                     {followersCount === 1 ? "seguidor" : "seguidores"}
                   </span>
+                  <span className="text-white/40">•</span>
+                  <span>
+                    <strong className="text-[#F3D791]">
+                      {followingCount}
+                    </strong>{" "}
+                    siguiendo
+                  </span>
                 </div>
 
-                <div className="flex flex-wrap justify-center gap-1">
+                <div className="mt-2.5 flex flex-wrap justify-center gap-1">
                   {therapist.therapies.slice(0, 3).map((th) => (
                     <span
                       key={th}
-                      className="rounded-lg border border-[#836DAD]/20 bg-[#F6F3FA] px-2 py-0.5 text-[10px] font-semibold text-[#836DAD]"
+                      className="rounded-full border border-[#F3D791]/50 bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white"
                     >
                       {th}
                     </span>
@@ -1507,61 +1733,97 @@ export default function ModalityWorkflowPanel({
                 </div>
               </div>
 
-              <div className="mt-3.5 space-y-1.5">
-                {tNick !== viewerNickname && (
+              {/* 3. Código QR + Link + Seguir + Match ahora */}
+              <div className="w-full space-y-2.5 border-t border-white/15 pt-3.5">
+                <div className="flex flex-col items-center gap-1.5">
+                  {qrUrl ? (
+                    <div className="shrink-0 rounded-2xl bg-white p-2 shadow-md">
+                      <img
+                        src={qrUrl}
+                        alt={`QR ${tNick}`}
+                        width={84}
+                        height={84}
+                        className="block h-[84px] w-[84px] shrink-0 object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-2xl bg-white p-2 text-[10px] font-bold text-[#2B1F42] shadow-md">
+                      QR...
+                    </div>
+                  )}
+
+                  <div className="text-center">
+                    <a
+                      href={`/${tNick}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline break-all"
+                    >
+                      <span>reikionline.com.ar/{tNick}</span>
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                    <span className="block text-[10px] font-bold text-[#F3D791]">
+                      ✓ Identidad verificada
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  {tNick !== viewerNickname && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleToggleFollowPerson({
+                          nickname: tNick,
+                          name: therapist.therapistName,
+                          role: "Terapeuta",
+                        })
+                      }
+                      className={`inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                        isFollowing
+                          ? "border border-white bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                          : "border border-[#F3D791] bg-white/15 text-white hover:bg-[#F3D791] hover:text-[#2B1F42]"
+                      }`}
+                    >
+                      {isFollowing ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Siguiendo</span>
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                          <span>Seguir Terapeuta</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() =>
-                      handleToggleFollowPerson({
-                        nickname: tNick,
-                        name: therapist.therapistName,
-                        role: "Terapeuta",
+                      setCheckoutTarget({
+                        therapist,
+                        distanceKm,
+                        bookingTiming: "inmediata",
+                        attentionModality: "distancia_con_video",
+                        scheduledSlotLabel: "Contratación inmediata online",
+                        slotKey: "inmediata",
                       })
                     }
-                    className={`inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                      isFollowing
-                        ? "border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD]"
-                        : "border border-[#836DAD]/30 bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                    }`}
+                    className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#F3D791] px-3.5 py-2 text-xs font-bold text-[#2B1F42] transition-colors hover:bg-white"
                   >
-                    {isFollowing ? (
-                      <>
-                        <Check className="h-3.5 w-3.5" />
-                        <span>Siguiendo</span>
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="h-3.5 w-3.5" />
-                        <span>Seguir</span>
-                      </>
-                    )}
+                    <Sparkles className="h-3.5 w-3.5 text-[#836DAD]" />
+                    <span>
+                      Match ahora ·{" "}
+                      {formatArs(
+                        mpAccounts[therapist.therapistId]?.sessionPriceArs ||
+                          mpAccounts[tNick]?.sessionPriceArs ||
+                          30000
+                      )}
+                    </span>
                   </button>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCheckoutTarget({
-                      therapist,
-                      distanceKm,
-                      bookingTiming: "inmediata",
-                      attentionModality: "distancia_con_video",
-                      scheduledSlotLabel: "Contratación inmediata online",
-                      slotKey: "inmediata",
-                    })
-                  }
-                  className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#6F599B]"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-[#F3D791]" />
-                  <span>
-                    Match ahora ·{" "}
-                    {formatArs(
-                      mpAccounts[therapist.therapistId]?.sessionPriceArs ||
-                        mpAccounts[tNick]?.sessionPriceArs ||
-                        30000
-                    )}
-                  </span>
-                </button>
+                </div>
               </div>
             </div>
           );

@@ -55,7 +55,8 @@ const DEMO_NETWORK_PROFILES: NetworkProfileCardItem[] = [
     nombreCompleto: "Valeria Méndez",
     nickname: "valeriamendez",
     role: "Terapeuta",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80",
     localidad: "Córdoba",
     provincia: "Córdoba",
     lat: -31.4201,
@@ -73,7 +74,8 @@ const DEMO_NETWORK_PROFILES: NetworkProfileCardItem[] = [
     nombreCompleto: "Martín Arrieta",
     nickname: "martinarrieta",
     role: "Terapeuta",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80",
     localidad: "Río Cuarto",
     provincia: "Córdoba",
     lat: -33.1232,
@@ -91,7 +93,8 @@ const DEMO_NETWORK_PROFILES: NetworkProfileCardItem[] = [
     nombreCompleto: "Lucía Peralta",
     nickname: "luciaperalta",
     role: "Terapeuta",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80",
     localidad: "Palermo",
     provincia: "Ciudad Autónoma de Buenos Aires",
     lat: -34.5889,
@@ -108,7 +111,8 @@ const DEMO_NETWORK_PROFILES: NetworkProfileCardItem[] = [
     nombreCompleto: "Sofía Villalba",
     nickname: "sofiavillalba",
     role: "Consultante",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
     localidad: "Villa María",
     provincia: "Córdoba",
     lat: -32.4075,
@@ -121,7 +125,8 @@ const DEMO_NETWORK_PROFILES: NetworkProfileCardItem[] = [
     nombreCompleto: "Nicolás Ferreyra",
     nickname: "nicoferreyra",
     role: "Consultante",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80",
     localidad: "Rosario",
     provincia: "Santa Fe",
     lat: -32.9442,
@@ -134,7 +139,8 @@ const DEMO_NETWORK_PROFILES: NetworkProfileCardItem[] = [
     nombreCompleto: "Camila Quiroga",
     nickname: "camilaquiroga",
     role: "Consultante",
-    fotoUrl: "",
+    fotoUrl:
+      "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80",
     localidad: "Mendoza",
     provincia: "Mendoza",
     lat: -32.8895,
@@ -583,8 +589,8 @@ export default function NetworkProfilesDirectory({
                       <span>reikionline.com.ar/{item.nickname}</span>
                       <ExternalLink className="h-3 w-3 shrink-0" />
                     </a>
-                    <span className="block text-[10px] text-white/75">
-                      Credencial verificada
+                    <span className="block text-[10px] font-bold text-[#F3D791]">
+                      ✓ Identidad verificada
                     </span>
                   </div>
                 </div>

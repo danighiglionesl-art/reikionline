@@ -24,6 +24,7 @@ import {
   MapPin,
   CalendarClock,
   Video,
+  ShieldCheck,
 } from "lucide-react";
 import {
   ROLE_THERAPY_CATEGORIES,
@@ -35,7 +36,14 @@ import {
   ReikiUserProfile,
   sanitizeNickname,
 } from "@/lib/geoData";
+import {
+  BiometricVerificationStatus,
+  createInitialBiometricRecord,
+  evaluateConsultanteBiometricRisk,
+  isBiometricVerifiedAndValid,
+} from "@/lib/biometricIdentity";
 import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
+import BiometricIdentityStep from "@/components/auth/BiometricIdentityStep";
 import UserProfilePanel from "@/components/profile/UserProfilePanel";
 import ModalityWorkflowPanel from "@/components/auth/ModalityWorkflowPanel";
 import UserCredentialPanel from "@/components/credential/UserCredentialPanel";
@@ -159,6 +167,10 @@ function buildDefaultProfileForUser(user: AuthenticatedUser): ReikiUserProfile {
     // Nuevos usuarios comienzan en estado «WhatsApp sin verificar» hasta completar Twilio Verify
     whatsappVerified: false,
     whatsappVerifiedAt: null,
+    biometricVerification: createInitialBiometricRecord(
+      `usr-${lowerEmail.replace(/[^a-z0-9]/g, "-")}`,
+      false
+    ),
   };
 }
 
@@ -833,6 +845,20 @@ export function TerapiasAccessPanel({
   };
 
   const isWhatsAppVerified = Boolean(activeUserProfile?.whatsappVerified);
+  const isBiometricVerified = Boolean(
+    activeUserProfile &&
+      (activeUserProfile.biometricVerification
+        ? isBiometricVerifiedAndValid(activeUserProfile.biometricVerification)
+        : activeUserProfile.isAdmin)
+  );
+  const consultanteRisk = evaluateConsultanteBiometricRisk({
+    record: activeUserProfile?.biometricVerification,
+    dni: activeUserProfile?.dni,
+  });
+  const requiresBiometricGate = Boolean(
+    (selectedRole === "Terapeuta" && !isBiometricVerified) ||
+      (selectedRole === "Consultante" && consultanteRisk.requiresBiometric)
+  );
 
   return (
     <div className="rounded-3xl border border-[#836DAD]/25 bg-white p-6 sm:p-8 text-[#2B1F42] shadow-xl shadow-[#836DAD]/10">
@@ -858,19 +884,29 @@ export function TerapiasAccessPanel({
               />
             </div>
             <div>
-              <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
-                {authenticatedUser
-                  ? !isWhatsAppVerified
-                    ? "Verificación de WhatsApp"
-                    : selectedRole
-                    ? `Espacio de ${selectedRole}`
-                    : "Reiki Online"
-                  : mode === "register"
-                  ? "Registrarme"
-                  : mode === "recover"
-                  ? "Recuperar contraseña"
-                  : "Ingresar"}
-              </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
+                  {authenticatedUser
+                    ? !isWhatsAppVerified
+                      ? "Verificación de WhatsApp"
+                      : selectedRole
+                      ? `Espacio de ${selectedRole}`
+                      : "Reiki Online"
+                    : mode === "register"
+                    ? "Registrarme"
+                    : mode === "recover"
+                    ? "Recuperar contraseña"
+                    : "Ingresar"}
+                </h3>
+                {authenticatedUser &&
+                  isWhatsAppVerified &&
+                  isBiometricVerified && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#836DAD] px-2.5 py-0.5 text-[11px] font-bold text-[#F3D791] shadow-2xs">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      ✓ Identidad verificada
+                    </span>
+                  )}
+              </div>
               {authenticatedUser && activeUserProfile && !isWhatsAppVerified && (
                 <p className="text-xs font-medium text-[#836DAD]">
                   Estado: WhatsApp sin verificar
@@ -1075,9 +1111,9 @@ export function TerapiasAccessPanel({
                   <thead className="border-b border-[#836DAD]/15 text-[#836DAD]">
                     <tr>
                       <th className="py-1.5 pr-3">Nombre</th>
-                      <th className="py-1.5 pr-3">WhatsApp (E.164)</th>
-                      <th className="py-1.5 pr-3">Estado</th>
-                      <th className="py-1.5 pr-3">Fecha Verificación</th>
+                      <th className="py-1.5 pr-3">WhatsApp</th>
+                      <th className="py-1.5 pr-3">Identidad Biométrica</th>
+                      <th className="py-1.5 pr-3">Simular Estado / Riesgo</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#836DAD]/10">
@@ -1088,34 +1124,132 @@ export function TerapiasAccessPanel({
                         acc[prof.id] = prof;
                         return acc;
                       }, {})
-                    ).map((prof) => (
-                      <tr key={prof.id}>
-                        <td className="py-1.5 pr-3 font-medium">
-                          {prof.nombre} {prof.apellido}
-                        </td>
-                        <td className="py-1.5 pr-3 font-mono">
-                          {prof.whatsappE164 || "Sin cargar"}
-                        </td>
-                        <td className="py-1.5 pr-3">
-                          {prof.whatsappVerified ? (
-                            <span className="text-emerald-700 font-semibold">
-                              WhatsApp verificado
+                    ).map((prof) => {
+                      const bioRec =
+                        prof.biometricVerification ||
+                        createInitialBiometricRecord(prof.id, Boolean(prof.isAdmin));
+                      return (
+                        <tr key={prof.id}>
+                          <td className="py-1.5 pr-3 font-medium">
+                            {prof.nombre} {prof.apellido}
+                          </td>
+                          <td className="py-1.5 pr-3">
+                            {prof.whatsappVerified ? (
+                              <span className="text-emerald-700 font-semibold">
+                                WhatsApp verificado
+                              </span>
+                            ) : (
+                              <span className="text-amber-700 font-semibold">
+                                WhatsApp sin verificar
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-1.5 pr-3">
+                            <span
+                              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                                bioRec.status === "verificada"
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : bioRec.status === "pendiente"
+                                  ? "bg-amber-100 text-amber-800"
+                                  : bioRec.status === "rechazada"
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-[#F4F0FA] text-[#5E4B8B]"
+                              }`}
+                            >
+                              {bioRec.status === "verificada"
+                                ? "✓ Identidad verificada"
+                                : bioRec.status}
                             </span>
-                          ) : (
-                            <span className="text-amber-700 font-semibold">
-                              WhatsApp sin verificar
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-1.5 pr-3 text-[#2B1F42]/70">
-                          {prof.whatsappVerifiedAt
-                            ? new Date(prof.whatsappVerifiedAt).toLocaleString(
-                                "es-AR"
-                              )
-                            : "—"}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-1.5 pr-3">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <select
+                                aria-label="Cambiar estado biométrico"
+                                value={bioRec.status}
+                                onChange={(e) => {
+                                  const nextSt = e.target
+                                    .value as BiometricVerificationStatus;
+                                  const nowIso = new Date().toISOString();
+                                  const nextBio = {
+                                    ...bioRec,
+                                    status: nextSt,
+                                    resolvedAt:
+                                      nextSt === "verificada" ||
+                                      nextSt === "rechazada"
+                                        ? nowIso
+                                        : null,
+                                    expiresAt:
+                                      nextSt === "verificada"
+                                        ? new Date(
+                                            Date.now() +
+                                              365 * 24 * 60 * 60 * 1000
+                                          ).toISOString()
+                                        : null,
+                                    technicalResult:
+                                      nextSt === "verificada"
+                                        ? {
+                                            dniFrontCaptured: true,
+                                            dniBackCaptured: true,
+                                            selfieCaptured: true,
+                                            livenessPassed: true,
+                                            facialMatchScore: 99.1,
+                                            renaperChecked: true,
+                                            renaperStatus: "validado" as const,
+                                            providerReference: `ADM-${prof.id.toUpperCase()}`,
+                                            serverSignature: `adm-sig-${Date.now()}`,
+                                          }
+                                        : bioRec.technicalResult,
+                                    rejectionOrReviewReason:
+                                      nextSt === "rechazada"
+                                        ? "Imagen del documento borrosa o con reflejos. Intentá nuevamente con buena luz."
+                                        : nextSt === "revision_requerida"
+                                        ? "Derivado a revisión documental asistida."
+                                        : null,
+                                  };
+                                  saveUserProfile({
+                                    ...prof,
+                                    biometricVerification: nextBio,
+                                  });
+                                }}
+                                className="rounded-lg border border-[#836DAD]/30 bg-white px-2 py-1 text-[11px] font-semibold text-[#2B1F42]"
+                              >
+                                <option value="no_iniciada">no_iniciada</option>
+                                <option value="pendiente">pendiente</option>
+                                <option value="verificada">verificada</option>
+                                <option value="rechazada">rechazada</option>
+                                <option value="revision_requerida">
+                                  revision_requerida
+                                </option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const hasRisk =
+                                    (bioRec.riskFlags || []).length > 0;
+                                  saveUserProfile({
+                                    ...prof,
+                                    biometricVerification: {
+                                      ...bioRec,
+                                      status: hasRisk
+                                        ? bioRec.status
+                                        : "no_iniciada",
+                                      riskFlags: hasRisk
+                                        ? []
+                                        : ["alerta_seguridad"],
+                                    },
+                                  });
+                                }}
+                                className="cursor-pointer rounded-lg border border-[#836DAD]/30 bg-[#FAF8FC] px-2 py-1 text-[10px] font-bold text-[#5E4B8B] hover:bg-[#836DAD] hover:text-white"
+                              >
+                                {(bioRec.riskFlags || []).length > 0
+                                  ? "Quitar alerta riesgo Consultante"
+                                  : "Simular riesgo Consultante"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1648,11 +1782,35 @@ export function TerapiasAccessPanel({
                 </div>
               )}
 
+              {/* CIRCUITO AUTOMÁTICO DE VERIFICACIÓN DE IDENTIDAD BIOMÉTRICA (Sección 3, 4 y 6):
+                  - Obligatorio cuando el usuario selecciona Terapeuta y su biometría no está verificada/vigente.
+                  - Proporcional en Consultante cuando se detectan indicadores objetivos de riesgo.
+                  - Permite en todo momento completar los datos de Mi Perfil mientras esté pendiente. */}
+              {selectedRole && !activeSection && requiresBiometricGate && (
+                <BiometricIdentityStep
+                  profile={activeUserProfile}
+                  roleContext={selectedRole}
+                  consultanteRiskReasons={consultanteRisk.reasons}
+                  onUpdateBiometric={(nextBioRecord) => {
+                    saveUserProfile({
+                      ...activeUserProfile,
+                      biometricVerification: nextBioRecord,
+                      updatedAt: new Date().toISOString(),
+                    });
+                  }}
+                  onGoToProfile={() => setActiveSection("Mi Perfil")}
+                  onBackToRoles={handleGoToComoIngresas}
+                />
+              )}
+
               {/* NUEVA VENTANA LIMPIA TRAS CONFIRMAR/GUARDAR TERAPIAS:
                   - Presencial con turno
                   - Online con turno
                   - Online ahora */}
-              {selectedRole && !activeSection && therapiesConfirmed && (
+              {selectedRole &&
+                !activeSection &&
+                !requiresBiometricGate &&
+                therapiesConfirmed && (
                 <div className="rounded-2xl border border-[#836DAD]/25 bg-white p-6 sm:p-8 space-y-5 shadow-xs">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     {(
@@ -1721,6 +1879,7 @@ export function TerapiasAccessPanel({
                   ¿Cómo buscas? -> Por Terapia | Por Terapeuta (Consultante) / Por Consultante (Terapeuta) */}
               {selectedRole &&
                 !activeSection &&
+                !requiresBiometricGate &&
                 !searchMode &&
                 !therapiesConfirmed && (
                   <div className="space-y-4">
@@ -1767,6 +1926,7 @@ export function TerapiasAccessPanel({
                   Aparecen los perfiles con un formato similar a la Credencial */}
               {selectedRole &&
                 !activeSection &&
+                !requiresBiometricGate &&
                 searchMode === "Por Persona" &&
                 !therapiesConfirmed && (
                   <NetworkProfilesDirectory
@@ -1790,6 +1950,7 @@ export function TerapiasAccessPanel({
               {/* SELECTOR MÚLTIPLE DE TERAPIAS SEGÚN ROL ELEGIDO (cuando elige "Por Terapia") */}
               {selectedRole &&
                 !activeSection &&
+                !requiresBiometricGate &&
                 searchMode === "Por Terapia" &&
                 !therapiesConfirmed && (
                 <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4 sm:p-6 space-y-4">

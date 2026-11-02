@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import QRCode from "qrcode";
 import {
   Star,
   CheckCircle2,
@@ -17,6 +18,7 @@ import {
   UserCheck,
   Users,
   HeartHandshake,
+  QrCode,
 } from "lucide-react";
 import {
   DEMO_SOCIAL_PROFILES,
@@ -80,6 +82,7 @@ export default function SocialNetworkProfileView({
     fotoUrl: currentUserPhotoUrl || "",
   });
   const [copiedUrl, setCopiedUrl] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   // Estado del formulario de calificación (1 a 5 estrellas) y reseña (hasta 150 caracteres)
   const [selectedRating, setSelectedRating] = useState<1 | 2 | 3 | 4 | 5>(5);
@@ -97,6 +100,25 @@ export default function SocialNetworkProfileView({
   const fullPublicUrl = `https://www.reikionline.com.ar/${
     overrideProfile?.nickname || resolvedProfile?.nickname || nickname
   }`;
+
+  useEffect(() => {
+    let active = true;
+    QRCode.toDataURL(fullPublicUrl, {
+      width: 240,
+      margin: 1,
+      color: {
+        dark: "#2B1F42",
+        light: "#FFFFFF",
+      },
+    })
+      .then((dataUrl) => {
+        if (active) setQrDataUrl(dataUrl);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [fullPublicUrl]);
 
   const syncData = () => {
     const prof = resolvePublicProfileByNickname(cleanNick);
@@ -477,10 +499,10 @@ export default function SocialNetworkProfileView({
                   <Sparkles className="h-3 w-3" />
                   Red Social • {profileData.role}
                 </span>
-                {profileData.whatsappVerified && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[#F3D791]/60 bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                {(profileData.identityVerified ?? profileData.whatsappVerified) && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[#F3D791]/60 bg-white/15 px-2.5 py-0.5 text-[11px] font-bold text-[#F3D791]">
                     <ShieldCheck className="h-3.5 w-3.5 text-[#F3D791]" />
-                    Perfil Verificado
+                    ✓ Identidad verificada
                   </span>
                 )}
               </div>
@@ -557,29 +579,45 @@ export default function SocialNetworkProfileView({
             </div>
           </div>
 
-          {/* Resumen de estrellas (1 a 5) */}
-          <div className="flex flex-col sm:items-end justify-center rounded-2xl bg-white/10 backdrop-blur-xs border border-white/15 px-4 py-3">
-            <div className="flex items-center gap-1.5">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <Star
-                  key={star}
-                  className={`h-4 w-4 ${
-                    star <= Math.round(averageRating)
-                      ? "fill-[#F3D791] text-[#F3D791]"
-                      : "text-white/35"
-                  }`}
-                />
-              ))}
-              <span className="ml-1 text-base font-extrabold text-[#F3D791]">
-                {averageRating.toFixed(1)}
+          {/* Resumen de estrellas (1 a 5) + Código QR oficial */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-col sm:items-end justify-center rounded-2xl bg-white/10 backdrop-blur-xs border border-[#F3D791]/40 px-4 py-3">
+              <div className="flex items-center gap-1.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-4 w-4 ${
+                      star <= Math.round(averageRating)
+                        ? "fill-[#F3D791] text-[#F3D791]"
+                        : "text-white/35"
+                    }`}
+                  />
+                ))}
+                <span className="ml-1 text-base font-extrabold text-[#F3D791]">
+                  {averageRating.toFixed(1)}
+                </span>
+              </div>
+              <span className="text-[11px] text-white/80 mt-0.5">
+                {profileReviews.length}{" "}
+                {profileReviews.length === 1
+                  ? "reseña de consulta efectuada"
+                  : "reseñas de consultas efectuadas"}
               </span>
             </div>
-            <span className="text-[11px] text-white/80 mt-0.5">
-              {profileReviews.length}{" "}
-              {profileReviews.length === 1
-                ? "reseña de consulta efectuada"
-                : "reseñas de consultas efectuadas"}
-            </span>
+
+            <div className="flex items-center gap-2 rounded-2xl border-2 border-[#F3D791] bg-white p-1.5 shadow-sm">
+              {qrDataUrl ? (
+                <img
+                  src={qrDataUrl}
+                  alt={`QR ${fullPublicUrl}`}
+                  className="h-14 w-14 rounded-lg object-contain"
+                />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-[#FAF8FC]">
+                  <QrCode className="h-7 w-7 text-[#836DAD]" />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -690,6 +728,11 @@ export default function SocialNetworkProfileView({
                     fol.followerNickname,
                     followsList
                   );
+                  const folPhoto =
+                    fol.followerFotoUrl ||
+                    DEMO_SOCIAL_PROFILES[fol.followerNickname.toLowerCase()]
+                      ?.fotoUrl ||
+                    "";
                   const folInitials = fol.followerName
                     .split(" ")
                     .filter(Boolean)
@@ -701,27 +744,30 @@ export default function SocialNetworkProfileView({
                   return (
                     <div
                       key={fol.id}
-                      className="flex items-center justify-between gap-2.5 rounded-xl border border-[#836DAD]/20 bg-[#FAF8FC] p-3"
+                      className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#836DAD]/30 bg-white text-xs font-bold text-[#836DAD]">
-                          {folInitials}
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
+                          {folPhoto ? (
+                            <img
+                              src={folPhoto}
+                              alt={fol.followerName}
+                              referrerPolicy="no-referrer"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            folInitials
+                          )}
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <a
                               href={`/${fol.followerNickname}`}
-                              className="truncate text-xs sm:text-sm font-bold text-[#2B1F42] hover:text-[#836DAD] hover:underline"
+                              className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
                             >
                               {fol.followerName}
                             </a>
-                            <span
-                              className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                fol.followerRole === "Terapeuta"
-                                  ? "bg-[#F3D791]/50 text-[#2B1F42]"
-                                  : "bg-[#836DAD]/15 text-[#836DAD]"
-                              }`}
-                            >
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
                               {fol.followerRole === "Terapeuta" ? (
                                 <UserCheck className="h-2.5 w-2.5" />
                               ) : (
@@ -730,7 +776,7 @@ export default function SocialNetworkProfileView({
                               {fol.followerRole}
                             </span>
                           </div>
-                          <p className="font-mono text-[11px] text-[#836DAD]">
+                          <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
                             @{fol.followerNickname}
                           </p>
                         </div>
@@ -744,13 +790,13 @@ export default function SocialNetworkProfileView({
                               nickname: fol.followerNickname,
                               name: fol.followerName,
                               role: fol.followerRole,
-                              fotoUrl: fol.followerFotoUrl,
+                              fotoUrl: folPhoto,
                             })
                           }
-                          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
                             iFollowBack
-                              ? "border border-[#836DAD]/30 bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                              : "bg-[#836DAD] text-white hover:bg-[#6F599B]"
+                              ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                              : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
                           }`}
                         >
                           {iFollowBack ? (
@@ -760,7 +806,7 @@ export default function SocialNetworkProfileView({
                             </>
                           ) : (
                             <>
-                              <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                              <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
                               <span>Seguir</span>
                             </>
                           )}
@@ -787,6 +833,11 @@ export default function SocialNetworkProfileView({
                     fol.targetNickname,
                     followsList
                   );
+                  const targetPhoto =
+                    fol.targetFotoUrl ||
+                    DEMO_SOCIAL_PROFILES[fol.targetNickname.toLowerCase()]
+                      ?.fotoUrl ||
+                    "";
                   const targetInitials = fol.targetName
                     .split(" ")
                     .filter(Boolean)
@@ -798,31 +849,34 @@ export default function SocialNetworkProfileView({
                   return (
                     <div
                       key={fol.id}
-                      className="flex items-center justify-between gap-2.5 rounded-xl border border-[#836DAD]/20 bg-[#FAF8FC] p-3"
+                      className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#836DAD]/30 bg-white text-xs font-bold text-[#836DAD]">
-                          {targetInitials}
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
+                          {targetPhoto ? (
+                            <img
+                              src={targetPhoto}
+                              alt={fol.targetName}
+                              referrerPolicy="no-referrer"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            targetInitials
+                          )}
                         </div>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <a
                               href={`/${fol.targetNickname}`}
-                              className="truncate text-xs sm:text-sm font-bold text-[#2B1F42] hover:text-[#836DAD] hover:underline"
+                              className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
                             >
                               {fol.targetName}
                             </a>
-                            <span
-                              className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                                fol.targetRole === "Terapeuta"
-                                  ? "bg-[#F3D791]/50 text-[#2B1F42]"
-                                  : "bg-[#836DAD]/15 text-[#836DAD]"
-                              }`}
-                            >
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
                               {fol.targetRole}
                             </span>
                           </div>
-                          <p className="font-mono text-[11px] text-[#836DAD]">
+                          <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
                             @{fol.targetNickname}
                           </p>
                         </div>
@@ -836,13 +890,13 @@ export default function SocialNetworkProfileView({
                               nickname: fol.targetNickname,
                               name: fol.targetName,
                               role: fol.targetRole,
-                              fotoUrl: fol.targetFotoUrl,
+                              fotoUrl: targetPhoto,
                             })
                           }
-                          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
                             isFollowingItem
-                              ? "border border-[#836DAD]/30 bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                              : "bg-[#836DAD] text-white hover:bg-[#6F599B]"
+                              ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                              : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
                           }`}
                         >
                           {isFollowingItem ? (
@@ -852,7 +906,7 @@ export default function SocialNetworkProfileView({
                             </>
                           ) : (
                             <>
-                              <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                              <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
                               <span>Seguir</span>
                             </>
                           )}
@@ -889,31 +943,34 @@ export default function SocialNetworkProfileView({
                 return (
                   <div
                     key={sug.nickname}
-                    className="flex items-center justify-between gap-2.5 rounded-xl border border-[#836DAD]/20 bg-[#FAF8FC] p-3"
+                    className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#836DAD]/30 bg-white text-xs font-bold text-[#836DAD]">
-                        {sugInitials}
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
+                        {sug.fotoUrl ? (
+                          <img
+                            src={sug.fotoUrl}
+                            alt={sug.displayName}
+                            referrerPolicy="no-referrer"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          sugInitials
+                        )}
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <a
                             href={`/${sug.nickname}`}
-                            className="truncate text-xs sm:text-sm font-bold text-[#2B1F42] hover:text-[#836DAD] hover:underline"
+                            className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
                           >
                             {sug.displayName}
                           </a>
-                          <span
-                            className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                              sug.role === "Terapeuta"
-                                ? "bg-[#F3D791]/50 text-[#2B1F42]"
-                                : "bg-[#836DAD]/15 text-[#836DAD]"
-                            }`}
-                          >
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
                             {sug.role}
                           </span>
                         </div>
-                        <p className="font-mono text-[11px] text-[#836DAD]">
+                        <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
                           @{sug.nickname} · {sug.localidad}
                         </p>
                       </div>
@@ -929,10 +986,10 @@ export default function SocialNetworkProfileView({
                           fotoUrl: sug.fotoUrl,
                         })
                       }
-                      className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                      className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
                         isFollowingSug
-                          ? "border border-[#836DAD]/30 bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                          : "bg-[#836DAD] text-white hover:bg-[#6F599B]"
+                          ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                          : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
                       }`}
                     >
                       {isFollowingSug ? (
@@ -942,7 +999,7 @@ export default function SocialNetworkProfileView({
                         </>
                       ) : (
                         <>
-                          <UserPlus className="h-3.5 w-3.5 text-[#F3D791]" />
+                          <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
                           <span>Seguir</span>
                         </>
                       )}
