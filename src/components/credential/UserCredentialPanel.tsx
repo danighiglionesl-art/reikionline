@@ -193,7 +193,7 @@ export default function UserCredentialPanel({
     }
   };
 
-  // Renderizado en Canvas de alta resolución para descargar PNG (Tamaño Feed 1080x1080 o Tamaño Estados 1080x1920)
+  // Renderizado en Canvas de alta resolución para descargar PNG idéntico a la previsualización (Tamaño Feed 1080x1080 o Tamaño Estados 1080x1920)
   const handleDownloadPng = async (
     targetFormat: CredentialFormat,
     flyerIdx = activeFlyerIndex
@@ -201,29 +201,31 @@ export default function UserCredentialPanel({
     setExporting(true);
     setFeedbackMsg(null);
     try {
+      if (typeof document !== "undefined" && document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+
       const chunkForThisFlyer =
         flyerChunks[flyerIdx] || flyerChunks[0] || [];
       const totalFlyers = flyerChunks.length;
 
+      const isFeed = targetFormat === "feed";
       const width = 1080;
-      const height = targetFormat === "feed" ? 1080 : 1920;
+      const height = isFeed ? 1080 : 1920;
       const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // 1. Fondo institucional con el color Lavanda oficial del Manual de Marca (#836DAD)
-      ctx.fillStyle = "#836DAD";
-      ctx.fillRect(0, 0, width, height);
+      const computedFont =
+        typeof window !== "undefined"
+          ? window.getComputedStyle(document.body).fontFamily || "sans-serif"
+          : "sans-serif";
 
-      // Marco interior elegante en Champán (#F3D791)
-      const pad = targetFormat === "feed" ? 44 : 60;
-      ctx.strokeStyle = "rgba(243, 215, 145, 0.55)";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(pad, pad, width - pad * 2, height - pad * 2, 44);
-      ctx.stroke();
+      const isVerified =
+        Boolean(profile.isAdmin) ||
+        isBiometricVerifiedAndValid(profile.biometricVerification);
 
       // Helper para cargar imágenes locales o dataURL
       const loadImg = (src: string): Promise<HTMLImageElement | null> =>
@@ -242,45 +244,203 @@ export default function UserCredentialPanel({
         loadImg(qrDataUrl),
       ]);
 
-      const isFeed = targetFormat === "feed";
-      let cursorY = isFeed ? 68 : 104;
+      // 1. Fondo y contenedor redondeado exterior idéntico a la vista previa (rounded-[2rem] border-2 border-[#F3D791] bg-[#836DAD])
+      ctx.fillStyle = "#836DAD";
+      ctx.fillRect(0, 0, width, height);
 
-      // 2. Cabecera horizontal: Isologotipo Oficial de Reiki Online a la izquierda + CREDENCIAL OFICIAL (en 2 líneas equiparadas) a la derecha
-      const headerInnerPad = pad + (isFeed ? 44 : 52);
-      const logoW = isFeed ? 340 : 400;
-      const logoH = logoW / 2;
+      const outerInset = 4;
+      const outerRadius = isFeed ? 74 : 84;
+      ctx.save();
+      ctx.strokeStyle = "#F3D791";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(
+        outerInset,
+        outerInset,
+        width - outerInset * 2,
+        height - outerInset * 2,
+        outerRadius
+      );
+      ctx.stroke();
+      ctx.restore();
+
+      // Marco interno sutil idéntico a `inset-3 rounded-[1.5rem] border border-[#F3D791]/45`
+      const innerInset = isFeed ? 30 : 38;
+      const innerRadius = isFeed ? 54 : 64;
+      ctx.save();
+      ctx.strokeStyle = "rgba(243, 215, 145, 0.45)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(
+        innerInset,
+        innerInset,
+        width - innerInset * 2,
+        height - innerInset * 2,
+        innerRadius
+      );
+      ctx.stroke();
+      ctx.restore();
+
+      // Función auxiliar para dibujar texto con espaciado de letras (tracking)
+      const drawTrackedTextRight = (
+        text: string,
+        rightX: number,
+        y: number,
+        trackingPx: number
+      ) => {
+        const chars = text.split("");
+        let totalW = 0;
+        const widths = chars.map((ch) => {
+          const w = ctx.measureText(ch).width;
+          totalW += w;
+          return w;
+        });
+        totalW += trackingPx * Math.max(0, chars.length - 1);
+        let currX = rightX - totalW;
+        ctx.textAlign = "left";
+        chars.forEach((ch, idx) => {
+          ctx.fillText(ch, currX, y);
+          currX += widths[idx] + trackingPx;
+        });
+      };
+
+      // 2. BLOQUE SUPERIOR (Cabecera): Isologotipo a la izquierda + CREDENCIAL OFICIAL a la derecha
+      const padX = isFeed ? 76 : 86;
+      const topY = isFeed ? 62 : 98;
+      const logoH = isFeed ? 142 : 176;
+      const logoW = logoH * 2;
+
       if (logoImg) {
-        ctx.drawImage(logoImg, headerInnerPad, cursorY, logoW, logoH);
+        ctx.drawImage(logoImg, padX, topY, logoW, logoH);
       }
 
       ctx.save();
       ctx.fillStyle = "#F3D791";
-      ctx.textAlign = "right";
-      const headerFontSize = isFeed ? 44 : 50;
-      ctx.font = `800 ${headerFontSize}px sans-serif`;
-      const rightX = width - headerInnerPad;
-      const centerLogoY = cursorY + logoH / 2;
-      ctx.fillText("CREDENCIAL", rightX, centerLogoY - (isFeed ? 8 : 10));
-      ctx.fillText(
+      const headerFontSize = isFeed ? 38 : 46;
+      ctx.font = `800 ${headerFontSize}px ${computedFont}`;
+      const rightEdgeX = width - padX;
+      const logoMidY = topY + logoH / 2;
+      const tracking = isFeed ? 5.2 : 6.2;
+      drawTrackedTextRight(
+        "CREDENCIAL",
+        rightEdgeX,
+        logoMidY - (isFeed ? 8 : 10),
+        tracking
+      );
+      drawTrackedTextRight(
         "OFICIAL",
-        rightX,
-        centerLogoY + headerFontSize - (isFeed ? 4 : 4)
+        rightEdgeX,
+        logoMidY + headerFontSize - (isFeed ? 2 : 2),
+        tracking
       );
       ctx.restore();
 
-      cursorY += logoH + (isFeed ? 24 : 56);
+      const headerBottomY = topY + logoH;
 
-      // 3. Foto del usuario circular con aro Champán (#F3D791)
-      const avatarRadius = isFeed ? 76 : 126;
+      // 3. Pre-calcular el BLOQUE INFERIOR (QR + URL) para centrar el bloque del medio exactamente como `justify-between`
+      const qrImgSize = isFeed ? 196 : 280;
+      const qrCardPad = isFeed ? 18 : 24;
+      const qrCardSize = qrImgSize + qrCardPad * 2;
+      const urlFontSize = isFeed ? 27 : 33;
+      const urlGapTop = isFeed ? 38 : 50;
+      const bottomY = height - (isFeed ? 66 : 108);
+      const urlBaselineY = bottomY;
+      const qrCardTopY = urlBaselineY - urlGapTop - qrCardSize;
+
+      // 4. Pre-calcular las filas de pastillas (pills) de terapias para el BLOQUE CENTRAL
+      const pillFontSize = isFeed ? 24 : 30;
+      const pillHeight = isFeed ? 48 : 60;
+      const pillPadX = isFeed ? 28 : 34;
+      const pillGapX = isFeed ? 14 : 18;
+      const pillGapY = isFeed ? 14 : 18;
+      const maxRowWidth = width - padX * 2 - (isFeed ? 20 : 10);
+
+      ctx.font = `500 ${pillFontSize}px ${computedFont}`;
+      interface PillItem {
+        label: string;
+        w: number;
+      }
+      const pillItems: PillItem[] =
+        credentialRole === "Terapeuta"
+          ? chunkForThisFlyer.map((t) => ({
+              label: t,
+              w: Math.min(
+                maxRowWidth,
+                Math.ceil(ctx.measureText(t).width + pillPadX * 2)
+              ),
+            }))
+          : [];
+
+      const pillRows: PillItem[][] = [];
+      if (pillItems.length > 0) {
+        // Agrupar de a 2 por fila cuando entran cómodamente (igual que max-w-[310px] en la vista previa)
+        let currentRow: PillItem[] = [];
+        let currentRowW = 0;
+        for (const item of pillItems) {
+          const nextW =
+            currentRow.length === 0
+              ? item.w
+              : currentRowW + pillGapX + item.w;
+          if (
+            currentRow.length > 0 &&
+            (nextW > maxRowWidth || currentRow.length >= 2)
+          ) {
+            pillRows.push(currentRow);
+            currentRow = [item];
+            currentRowW = item.w;
+          } else {
+            currentRow.push(item);
+            currentRowW = nextW;
+          }
+        }
+        if (currentRow.length > 0) {
+          pillRows.push(currentRow);
+        }
+      }
+
+      // Dimensiones del BLOQUE CENTRAL (Foto + Insignias + Nombre + Pastillas de terapias)
+      const avatarRadius = isFeed ? 88 : 124;
+      const avatarDiameter = avatarRadius * 2;
+      const gapAvatarToBadges = isFeed ? 20 : 32;
+      const badgeHeight = isFeed ? 54 : 66;
+      const gapBadgesToName = isFeed ? 20 : 30;
+      const nameFontSize = isFeed ? 45 : 56;
+      const nameHeight = nameFontSize;
+      const gapNameToPills = pillRows.length > 0 ? (isFeed ? 22 : 34) : 0;
+      const totalPillsHeight =
+        pillRows.length > 0
+          ? pillRows.length * pillHeight + (pillRows.length - 1) * pillGapY
+          : 0;
+
+      const centerBlockHeight =
+        avatarDiameter +
+        gapAvatarToBadges +
+        badgeHeight +
+        gapBadgesToName +
+        nameHeight +
+        gapNameToPills +
+        totalPillsHeight;
+
+      const availableMiddleSpace = qrCardTopY - headerBottomY;
+      let cursorY =
+        headerBottomY +
+        Math.max(isFeed ? 16 : 36, (availableMiddleSpace - centerBlockHeight) / 2);
+
+      // 5. Dibujar Foto circular con aro dorado (#F3D791) y sombra suave
       const centerX = width / 2;
       const avatarCenterY = cursorY + avatarRadius;
 
       ctx.save();
+      ctx.shadowColor = "rgba(25, 14, 43, 0.28)";
+      ctx.shadowBlur = 24;
+      ctx.shadowOffsetY = 8;
       ctx.beginPath();
-      ctx.arc(centerX, avatarCenterY, avatarRadius + 6, 0, Math.PI * 2);
+      ctx.arc(centerX, avatarCenterY, avatarRadius + 7, 0, Math.PI * 2);
       ctx.fillStyle = "#F3D791";
       ctx.fill();
+      ctx.restore();
 
+      ctx.save();
       ctx.beginPath();
       ctx.arc(centerX, avatarCenterY, avatarRadius, 0, Math.PI * 2);
       ctx.clip();
@@ -290,127 +450,262 @@ export default function UserCredentialPanel({
           userImg,
           centerX - avatarRadius,
           avatarCenterY - avatarRadius,
-          avatarRadius * 2,
-          avatarRadius * 2
+          avatarDiameter,
+          avatarDiameter
         );
       } else {
         ctx.fillStyle = "#F6F3FA";
         ctx.fillRect(
           centerX - avatarRadius,
           avatarCenterY - avatarRadius,
-          avatarRadius * 2,
-          avatarRadius * 2
+          avatarDiameter,
+          avatarDiameter
         );
         ctx.fillStyle = "#836DAD";
-        ctx.font = `700 ${isFeed ? 54 : 84}px sans-serif`;
+        ctx.font = `700 ${isFeed ? 62 : 84}px ${computedFont}`;
         ctx.textAlign = "center";
-        const initials = fullName
+        ctx.textBaseline = "middle";
+        const initialsText = fullName
           .split(" ")
+          .filter(Boolean)
           .map((n) => n[0])
           .join("")
           .slice(0, 2)
           .toUpperCase();
-        ctx.fillText(initials, centerX, avatarCenterY + (isFeed ? 20 : 30));
+        ctx.fillText(initialsText, centerX, avatarCenterY);
       }
       ctx.restore();
 
-      cursorY = avatarCenterY + avatarRadius + (isFeed ? 34 : 58);
+      cursorY += avatarDiameter + gapAvatarToBadges;
 
-      // 4. Insignia de Rol: Consultante o Terapeuta (colores del Manual)
-      ctx.textAlign = "center";
-      const roleText = credentialRole.toUpperCase();
-      const badgeW = isFeed ? 240 : 300;
-      const badgeH = isFeed ? 40 : 52;
+      // 6. Dibujar fila de Insignias: [ 👤✓ TERAPEUTA ] + [ ✓ Identidad verificada ]
+      const badgeFontSize = isFeed ? 25 : 30;
+      ctx.font = `700 ${badgeFontSize}px ${computedFont}`;
+      const roleLabel = credentialRole.toUpperCase();
+      const roleIconSpace = isFeed ? 36 : 42;
+      const rolePadX = isFeed ? 30 : 36;
+      const rolePillW =
+        Math.ceil(ctx.measureText(roleLabel).width) +
+        rolePadX * 2 +
+        roleIconSpace;
+
+      const verifiedLabel = "✓ Identidad verificada";
+      const verifiedPadX = isFeed ? 28 : 34;
+      const verifiedPillW = isVerified
+        ? Math.ceil(ctx.measureText(verifiedLabel).width) + verifiedPadX * 2
+        : 0;
+      const badgesGap = isVerified ? (isFeed ? 14 : 18) : 0;
+      const totalBadgesRowW = rolePillW + badgesGap + verifiedPillW;
+      const rolePillX = centerX - totalBadgesRowW / 2;
+
+      // Pastilla de Rol (Terapeuta / Consultante)
       ctx.save();
       ctx.fillStyle =
         credentialRole === "Terapeuta"
           ? "#F3D791"
-          : "rgba(255, 255, 255, 0.18)";
+          : "rgba(255, 255, 255, 0.16)";
       ctx.strokeStyle = "#F3D791";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.roundRect(
-        centerX - badgeW / 2,
-        cursorY - badgeH + 10,
-        badgeW,
-        badgeH,
-        badgeH / 2
+        rolePillX,
+        cursorY,
+        rolePillW,
+        badgeHeight,
+        badgeHeight / 2
       );
       ctx.fill();
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.fillStyle = credentialRole === "Terapeuta" ? "#2B1F42" : "#FFFFFF";
-      ctx.font = `700 ${isFeed ? 19 : 24}px sans-serif`;
-      ctx.fillText(roleText, centerX, cursorY - badgeH / 2 + 17);
-
-      cursorY += isFeed ? 42 : 68;
-
-      // 5. Nombre y Apellido (sin duplicar el nickname debajo del nombre, ya que figura al pie debajo del QR)
-      ctx.fillStyle = "#FFFFFF";
-      ctx.font = `700 ${isFeed ? 36 : 48}px sans-serif`;
-      ctx.fillText(fullName, centerX, cursorY);
-
-      cursorY += isFeed ? 34 : 54;
-
-      // 6. En el caso del Terapeuta: terapias correspondientes a este Flyer (máx 4 o 6)
-      if (credentialRole === "Terapeuta" && chunkForThisFlyer.length > 0) {
-        const summaryLine = chunkForThisFlyer.join("  •  ");
-        ctx.fillStyle = "#FFFFFF";
-        ctx.font = `600 ${isFeed ? 19 : 25}px sans-serif`;
-
-        const maxTextWidth = width - 180;
-        const words = summaryLine.split(" ");
-        let line = "";
-        const lines: string[] = [];
-        for (const w of words) {
-          const test = line ? `${line} ${w}` : w;
-          if (ctx.measureText(test).width > maxTextWidth && line) {
-            lines.push(line);
-            line = w;
-          } else {
-            line = test;
-          }
-        }
-        if (line) lines.push(line);
-
-        for (const l of lines.slice(0, 3)) {
-          ctx.fillText(l, centerX, cursorY);
-          cursorY += isFeed ? 26 : 38;
-        }
+      if (credentialRole !== "Terapeuta") {
+        ctx.stroke();
       }
 
-      // 7. Bloque QR inferior vinculado a https://www.reikionline.com.ar/nickname
-      const qrBoxSize = isFeed ? 168 : 250;
-      const qrY = height - pad - qrBoxSize - (isFeed ? 68 : 116);
+      // Ícono UserCheck minimalista dentro de la pastilla de rol
+      const iconColor =
+        credentialRole === "Terapeuta" ? "#2B1F42" : "#F3D791";
+      ctx.strokeStyle = iconColor;
+      ctx.lineWidth = 2.6;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      const iconCenterX = rolePillX + rolePadX + (isFeed ? 10 : 12);
+      const iconCenterY = cursorY + badgeHeight / 2;
+      // Cabeza del ícono
+      ctx.beginPath();
+      ctx.arc(iconCenterX - 3, iconCenterY - 6, isFeed ? 5.5 : 6.5, 0, Math.PI * 2);
+      ctx.stroke();
+      // Hombros del ícono
+      ctx.beginPath();
+      ctx.arc(
+        iconCenterX - 3,
+        iconCenterY + (isFeed ? 9 : 11),
+        isFeed ? 9 : 11,
+        Math.PI * 1.15,
+        Math.PI * 1.85
+      );
+      ctx.stroke();
+      // Tilde (check) del ícono
+      ctx.beginPath();
+      ctx.moveTo(iconCenterX + 7, iconCenterY - 1);
+      ctx.lineTo(iconCenterX + 10.5, iconCenterY + 2.5);
+      ctx.lineTo(iconCenterX + 16, iconCenterY - 4);
+      ctx.stroke();
 
+      ctx.fillStyle = credentialRole === "Terapeuta" ? "#2B1F42" : "#FFFFFF";
+      ctx.font = `700 ${badgeFontSize}px ${computedFont}`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(
+        roleLabel,
+        rolePillX + rolePadX + roleIconSpace,
+        cursorY + badgeHeight / 2 + 1
+      );
+      ctx.restore();
+
+      // Pastilla ✓ Identidad verificada (al lado derecho del rol, igual que en la previsualización)
+      if (isVerified) {
+        const verPillX = rolePillX + rolePillW + badgesGap;
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.strokeStyle = "rgba(243, 215, 145, 0.72)";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.roundRect(
+          verPillX,
+          cursorY,
+          verifiedPillW,
+          badgeHeight,
+          badgeHeight / 2
+        );
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#F3D791";
+        ctx.font = `700 ${badgeFontSize}px ${computedFont}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(
+          verifiedLabel,
+          verPillX + verifiedPillW / 2,
+          cursorY + badgeHeight / 2 + 1
+        );
+        ctx.restore();
+      }
+
+      cursorY += badgeHeight + gapBadgesToName;
+
+      // 7. Dibujar Nombre y Apellido
+      ctx.save();
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `700 ${nameFontSize}px ${computedFont}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(fullName, centerX, cursorY);
+      ctx.restore();
+
+      cursorY += nameHeight + gapNameToPills;
+
+      // 8. Dibujar cada terapia como una Pastilla Redondeada (pill) idéntica a la previsualización
+      if (pillRows.length > 0) {
+        ctx.save();
+        ctx.font = `500 ${pillFontSize}px ${computedFont}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        for (const row of pillRows) {
+          const rowTotalW =
+            row.reduce((acc, it) => acc + it.w, 0) +
+            pillGapX * Math.max(0, row.length - 1);
+          let pillX = centerX - rowTotalW / 2;
+
+          for (const item of row) {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+            ctx.strokeStyle = "rgba(243, 215, 145, 0.55)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(
+              pillX,
+              cursorY,
+              item.w,
+              pillHeight,
+              pillHeight / 2
+            );
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillText(
+              item.label,
+              pillX + item.w / 2,
+              cursorY + pillHeight / 2 + 1
+            );
+            pillX += item.w + pillGapX;
+          }
+          cursorY += pillHeight + pillGapY;
+        }
+        ctx.restore();
+      }
+
+      // 9. Dibujar BLOQUE INFERIOR: Tarjeta blanca redondeada del QR con sombra + URL dorada al pie
       if (qrImg) {
+        ctx.save();
+        ctx.shadowColor = "rgba(25, 14, 43, 0.25)";
+        ctx.shadowBlur = 26;
+        ctx.shadowOffsetY = 8;
         ctx.fillStyle = "#FFFFFF";
         ctx.beginPath();
         ctx.roundRect(
-          centerX - qrBoxSize / 2 - 14,
-          qrY - 14,
-          qrBoxSize + 28,
-          qrBoxSize + 28,
-          26
+          centerX - qrCardSize / 2,
+          qrCardTopY,
+          qrCardSize,
+          qrCardSize,
+          isFeed ? 36 : 44
         );
         ctx.fill();
+        ctx.restore();
+
         ctx.drawImage(
           qrImg,
-          centerX - qrBoxSize / 2,
-          qrY,
-          qrBoxSize,
-          qrBoxSize
+          centerX - qrImgSize / 2,
+          qrCardTopY + qrCardPad,
+          qrImgSize,
+          qrImgSize
         );
       }
 
+      // URL inferior + pequeño ícono de enlace externo igual que en la previsualización
+      ctx.save();
       ctx.fillStyle = "#F3D791";
-      ctx.font = `700 ${isFeed ? 22 : 28}px sans-serif`;
-      ctx.fillText(
-        displayShortUrl,
-        centerX,
-        qrY + qrBoxSize + (isFeed ? 44 : 62)
-      );
+      ctx.font = `600 ${urlFontSize}px ${computedFont}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      const urlTextW = ctx.measureText(displayShortUrl).width;
+      const extIconSize = isFeed ? 20 : 24;
+      const extGap = 10;
+      const totalUrlRowW = urlTextW + extGap + extIconSize;
+      const urlStartX = centerX - totalUrlRowW / 2;
+
+      ctx.textAlign = "left";
+      ctx.fillText(displayShortUrl, urlStartX, urlBaselineY);
+
+      // Dibujar ícono ExternalLink al lado del dominio
+      const extX = urlStartX + urlTextW + extGap;
+      const extY = urlBaselineY - extIconSize + 3;
+      ctx.strokeStyle = "#F3D791";
+      ctx.lineWidth = 2.4;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(extX + extIconSize * 0.55, extY);
+      ctx.lineTo(extX + extIconSize, extY);
+      ctx.lineTo(extX + extIconSize, extY + extIconSize * 0.45);
+      ctx.moveTo(extX + extIconSize, extY);
+      ctx.lineTo(extX + extIconSize * 0.4, extY + extIconSize * 0.6);
+      ctx.moveTo(extX + extIconSize * 0.85, extY + extIconSize * 0.58);
+      ctx.lineTo(extX + extIconSize * 0.85, extY + extIconSize * 0.92);
+      ctx.lineTo(extX, extY + extIconSize * 0.92);
+      ctx.lineTo(extX, extY + extIconSize * 0.15);
+      ctx.lineTo(extX + extIconSize * 0.42, extY + extIconSize * 0.15);
+      ctx.stroke();
+      ctx.restore();
 
       const pngUrl = canvas.toDataURL("image/png");
       const a = document.createElement("a");

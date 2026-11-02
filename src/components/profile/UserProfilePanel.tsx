@@ -8,6 +8,7 @@ import {
   RotateCcw,
   Sparkles,
   ExternalLink,
+  ArrowLeft,
 } from "lucide-react";
 import {
   buildGoogleMapsEmbedUrl,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/geoData";
 import { isNicknameAlreadyInUse } from "@/lib/socialNetwork";
 import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
+import SocialNetworkProfileView from "@/components/profile/SocialNetworkProfileView";
 
 interface UserProfilePanelProps {
   profile: ReikiUserProfile;
@@ -63,6 +65,8 @@ export default function UserProfilePanel({
   const [soyTerapeuta, setSoyTerapeuta] = useState<boolean>(
     profile.soyTerapeuta ?? false
   );
+  const [showInlineSocialLink, setShowInlineSocialLink] =
+    useState<boolean>(false);
 
   const [nombre, setNombre] = useState(profile.nombre);
   const [apellido, setApellido] = useState(profile.apellido);
@@ -646,7 +650,7 @@ export default function UserProfilePanel({
       <form onSubmit={handleSaveSubmit} className="space-y-4">
         <div className="rounded-2xl border border-[#DCE6F5] bg-[#F2F7FF] p-4 sm:p-5 space-y-4 shadow-inner">
           {/* Fila 0 (ENCIMA DEL NOMBRE): Foto que trae de Google + Cambiar foto | Mi Perfil visible + Soy Terapeuta | Campo obligatorio https://www.reikionline.com.ar/nickname */}
-          <div className="rounded-2xl border border-[#CBD8EE] bg-white p-4 sm:p-5 space-y-4">
+          <div className="sticky top-0 z-10 rounded-2xl border border-[#CBD8EE] bg-white/95 backdrop-blur-md p-4 sm:p-5 space-y-4 shadow-sm">
             {/* Bloque superior: Foto de Perfil + Casillas Mi Perfil visible y Soy Terapeuta */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               {/* Foto de perfil (Google o personalizada) */}
@@ -824,21 +828,88 @@ export default function UserProfilePanel({
 
                 {nicknameFormatValid && !nicknameTaken && (
                   <div className="flex items-center gap-3">
-                    <a
-                      href={`/${cleanNickname}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5E4B8B] hover:text-[#836DAD]"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onSaveProfile({
+                          ...profile,
+                          nickname: cleanNickname,
+                          username: cleanNickname,
+                          visibleEnRed,
+                          soyTerapeuta,
+                          fotoUrl: fotoUrl.trim(),
+                          nombre: nombre.trim(),
+                          apellido: apellido.trim(),
+                          updatedAt: new Date().toISOString(),
+                        });
+                        setShowInlineSocialLink((prev) => !prev);
+                      }}
+                      className="inline-flex cursor-pointer items-center gap-1 text-[11px] font-bold text-[#5E4B8B] hover:text-[#836DAD]"
                     >
-                      Abrir enlace
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+                      {showInlineSocialLink ? (
+                        <>
+                          <ArrowLeft className="h-3 w-3" />
+                          <span>Volver a datos de Mi Perfil</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Abrir enlace</span>
+                          <ExternalLink className="h-3 w-3" />
+                        </>
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
             </div>
           </div>
 
+          {showInlineSocialLink ? (
+            <div className="space-y-3 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#836DAD]/25 bg-white px-3.5 py-2.5 text-xs">
+                <span className="font-bold text-[#5E4B8B]">
+                  Vista en pantalla de tu enlace: https://www.reikionline.com.ar/{cleanNickname}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowInlineSocialLink(false)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-[#836DAD] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#6D5898] transition"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Volver a editar campos de Mi Perfil</span>
+                </button>
+              </div>
+
+              <SocialNetworkProfileView
+                nickname={cleanNickname}
+                compact
+                currentUserEmail={profile.email}
+                currentUserName={`${nombre} ${apellido}`.trim() || nombre}
+                currentUserNickname={cleanNickname}
+                currentUserPhotoUrl={fotoUrl}
+                overrideProfile={{
+                  nickname: cleanNickname,
+                  displayName:
+                    `${nombre} ${apellido}`.trim() || nombre || cleanNickname,
+                  role: soyTerapeuta ? "Terapeuta" : activeRoleLabel,
+                  fotoUrl,
+                  localidad: localidadFinal,
+                  provincia,
+                  pais,
+                  therapies:
+                    selectedTherapies && selectedTherapies.length > 0
+                      ? selectedTherapies
+                      : undefined,
+                  whatsappVerified,
+                  identityVerified: Boolean(
+                    profile.isAdmin ||
+                      profile.biometricVerification?.status === "verificada"
+                  ),
+                }}
+              />
+            </div>
+          ) : (
+            <>
           {/* Fila 1: Nombre * | Apellido * */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -1533,17 +1604,21 @@ export default function UserProfilePanel({
               </a>
             </div>
           </div>
+            </>
+          )}
         </div>
 
         {/* Botón Guardar Mi Perfil */}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button
-            type="submit"
-            className="w-full sm:w-auto rounded-full bg-[#836DAD] px-8 py-3.5 text-sm font-semibold text-white shadow-md hover:bg-[#5E4B8B] transition cursor-pointer"
-          >
-            Guardar Datos y Ubicación en Mi Perfil
-          </button>
-        </div>
+        {!showInlineSocialLink && (
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="submit"
+              className="w-full sm:w-auto rounded-full bg-[#836DAD] px-8 py-3.5 text-sm font-semibold text-white shadow-md hover:bg-[#5E4B8B] transition cursor-pointer"
+            >
+              Guardar Datos y Ubicación en Mi Perfil
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );
