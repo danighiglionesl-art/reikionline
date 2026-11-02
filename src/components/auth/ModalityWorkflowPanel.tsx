@@ -1072,8 +1072,8 @@ export default function ModalityWorkflowPanel({
             <span
               className={`inline-flex h-10 w-10 items-center justify-center rounded-2xl ${
                 currentTherapistConfig.onlineNowActive
-                  ? "bg-emerald-600 text-white"
-                  : "bg-[#836DAD]/20 text-[#2B1F42]"
+                  ? "bg-[#836DAD] text-[#F3D791]"
+                  : "bg-[#836DAD]/15 text-[#2B1F42]"
               }`}
             >
               <Radio className="h-5 w-5" />
@@ -1091,15 +1091,15 @@ export default function ModalityWorkflowPanel({
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
               currentTherapistConfig.onlineNowActive
-                ? "bg-emerald-100 text-emerald-800"
-                : "bg-gray-200 text-gray-700"
+                ? "bg-[#836DAD] text-[#F3D791]"
+                : "bg-[#836DAD]/12 text-[#2B1F42]/70"
             }`}
           >
             <span
               className={`h-2.5 w-2.5 rounded-full ${
                 currentTherapistConfig.onlineNowActive
-                  ? "bg-emerald-500"
-                  : "bg-gray-500"
+                  ? "bg-[#F3D791]"
+                  : "bg-[#836DAD]/45"
               }`}
             />
             {currentTherapistConfig.onlineNowActive
@@ -1217,13 +1217,13 @@ export default function ModalityWorkflowPanel({
     );
   }
 
-  // Consultante -> Online ahora (Radar estilo Grindr de Terapeutas conectados en el momento)
+  // Consultante -> Online ahora (Radar estilo Grindr de Terapeutas conectados en el momento con la paleta oficial Reiki Online)
   return (
     <div className="rounded-2xl border border-[#836DAD]/25 bg-[#FAF8FC] p-4 sm:p-6 space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#836DAD]/15 pb-3.5">
         <div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-bold text-emerald-800">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#836DAD]/15 px-3 py-0.5 text-xs font-bold text-[#836DAD]">
+            <span className="h-2 w-2 rounded-full bg-[#836DAD]" />
             <span>{onlineNowTherapists.length} Terapeutas en línea ahora</span>
           </span>
           <h4 className="mt-1 text-base sm:text-lg font-bold text-[#2B1F42]">
@@ -1242,7 +1242,7 @@ export default function ModalityWorkflowPanel({
         </div>
       )}
 
-      {/* Grilla visual estilo Grindr */}
+      {/* Grilla visual estilo Grindr con la paleta oficial (#836DAD, #F3D791, #F6F3FA, #2B1F42) */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {onlineNowTherapists.map(({ therapist, distanceKm }) => {
           const initials = therapist.therapistName
@@ -1255,27 +1255,27 @@ export default function ModalityWorkflowPanel({
           return (
             <div
               key={therapist.therapistId}
-              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#836DAD]/25 bg-[#2B1F42] p-3.5 text-white shadow-md transition-all hover:border-[#F3D791]"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border-2 border-[#836DAD]/25 bg-white p-4 text-[#2B1F42] shadow-sm transition-all hover:border-[#836DAD] hover:shadow-md"
             >
               <div>
                 <div className="flex items-center justify-between gap-1">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791]/45 px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                    <span className="h-2 w-2 rounded-full bg-[#836DAD]" />
                     Online
                   </span>
-                  <span className="text-[11px] font-semibold text-[#F3D791]">
+                  <span className="text-[11px] font-semibold text-[#836DAD]">
                     {distanceKm} km
                   </span>
                 </div>
 
                 <div className="my-3 flex flex-col items-center text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#836DAD] text-lg font-bold text-[#F3D791] shadow-inner">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#836DAD] text-lg font-bold text-[#F3D791] shadow-sm">
                     {initials}
                   </div>
-                  <h5 className="mt-2 text-sm font-bold text-white">
+                  <h5 className="mt-2 text-sm font-bold text-[#2B1F42]">
                     {therapist.therapistName}
                   </h5>
-                  <p className="text-[11px] text-white/75">
+                  <p className="text-[11px] text-[#2B1F42]/70">
                     {therapist.localidad}, {therapist.provincia}
                   </p>
                 </div>
@@ -1284,7 +1284,7 @@ export default function ModalityWorkflowPanel({
                   {therapist.therapies.slice(0, 3).map((th) => (
                     <span
                       key={th}
-                      className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/90"
+                      className="rounded-lg border border-[#836DAD]/20 bg-[#F6F3FA] px-2 py-0.5 text-[10px] font-semibold text-[#836DAD]"
                     >
                       {th}
                     </span>
@@ -1295,9 +1295,9 @@ export default function ModalityWorkflowPanel({
               <button
                 type="button"
                 onClick={() => handleTriggerMatchNow(therapist, distanceKm)}
-                className="mt-3.5 inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#F3D791] px-3 py-2 text-xs font-bold text-[#2B1F42] transition-colors hover:bg-white"
+                className="mt-3.5 inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#6F599B]"
               >
-                <Sparkles className="h-3.5 w-3.5 text-[#836DAD]" />
+                <Sparkles className="h-3.5 w-3.5 text-[#F3D791]" />
                 <span>Match ahora</span>
               </button>
             </div>
