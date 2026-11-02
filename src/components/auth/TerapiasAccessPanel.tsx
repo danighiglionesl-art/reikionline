@@ -25,6 +25,7 @@ import {
   CalendarClock,
   Video,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import {
   ROLE_THERAPY_CATEGORIES,
@@ -45,6 +46,7 @@ import {
 import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
 import BiometricIdentityStep from "@/components/auth/BiometricIdentityStep";
 import UserProfilePanel from "@/components/profile/UserProfilePanel";
+import SocialNetworkProfileView from "@/components/profile/SocialNetworkProfileView";
 import ModalityWorkflowPanel from "@/components/auth/ModalityWorkflowPanel";
 import UserCredentialPanel from "@/components/credential/UserCredentialPanel";
 import NetworkProfilesDirectory from "@/components/credential/NetworkProfilesDirectory";
@@ -63,7 +65,8 @@ export type PersistentSection =
   | "Mi Perfil"
   | "Mi Credencial"
   | "Mis Consultas"
-  | "Mi Billetera";
+  | "Mi Billetera"
+  | "Mi Red Social";
 
 export interface TerapiasAccessPanelProps {
   idPrefix?: string;
@@ -971,11 +974,11 @@ export function TerapiasAccessPanel({
           </div>
         </div>
 
-        {/* BARRA SUPERIOR SIEMPRE FIJA Y VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera */}
+        {/* BARRA SUPERIOR SIEMPRE FIJA Y VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera · Mi Red Social */}
         {authenticatedUser && isWhatsAppVerified && (
           <nav
             aria-label="Accesos permanentes del usuario"
-            className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-4"
+            className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-5"
           >
             {(
               [
@@ -983,6 +986,7 @@ export function TerapiasAccessPanel({
                 { label: "Mi Credencial", icon: IdCard },
                 { label: "Mis Consultas", icon: Calendar },
                 { label: "Mi Billetera", icon: Wallet },
+                { label: "Mi Red Social", icon: Users },
               ] as const
             ).map(({ label, icon: Icon }) => {
               const isActive = activeSection === label;
@@ -1672,6 +1676,49 @@ export function TerapiasAccessPanel({
               {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI BILLETERA (Cobros y cuenta de Mercado Pago Split 1:1) */}
               {activeSection === "Mi Billetera" && (
                 <TherapistMercadoPagoSection profile={activeUserProfile} />
+              )}
+
+              {/* QUINTA PESTAÑA DE LA BARRA SUPERIOR: MI RED SOCIAL (Seguidores, Seguidos, Historias y Feed) */}
+              {activeSection === "Mi Red Social" && (
+                <SocialNetworkProfileView
+                  nickname={getEffectiveNickname(activeUserProfile)}
+                  compact
+                  currentUserEmail={activeUserProfile.email}
+                  currentUserName={
+                    `${activeUserProfile.nombre} ${activeUserProfile.apellido}`.trim() ||
+                    activeUserProfile.nombre
+                  }
+                  currentUserNickname={getEffectiveNickname(activeUserProfile)}
+                  currentUserPhotoUrl={
+                    activeUserProfile.fotoUrl || authenticatedUser?.picture || ""
+                  }
+                  overrideProfile={{
+                    nickname: getEffectiveNickname(activeUserProfile),
+                    displayName:
+                      `${activeUserProfile.nombre} ${activeUserProfile.apellido}`.trim() ||
+                      activeUserProfile.nombre ||
+                      getEffectiveNickname(activeUserProfile),
+                    role:
+                      selectedRole ||
+                      (activeUserProfile.soyTerapeuta ||
+                      activeUserProfile.role === "terapeuta"
+                        ? "Terapeuta"
+                        : "Consultante"),
+                    fotoUrl:
+                      activeUserProfile.fotoUrl ||
+                      authenticatedUser?.picture ||
+                      "",
+                    localidad: activeUserProfile.localidad,
+                    provincia: activeUserProfile.provincia,
+                    pais: activeUserProfile.pais,
+                    therapies:
+                      activeSelections && activeSelections.length > 0
+                        ? activeSelections
+                        : undefined,
+                    whatsappVerified: activeUserProfile.whatsappVerified,
+                    identityVerified: isBiometricVerified,
+                  }}
+                />
               )}
 
               {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MIS CONSULTAS */}

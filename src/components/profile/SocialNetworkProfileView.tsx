@@ -68,8 +68,9 @@ export default function SocialNetworkProfileView({
   );
   const [followsList, setFollowsList] = useState<SocialFollowRecord[]>([]);
   const [socialTab, setSocialTab] = useState<
-    "seguidores" | "siguiendo" | "explorar"
+    "seguidores" | "seguidos" | "historias" | "feed"
   >("seguidores");
+  const [showExploreInFollows, setShowExploreInFollows] = useState(false);
   const [detectedViewer, setDetectedViewer] = useState<{
     nickname: string;
     name: string;
@@ -522,7 +523,7 @@ export default function SocialNetworkProfileView({
                 </span>
               </div>
 
-              {/* Contadores interactivos de Seguidores y Siguiendo + Botón Seguir */}
+              {/* Contadores interactivos de Seguidores y Seguidos + Botón Seguir */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   type="button"
@@ -540,7 +541,7 @@ export default function SocialNetworkProfileView({
 
                 <button
                   type="button"
-                  onClick={() => setSocialTab("siguiendo")}
+                  onClick={() => setSocialTab("seguidos")}
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-xs font-semibold text-white transition hover:bg-white/25"
                 >
                   <UserCheck className="h-3.5 w-3.5 text-[#F3D791]" />
@@ -548,7 +549,7 @@ export default function SocialNetworkProfileView({
                     <strong className="text-[#F3D791]">
                       {profileFollowing.length}
                     </strong>{" "}
-                    siguiendo
+                    seguidos
                   </span>
                 </button>
 
@@ -662,9 +663,9 @@ export default function SocialNetworkProfileView({
         </div>
       </div>
 
-      {/* Cuerpo de la Red Social */}
+      {/* Cuerpo de Mi Red Social */}
       <div className="p-5 sm:p-6 space-y-6 bg-[#FAF8FC]">
-        {/* RED SOCIAL DE SEGUIDORES (Consultantes y Terapeutas) */}
+        {/* NAVEGACIÓN PRINCIPAL DE MI RED SOCIAL: SEGUIDORES · SEGUIDOS · HISTORIAS · FEED */}
         <div className="rounded-2xl border border-[#836DAD]/25 bg-white p-4 sm:p-5 shadow-xs space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#836DAD]/15 pb-3.5">
             <div className="flex items-center gap-2.5">
@@ -673,19 +674,19 @@ export default function SocialNetworkProfileView({
               </span>
               <div>
                 <h4 className="text-sm sm:text-base font-bold text-[#2B1F42]">
-                  Red de Seguidores en Reiki Online
+                  Mi Red Social en Reiki Online
                 </h4>
                 <p className="text-xs text-[#2B1F42]/70">
-                  Seguí a Consultantes y Terapeutas de la comunidad.
+                  Seguidores, seguidos, historias y feed de tu comunidad.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-1.5 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setSocialTab("seguidores")}
-                className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                className={`cursor-pointer rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
                   socialTab === "seguidores"
                     ? "bg-[#836DAD] text-white shadow-xs"
                     : "border border-[#836DAD]/25 bg-[#FAF8FC] text-[#2B1F42] hover:border-[#836DAD]"
@@ -695,318 +696,396 @@ export default function SocialNetworkProfileView({
               </button>
               <button
                 type="button"
-                onClick={() => setSocialTab("siguiendo")}
-                className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-                  socialTab === "siguiendo"
+                onClick={() => setSocialTab("seguidos")}
+                className={`cursor-pointer rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                  socialTab === "seguidos"
                     ? "bg-[#836DAD] text-white shadow-xs"
                     : "border border-[#836DAD]/25 bg-[#FAF8FC] text-[#2B1F42] hover:border-[#836DAD]"
                 }`}
               >
-                Siguiendo ({profileFollowing.length})
+                Seguidos ({profileFollowing.length})
               </button>
               <button
                 type="button"
-                onClick={() => setSocialTab("explorar")}
-                className={`cursor-pointer rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
-                  socialTab === "explorar"
-                    ? "bg-[#836DAD] text-[#F3D791] shadow-xs"
-                    : "border border-[#836DAD]/25 bg-[#FAF8FC] text-[#836DAD] hover:border-[#836DAD]"
+                onClick={() => setSocialTab("historias")}
+                className={`cursor-pointer rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                  socialTab === "historias"
+                    ? "bg-[#836DAD] text-white shadow-xs"
+                    : "border border-[#836DAD]/25 bg-[#FAF8FC] text-[#2B1F42] hover:border-[#836DAD]"
                 }`}
               >
-                + Seguir perfiles
+                Historias
+              </button>
+              <button
+                type="button"
+                onClick={() => setSocialTab("feed")}
+                className={`cursor-pointer rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                  socialTab === "feed"
+                    ? "bg-[#836DAD] text-white shadow-xs"
+                    : "border border-[#836DAD]/25 bg-[#FAF8FC] text-[#2B1F42] hover:border-[#836DAD]"
+                }`}
+              >
+                Feed
               </button>
             </div>
           </div>
 
           {socialTab === "seguidores" && (
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {profileFollowers.length > 0 ? (
-                profileFollowers.map((fol) => {
-                  const actorNick = compact ? cleanNick : effectiveViewerNick;
-                  const iFollowBack = isFollowingProfile(
-                    actorNick,
-                    fol.followerNickname,
-                    followsList
-                  );
-                  const folPhoto =
-                    fol.followerFotoUrl ||
-                    DEMO_SOCIAL_PROFILES[fol.followerNickname.toLowerCase()]
-                      ?.fotoUrl ||
-                    "";
-                  const folInitials = fol.followerName
-                    .split(" ")
-                    .filter(Boolean)
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase();
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {profileFollowers.length > 0 ? (
+                  profileFollowers.map((fol) => {
+                    const actorNick = compact ? cleanNick : effectiveViewerNick;
+                    const iFollowBack = isFollowingProfile(
+                      actorNick,
+                      fol.followerNickname,
+                      followsList
+                    );
+                    const folPhoto =
+                      fol.followerFotoUrl ||
+                      DEMO_SOCIAL_PROFILES[fol.followerNickname.toLowerCase()]
+                        ?.fotoUrl ||
+                      "";
+                    const folInitials = fol.followerName
+                      .split(" ")
+                      .filter(Boolean)
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase();
 
-                  return (
-                    <div
-                      key={fol.id}
-                      className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
-                          {folPhoto ? (
-                            <img
-                              src={folPhoto}
-                              alt={fol.followerName}
-                              referrerPolicy="no-referrer"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            folInitials
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <a
-                              href={`/${fol.followerNickname}`}
-                              className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
-                            >
-                              {fol.followerName}
-                            </a>
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                              {fol.followerRole === "Terapeuta" ? (
-                                <UserCheck className="h-2.5 w-2.5" />
-                              ) : (
-                                <HeartHandshake className="h-2.5 w-2.5" />
-                              )}
-                              {fol.followerRole}
-                            </span>
+                    return (
+                      <div
+                        key={fol.id}
+                        className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
+                            {folPhoto ? (
+                              <img
+                                src={folPhoto}
+                                alt={fol.followerName}
+                                referrerPolicy="no-referrer"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              folInitials
+                            )}
                           </div>
-                          <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
-                            @{fol.followerNickname}
-                          </p>
-                        </div>
-                      </div>
-
-                      {fol.followerNickname.toLowerCase() !== actorNick && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleToggleFollowOther({
-                              nickname: fol.followerNickname,
-                              name: fol.followerName,
-                              role: fol.followerRole,
-                              fotoUrl: folPhoto,
-                            })
-                          }
-                          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                            iFollowBack
-                              ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                              : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
-                          }`}
-                        >
-                          {iFollowBack ? (
-                            <>
-                              <Check className="h-3.5 w-3.5" />
-                              <span>Siguiendo</span>
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
-                              <span>Seguir</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="col-span-2 py-3 text-center text-xs text-[#2B1F42]/65">
-                  Aún no hay seguidores registrados en esta lista.
-                </p>
-              )}
-            </div>
-          )}
-
-          {socialTab === "siguiendo" && (
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {profileFollowing.length > 0 ? (
-                profileFollowing.map((fol) => {
-                  const actorNick = compact ? cleanNick : effectiveViewerNick;
-                  const isFollowingItem = isFollowingProfile(
-                    actorNick,
-                    fol.targetNickname,
-                    followsList
-                  );
-                  const targetPhoto =
-                    fol.targetFotoUrl ||
-                    DEMO_SOCIAL_PROFILES[fol.targetNickname.toLowerCase()]
-                      ?.fotoUrl ||
-                    "";
-                  const targetInitials = fol.targetName
-                    .split(" ")
-                    .filter(Boolean)
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase();
-
-                  return (
-                    <div
-                      key={fol.id}
-                      className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
-                          {targetPhoto ? (
-                            <img
-                              src={targetPhoto}
-                              alt={fol.targetName}
-                              referrerPolicy="no-referrer"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            targetInitials
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <a
-                              href={`/${fol.targetNickname}`}
-                              className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
-                            >
-                              {fol.targetName}
-                            </a>
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                              {fol.targetRole}
-                            </span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <a
+                                href={`/${fol.followerNickname}`}
+                                className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
+                              >
+                                {fol.followerName}
+                              </a>
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                                {fol.followerRole === "Terapeuta" ? (
+                                  <UserCheck className="h-2.5 w-2.5" />
+                                ) : (
+                                  <HeartHandshake className="h-2.5 w-2.5" />
+                                )}
+                                {fol.followerRole}
+                              </span>
+                            </div>
+                            <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
+                              @{fol.followerNickname}
+                            </p>
                           </div>
-                          <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
-                            @{fol.targetNickname}
-                          </p>
                         </div>
-                      </div>
 
-                      {fol.targetNickname.toLowerCase() !== actorNick && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleToggleFollowOther({
-                              nickname: fol.targetNickname,
-                              name: fol.targetName,
-                              role: fol.targetRole,
-                              fotoUrl: targetPhoto,
-                            })
-                          }
-                          className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                            isFollowingItem
-                              ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                              : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
-                          }`}
-                        >
-                          {isFollowingItem ? (
-                            <>
-                              <Check className="h-3.5 w-3.5" />
-                              <span>Siguiendo</span>
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
-                              <span>Seguir</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="col-span-2 py-3 text-center text-xs text-[#2B1F42]/65">
-                  Aún no sigue a otros perfiles. Usá la pestaña «+ Seguir perfiles» para conectar.
-                </p>
-              )}
-            </div>
-          )}
-
-          {socialTab === "explorar" && (
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              {suggestedProfiles.map((sug) => {
-                const actorNick = compact ? cleanNick : effectiveViewerNick;
-                const isFollowingSug = isFollowingProfile(
-                  actorNick,
-                  sug.nickname,
-                  followsList
-                );
-                const sugInitials = sug.displayName
-                  .split(" ")
-                  .filter(Boolean)
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase();
-
-                return (
-                  <div
-                    key={sug.nickname}
-                    className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
-                        {sug.fotoUrl ? (
-                          <img
-                            src={sug.fotoUrl}
-                            alt={sug.displayName}
-                            referrerPolicy="no-referrer"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          sugInitials
+                        {fol.followerNickname.toLowerCase() !== actorNick && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggleFollowOther({
+                                nickname: fol.followerNickname,
+                                name: fol.followerName,
+                                role: fol.followerRole,
+                                fotoUrl: folPhoto,
+                              })
+                            }
+                            className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                              iFollowBack
+                                ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                                : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
+                            }`}
+                          >
+                            {iFollowBack ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                <span>Siguiendo</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
+                                <span>Seguir</span>
+                              </>
+                            )}
+                          </button>
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <a
-                            href={`/${sug.nickname}`}
-                            className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
-                          >
-                            {sug.displayName}
-                          </a>
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                            {sug.role}
-                          </span>
-                        </div>
-                        <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
-                          @{sug.nickname} · {sug.localidad}
-                        </p>
-                      </div>
-                    </div>
+                    );
+                  })
+                ) : (
+                  <p className="col-span-2 py-3 text-center text-xs text-[#2B1F42]/65">
+                    Aún no hay seguidores registrados en esta lista.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleToggleFollowOther({
-                          nickname: sug.nickname,
-                          name: sug.displayName,
-                          role: sug.role,
-                          fotoUrl: sug.fotoUrl,
-                        })
-                      }
-                      className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
-                        isFollowingSug
-                          ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
-                          : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
-                      }`}
-                    >
-                      {isFollowingSug ? (
-                        <>
-                          <Check className="h-3.5 w-3.5" />
-                          <span>Siguiendo</span>
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
-                          <span>Seguir</span>
-                        </>
-                      )}
-                    </button>
+          {socialTab === "seguidos" && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-[#2B1F42]/75">
+                  Perfiles seguidos por @{profileData.nickname}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowExploreInFollows((prev) => !prev)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-3 py-1.5 text-xs font-bold text-[#836DAD] hover:bg-[#836DAD] hover:text-white transition"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span>
+                    {showExploreInFollows
+                      ? "Ocultar sugerencias"
+                      : "+ Seguir más perfiles de la red"}
+                  </span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                {profileFollowing.length > 0 ? (
+                  profileFollowing.map((fol) => {
+                    const actorNick = compact ? cleanNick : effectiveViewerNick;
+                    const isFollowingItem = isFollowingProfile(
+                      actorNick,
+                      fol.targetNickname,
+                      followsList
+                    );
+                    const targetPhoto =
+                      fol.targetFotoUrl ||
+                      DEMO_SOCIAL_PROFILES[fol.targetNickname.toLowerCase()]
+                        ?.fotoUrl ||
+                      "";
+                    const targetInitials = fol.targetName
+                      .split(" ")
+                      .filter(Boolean)
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase();
+
+                    return (
+                      <div
+                        key={fol.id}
+                        className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
+                            {targetPhoto ? (
+                              <img
+                                src={targetPhoto}
+                                alt={fol.targetName}
+                                referrerPolicy="no-referrer"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              targetInitials
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <a
+                                href={`/${fol.targetNickname}`}
+                                className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
+                              >
+                                {fol.targetName}
+                              </a>
+                              <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                                {fol.targetRole}
+                              </span>
+                            </div>
+                            <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
+                              @{fol.targetNickname}
+                            </p>
+                          </div>
+                        </div>
+
+                        {fol.targetNickname.toLowerCase() !== actorNick && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggleFollowOther({
+                                nickname: fol.targetNickname,
+                                name: fol.targetName,
+                                role: fol.targetRole,
+                                fotoUrl: targetPhoto,
+                              })
+                            }
+                            className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                              isFollowingItem
+                                ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                                : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
+                            }`}
+                          >
+                            {isFollowingItem ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                <span>Siguiendo</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
+                                <span>Seguir</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="col-span-2 py-3 text-center text-xs text-[#2B1F42]/65">
+                    Aún no sigue a otros perfiles. Usá «+ Seguir más perfiles de la red» para conectar.
+                  </p>
+                )}
+              </div>
+
+              {showExploreInFollows && (
+                <div className="space-y-2.5 border-t border-[#836DAD]/15 pt-3.5">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#5E4B8B]">
+                    Comunidad de Reiki Online sugerida para seguir
+                  </p>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    {suggestedProfiles.map((sug) => {
+                      const actorNick = compact
+                        ? cleanNick
+                        : effectiveViewerNick;
+                      const isFollowingSug = isFollowingProfile(
+                        actorNick,
+                        sug.nickname,
+                        followsList
+                      );
+                      const sugInitials = sug.displayName
+                        .split(" ")
+                        .filter(Boolean)
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={sug.nickname}
+                          className="flex items-center justify-between gap-2.5 rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-3 text-white shadow-xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F3D791] bg-[#F6F3FA] text-xs font-bold text-[#836DAD]">
+                              {sug.fotoUrl ? (
+                                <img
+                                  src={sug.fotoUrl}
+                                  alt={sug.displayName}
+                                  referrerPolicy="no-referrer"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                sugInitials
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <a
+                                  href={`/${sug.nickname}`}
+                                  className="truncate text-xs sm:text-sm font-bold text-white hover:text-[#F3D791] hover:underline"
+                                >
+                                  {sug.displayName}
+                                </a>
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
+                                  {sug.role}
+                                </span>
+                              </div>
+                              <p className="font-mono text-[11px] font-semibold text-[#F3D791]">
+                                @{sug.nickname} · {sug.localidad}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggleFollowOther({
+                                nickname: sug.nickname,
+                                name: sug.displayName,
+                                role: sug.role,
+                                fotoUrl: sug.fotoUrl,
+                              })
+                            }
+                            className={`inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                              isFollowingSug
+                                ? "border border-[#F3D791] bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                                : "bg-[#F3D791] text-[#2B1F42] hover:bg-white"
+                            }`}
+                          >
+                            {isFollowingSug ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" />
+                                <span>Siguiendo</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-3.5 w-3.5 text-[#836DAD]" />
+                                <span>Seguir</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {socialTab === "historias" && (
+            <div className="rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-white space-y-3 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#F3D791]" />
+                  <h5 className="text-sm sm:text-base font-bold text-white">
+                    Historias • Mi Red Social (@{profileData.nickname})
+                  </h5>
+                </div>
+                <span className="rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-bold text-[#2B1F42]">
+                  Formato Estados (9:16)
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+                Espacio reservado para las <strong>Historias</strong> de tu Red Social en Reiki Online, manteniendo la identidad visual de tu Credencial Oficial (colores, fotografía, isologotipo y QR).
+              </p>
+            </div>
+          )}
+
+          {socialTab === "feed" && (
+            <div className="rounded-2xl border-2 border-[#F3D791] bg-[#836DAD] p-5 text-white space-y-3 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#F3D791]" />
+                  <h5 className="text-sm sm:text-base font-bold text-white">
+                    Feed • Mi Red Social (@{profileData.nickname})
+                  </h5>
+                </div>
+                <span className="rounded-full bg-[#F3D791] px-2.5 py-0.5 text-[11px] font-bold text-[#2B1F42]">
+                  Formato Feed (4:5)
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+                Espacio reservado para las publicaciones del <strong>Feed</strong> de tu Red Social en Reiki Online, manteniendo la identidad visual de tu Credencial Oficial (colores, fotografía, isologotipo y QR).
+              </p>
             </div>
           )}
         </div>
