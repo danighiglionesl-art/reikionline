@@ -48,9 +48,10 @@ export default function UserCredentialPanel({
   }, [profile]);
 
   const [format, setFormat] = useState<CredentialFormat>("feed");
-  const [credentialRole, setCredentialRole] = useState<CredentialRole>(
-    activeRole || (profile.role === "terapeuta" ? "Terapeuta" : "Consultante")
-  );
+  const credentialRole: CredentialRole =
+    profile.soyTerapeuta || profile.role === "terapeuta"
+      ? "Terapeuta"
+      : "Consultante";
   const [nickname, setNickname] = useState<string>(defaultNick);
   const [photoDataUrl, setPhotoDataUrl] = useState<string>(
     profile.fotoUrl || ""
@@ -60,12 +61,6 @@ export default function UserCredentialPanel({
   const [exporting, setExporting] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (activeRole) {
-      setCredentialRole(activeRole);
-    }
-  }, [activeRole]);
 
   useEffect(() => {
     setNickname(getEffectiveNickname(profile));
@@ -434,8 +429,8 @@ export default function UserCredentialPanel({
         </div>
       </div>
 
-      {/* Barra de configuración rápida: Foto, Nickname, Rol y Tamaño */}
-      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-[#836DAD]/20 bg-white p-4 sm:grid-cols-3 shadow-xs">
+      {/* Barra de configuración rápida: Foto y Nickname (el Rol se toma de Mi Perfil) */}
+      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-[#836DAD]/20 bg-white p-4 sm:grid-cols-2 shadow-xs">
         {/* 1. Foto aportada por usuario */}
         <div>
           <label className="block text-xs font-bold text-[#2B1F42] mb-1.5">
@@ -487,32 +482,6 @@ export default function UserCredentialPanel({
             >
               Guardar
             </button>
-          </div>
-        </div>
-
-        {/* 3. Rol mostrado en la credencial */}
-        <div>
-          <label className="block text-xs font-bold text-[#2B1F42] mb-1.5">
-            Rol en la credencial
-          </label>
-          <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-[#836DAD]/25 bg-[#FAF8FC] p-1">
-            {(["Consultante", "Terapeuta"] as const).map((r) => (
-              <button
-                key={r}
-                type="button"
-                onClick={() => {
-                  setCredentialRole(r);
-                  onChangeRole?.(r);
-                }}
-                className={`cursor-pointer rounded-lg py-1.5 text-xs font-semibold transition-colors ${
-                  credentialRole === r
-                    ? "bg-[#836DAD] text-white shadow-xs"
-                    : "text-[#2B1F42] hover:bg-white"
-                }`}
-              >
-                {r}
-              </button>
-            ))}
           </div>
         </div>
       </div>
