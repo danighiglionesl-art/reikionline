@@ -1024,6 +1024,18 @@ export default function ModalityWorkflowPanel({
                   modality === "Presencial con turno"
                     ? therapist.presencialConvertibleToOnline
                     : therapist.onlineConvertibleToPresencial;
+                const tNick = sanitizeNickname(
+                  therapist.therapistName
+                ).toLowerCase();
+                const isFollowing = isFollowingProfile(
+                  viewerNickname,
+                  tNick,
+                  followsList
+                );
+                const followersCount = getFollowersForNickname(
+                  tNick,
+                  followsList
+                ).length;
 
                 return (
                   <div
@@ -1041,20 +1053,57 @@ export default function ModalityWorkflowPanel({
                             {therapist.localidad}, {therapist.provincia} · a{" "}
                             {distanceKm} km
                           </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#F6F3FA] px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
+                            <Users className="h-3 w-3" />
+                            {followersCount}{" "}
+                            {followersCount === 1 ? "seguidor" : "seguidores"}
+                          </span>
                         </div>
                         <p className="mt-1 text-xs text-[#2B1F42]/75">
                           Terapias: {therapist.therapies.join(" · ")}
                         </p>
                       </div>
 
-                      {canConvert && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791]/45 px-2.5 py-1 text-[11px] font-semibold text-[#2B1F42]">
-                          <ArrowLeftRight className="h-3 w-3 text-[#836DAD]" />
-                          {modality === "Presencial con turno"
-                            ? "Acepta convertir a Online"
-                            : "Acepta convertir a Presencial"}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {tNick !== viewerNickname && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleToggleFollowPerson({
+                                nickname: tNick,
+                                name: therapist.therapistName,
+                                role: "Terapeuta",
+                              })
+                            }
+                            className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold transition-all ${
+                              isFollowing
+                                ? "border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD]"
+                                : "bg-[#836DAD] text-white hover:bg-[#6F599B]"
+                            }`}
+                          >
+                            {isFollowing ? (
+                              <>
+                                <Check className="h-3 w-3" />
+                                <span>Siguiendo</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-3 w-3 text-[#F3D791]" />
+                                <span>Seguir</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {canConvert && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#F3D791]/45 px-2.5 py-1 text-[11px] font-semibold text-[#2B1F42]">
+                            <ArrowLeftRight className="h-3 w-3 text-[#836DAD]" />
+                            {modality === "Presencial con turno"
+                              ? "Acepta convertir a Online"
+                              : "Acepta convertir a Presencial"}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-1">
@@ -1320,6 +1369,16 @@ export default function ModalityWorkflowPanel({
             .join("")
             .slice(0, 2)
             .toUpperCase();
+          const tNick = sanitizeNickname(therapist.therapistName).toLowerCase();
+          const isFollowing = isFollowingProfile(
+            viewerNickname,
+            tNick,
+            followsList
+          );
+          const followersCount = getFollowersForNickname(
+            tNick,
+            followsList
+          ).length;
 
           return (
             <div
@@ -1347,6 +1406,11 @@ export default function ModalityWorkflowPanel({
                   <p className="text-[11px] text-[#2B1F42]/70">
                     {therapist.localidad}, {therapist.provincia}
                   </p>
+                  <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#F6F3FA] px-2.5 py-0.5 text-[10px] font-semibold text-[#836DAD]">
+                    <Users className="h-3 w-3" />
+                    {followersCount}{" "}
+                    {followersCount === 1 ? "seguidor" : "seguidores"}
+                  </span>
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-1">
@@ -1361,14 +1425,46 @@ export default function ModalityWorkflowPanel({
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => handleTriggerMatchNow(therapist, distanceKm)}
-                className="mt-3.5 inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#6F599B]"
-              >
-                <Sparkles className="h-3.5 w-3.5 text-[#F3D791]" />
-                <span>Match ahora</span>
-              </button>
+              <div className="mt-3.5 space-y-1.5">
+                {tNick !== viewerNickname && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleToggleFollowPerson({
+                        nickname: tNick,
+                        name: therapist.therapistName,
+                        role: "Terapeuta",
+                      })
+                    }
+                    className={`inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all ${
+                      isFollowing
+                        ? "border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD]"
+                        : "border border-[#836DAD]/30 bg-white text-[#836DAD] hover:bg-[#F6F3FA]"
+                    }`}
+                  >
+                    {isFollowing ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Siguiendo</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="h-3.5 w-3.5" />
+                        <span>Seguir</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleTriggerMatchNow(therapist, distanceKm)}
+                  className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#836DAD] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#6F599B]"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-[#F3D791]" />
+                  <span>Match ahora</span>
+                </button>
+              </div>
             </div>
           );
         })}
