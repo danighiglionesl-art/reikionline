@@ -2143,6 +2143,63 @@ export function TerapiasAccessPanel({
                                           <CheckCircle2 className="h-3.5 w-3.5" />
                                           Marcar como finalizada
                                         </button>
+
+                                        {/* Reprogramación en turnos habilitados del terapeuta ante desistimiento del consultante */}
+                                        <select
+                                          defaultValue=""
+                                          onChange={(e) => {
+                                            const newSlot = e.target.value;
+                                            if (!newSlot) return;
+                                            const updated = allConsultations.map(
+                                              (item) =>
+                                                item.id === cons.id
+                                                  ? {
+                                                      ...item,
+                                                      scheduledAt: `${newSlot} (Reprogramada)`,
+                                                    }
+                                                  : item
+                                            );
+                                            saveConsultations(updated);
+                                            const updatedTxs = allTxs.map((t) =>
+                                              `cons-${t.id}` === cons.id
+                                                ? {
+                                                    ...t,
+                                                    cancellationCategory:
+                                                      "cancelacion_consultante" as const,
+                                                    scheduledSlotLabel: `${newSlot} (Reprogramada)`,
+                                                    rescheduled: true,
+                                                    rescheduledSlotLabel: `${newSlot} (Reprogramada)`,
+                                                    rescheduledAt:
+                                                      new Date().toISOString(),
+                                                    reikiCommissionFirm: true,
+                                                    refundStatus:
+                                                      "rescheduled_no_refund" as const,
+                                                  }
+                                                : t
+                                            );
+                                            saveMpTransactions(updatedTxs);
+                                            setConsultasRefreshKey(
+                                              (prev) => prev + 1
+                                            );
+                                          }}
+                                          className="cursor-pointer rounded-xl border border-[#836DAD]/35 bg-[#F6F3FA] px-2.5 py-1.5 text-[11px] font-bold text-[#2B1F42]"
+                                        >
+                                          <option value="" disabled>
+                                            📅 Reprogramar (Turnos del terapeuta)...
+                                          </option>
+                                          <option value="Lunes · 10:00 a 11:00 hs">
+                                            Lunes · 10:00 a 11:00 hs
+                                          </option>
+                                          <option value="Martes · 15:00 a 16:00 hs">
+                                            Martes · 15:00 a 16:00 hs
+                                          </option>
+                                          <option value="Jueves · 18:00 a 19:00 hs">
+                                            Jueves · 18:00 a 19:00 hs
+                                          </option>
+                                          <option value="Viernes · 11:00 a 12:00 hs">
+                                            Viernes · 11:00 a 12:00 hs
+                                          </option>
+                                        </select>
                                       </div>
                                     </div>
                                   );
