@@ -220,11 +220,11 @@ export default function UserCredentialPanel({
       ]);
 
       const isFeed = targetFormat === "feed";
-      let cursorY = isFeed ? 48 : 84;
+      let cursorY = isFeed ? 54 : 88;
 
-      // 2. Cabecera con el Isologotipo Oficial completo de Reiki Online ampliado con mayor presencia (proporción 2:1)
+      // 2. Cabecera con el Isologotipo Oficial completo de Reiki Online integrado al fondo #836DAD (proporción 2:1)
       if (logoImg) {
-        const logoW = isFeed ? 500 : 640;
+        const logoW = isFeed ? 380 : 560;
         const logoH = logoW / 2;
         ctx.drawImage(
           logoImg,
@@ -233,17 +233,17 @@ export default function UserCredentialPanel({
           logoW,
           logoH
         );
-        cursorY += logoH + (isFeed ? 10 : 20);
+        cursorY += logoH + (isFeed ? 8 : 18);
       }
 
       ctx.fillStyle = "#F3D791";
-      ctx.font = `700 ${isFeed ? 20 : 24}px sans-serif`;
+      ctx.font = `700 ${isFeed ? 18 : 24}px sans-serif`;
       ctx.textAlign = "center";
       ctx.fillText("CREDENCIAL OFICIAL", width / 2, cursorY);
-      cursorY += isFeed ? 26 : 48;
+      cursorY += isFeed ? 22 : 46;
 
       // 3. Foto del usuario circular con aro Champán (#F3D791)
-      const avatarRadius = isFeed ? 86 : 132;
+      const avatarRadius = isFeed ? 76 : 130;
       const centerX = width / 2;
       const avatarCenterY = cursorY + avatarRadius;
 
@@ -274,23 +274,23 @@ export default function UserCredentialPanel({
           avatarRadius * 2
         );
         ctx.fillStyle = "#836DAD";
-        ctx.font = `700 ${isFeed ? 64 : 88}px sans-serif`;
+        ctx.font = `700 ${isFeed ? 56 : 88}px sans-serif`;
         const initials = fullName
           .split(" ")
           .map((n) => n[0])
           .join("")
           .slice(0, 2)
           .toUpperCase();
-        ctx.fillText(initials, centerX, avatarCenterY + (isFeed ? 22 : 30));
+        ctx.fillText(initials, centerX, avatarCenterY + (isFeed ? 20 : 30));
       }
       ctx.restore();
 
-      cursorY = avatarCenterY + avatarRadius + (isFeed ? 42 : 64);
+      cursorY = avatarCenterY + avatarRadius + (isFeed ? 36 : 62);
 
       // 4. Insignia de Rol: Consultante o Terapeuta (colores del Manual)
       const roleText = credentialRole.toUpperCase();
-      const badgeW = isFeed ? 250 : 300;
-      const badgeH = isFeed ? 44 : 54;
+      const badgeW = isFeed ? 240 : 300;
+      const badgeH = isFeed ? 40 : 54;
       ctx.save();
       ctx.fillStyle =
         credentialRole === "Terapeuta"
@@ -311,29 +311,29 @@ export default function UserCredentialPanel({
       ctx.restore();
 
       ctx.fillStyle = credentialRole === "Terapeuta" ? "#2B1F42" : "#FFFFFF";
-      ctx.font = `700 ${isFeed ? 20 : 25}px sans-serif`;
+      ctx.font = `700 ${isFeed ? 19 : 25}px sans-serif`;
       ctx.fillText(roleText, centerX, cursorY - badgeH / 2 + 17);
 
-      cursorY += isFeed ? 46 : 70;
+      cursorY += isFeed ? 40 : 68;
 
       // 5. Nombre y Apellido + Nickname
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `700 ${isFeed ? 42 : 52}px sans-serif`;
+      ctx.font = `700 ${isFeed ? 38 : 52}px sans-serif`;
       ctx.fillText(fullName, centerX, cursorY);
 
-      cursorY += isFeed ? 36 : 50;
+      cursorY += isFeed ? 32 : 50;
       ctx.fillStyle = "#F3D791";
-      ctx.font = `600 ${isFeed ? 26 : 34}px monospace`;
+      ctx.font = `600 ${isFeed ? 24 : 34}px monospace`;
       ctx.fillText(`@${cleanNickname}`, centerX, cursorY);
 
-      cursorY += isFeed ? 32 : 54;
+      cursorY += isFeed ? 28 : 52;
 
       // 6. En el caso del Terapeuta: terapias que ofrece
       if (credentialRole === "Terapeuta" && therapiesToShow.length > 0) {
-        const shown = therapiesToShow.slice(0, isFeed ? 5 : 8);
+        const shown = therapiesToShow.slice(0, isFeed ? 4 : 8);
         const summaryLine = shown.join("  •  ");
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = `600 ${isFeed ? 20 : 26}px sans-serif`;
+        ctx.font = `600 ${isFeed ? 19 : 26}px sans-serif`;
 
         // Wrap text nicely within width - 180
         const maxTextWidth = width - 180;
@@ -353,13 +353,13 @@ export default function UserCredentialPanel({
 
         for (const l of lines.slice(0, isFeed ? 2 : 4)) {
           ctx.fillText(l, centerX, cursorY);
-          cursorY += isFeed ? 28 : 38;
+          cursorY += isFeed ? 25 : 38;
         }
       }
 
       // 7. Bloque QR inferior vinculado a https://www.reikionline.com.ar/nickname
-      const qrBoxSize = isFeed ? 176 : 270;
-      const qrY = height - pad - qrBoxSize - (isFeed ? 68 : 114);
+      const qrBoxSize = isFeed ? 168 : 270;
+      const qrY = height - pad - qrBoxSize - (isFeed ? 62 : 114);
 
       if (qrImg) {
         ctx.fillStyle = "#FFFFFF";
@@ -592,35 +592,35 @@ export default function UserCredentialPanel({
         <div
           className={`relative flex flex-col items-center justify-between overflow-hidden rounded-[2rem] border-2 border-[#F3D791] bg-[#836DAD] text-center text-white shadow-2xl transition-all ${
             format === "feed"
-              ? "aspect-square w-full max-w-[440px] p-5 sm:p-6"
+              ? "aspect-square w-full max-w-[440px] px-5 py-4 sm:px-6 sm:py-5"
               : "aspect-[9/16] w-full max-w-[360px] p-6 sm:p-7"
           }`}
         >
           {/* Marco interno sutil con los colores del Manual de Marca */}
           <div className="pointer-events-none absolute inset-3 rounded-[1.5rem] border border-[#F3D791]/45" />
 
-          {/* 1. Cabecera con el Isologotipo Oficial de Reiki Online agrandado para mayor presencia */}
+          {/* 1. Cabecera con el Isologotipo Oficial de Reiki Online integrado al fondo sin recuadro */}
           <div className="relative z-10 flex w-full flex-col items-center">
             <img
               src="/brand/Reiki_Online_Lavanda_Unificado.png"
               alt="Reiki online — CONECTANDO BIENESTAR"
               className={
                 format === "feed"
-                  ? "h-24 sm:h-28 w-auto max-w-[85%] object-contain drop-shadow-md"
-                  : "h-28 sm:h-32 w-auto max-w-[88%] object-contain drop-shadow-md"
+                  ? "h-15 sm:h-17 w-auto object-contain"
+                  : "h-24 sm:h-28 w-auto object-contain"
               }
             />
-            <span className="mt-0.5 block text-[10px] font-bold tracking-[0.2em] uppercase text-[#F3D791]">
+            <span className="-mt-0.5 block text-[9px] sm:text-[10px] font-bold tracking-[0.2em] uppercase text-[#F3D791]">
               Credencial Oficial
             </span>
           </div>
 
           {/* 2. Foto aportada por usuario + Rol + Nombre y Apellido + Nickname + Terapias */}
-          <div className="relative z-10 my-auto flex w-full flex-col items-center py-1.5">
+          <div className="relative z-10 flex w-full flex-col items-center">
             <div className="relative">
               <div
                 className={`overflow-hidden rounded-full border-[3px] border-[#F3D791] bg-[#F6F3FA] shadow-lg ${
-                  format === "feed" ? "h-20 w-20 sm:h-22 sm:w-22" : "h-26 w-26"
+                  format === "feed" ? "h-16 w-16 sm:h-18 sm:w-18" : "h-26 w-26"
                 }`}
               >
                 {photoDataUrl ? (
@@ -630,7 +630,7 @@ export default function UserCredentialPanel({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-[#836DAD]">
+                  <div className="flex h-full w-full items-center justify-center text-xl sm:text-2xl font-bold text-[#836DAD]">
                     {initials}
                   </div>
                 )}
@@ -640,58 +640,58 @@ export default function UserCredentialPanel({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 title="Subir o cambiar foto"
-                className="absolute -right-1 -bottom-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-[#F3D791] text-[#2B1F42] shadow-md hover:bg-white"
+                className="absolute -right-1 -bottom-1 flex h-6 w-6 sm:h-7 sm:w-7 cursor-pointer items-center justify-center rounded-full bg-[#F3D791] text-[#2B1F42] shadow-md hover:bg-white"
               >
-                <Camera className="h-3.5 w-3.5" />
+                <Camera className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               </button>
             </div>
 
             {/* Insignia Consultante / Terapeuta */}
             <span
-              className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3.5 py-0.5 text-[11px] font-bold tracking-wide uppercase shadow-xs ${
+              className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[10px] sm:text-[11px] font-bold tracking-wide uppercase shadow-xs ${
                 credentialRole === "Terapeuta"
                   ? "bg-[#F3D791] text-[#2B1F42]"
                   : "border border-[#F3D791] bg-white/15 text-white"
               }`}
             >
               {credentialRole === "Terapeuta" ? (
-                <UserCheck className="h-3.5 w-3.5" />
+                <UserCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
               ) : (
-                <HeartHandshake className="h-3.5 w-3.5 text-[#F3D791]" />
+                <HeartHandshake className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#F3D791]" />
               )}
               <span>{credentialRole}</span>
             </span>
 
             {/* Nombre y Apellido */}
             <h3
-              className={`mt-1.5 font-bold text-white leading-tight ${
-                format === "feed" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl"
+              className={`mt-1 font-bold text-white leading-snug ${
+                format === "feed" ? "text-base sm:text-lg" : "text-xl sm:text-2xl"
               }`}
             >
               {fullName}
             </h3>
 
             {/* Nickname */}
-            <p className="mt-0.5 font-mono text-xs sm:text-sm font-semibold text-[#F3D791]">
+            <p className="font-mono text-xs sm:text-sm font-semibold text-[#F3D791]">
               @{cleanNickname}
             </p>
 
             {/* En el caso del Terapeuta: agrega las terapias que ofrece */}
             {credentialRole === "Terapeuta" && therapiesToShow.length > 0 && (
-              <div className="mt-2 flex max-w-xs flex-wrap justify-center gap-1">
+              <div className="mt-1.5 flex max-w-xs flex-wrap justify-center gap-1">
                 {therapiesToShow
-                  .slice(0, format === "feed" ? 4 : 7)
+                  .slice(0, format === "feed" ? 3 : 7)
                   .map((therapy) => (
                     <span
                       key={therapy}
-                      className="rounded-full border border-[#F3D791]/50 bg-white/15 px-2.5 py-0.5 text-[10px] font-medium text-white"
+                      className="rounded-full border border-[#F3D791]/50 bg-white/15 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-white"
                     >
                       {therapy}
                     </span>
                   ))}
-                {therapiesToShow.length > (format === "feed" ? 4 : 7) && (
-                  <span className="rounded-full bg-[#F3D791] px-2 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                    +{therapiesToShow.length - (format === "feed" ? 4 : 7)} más
+                {therapiesToShow.length > (format === "feed" ? 3 : 7) && (
+                  <span className="rounded-full bg-[#F3D791] px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-[#2B1F42]">
+                    +{therapiesToShow.length - (format === "feed" ? 3 : 7)} más
                   </span>
                 )}
               </div>
@@ -699,20 +699,24 @@ export default function UserCredentialPanel({
           </div>
 
           {/* 3. Código QR vinculado a https://www.reikionline.com.ar/nickname */}
-          <div className="relative z-10 flex w-full flex-col items-center pt-1">
-            <div className="rounded-2xl bg-white p-2 shadow-lg">
+          <div className="relative z-10 flex w-full flex-col items-center">
+            <div
+              className={`rounded-2xl bg-white shadow-lg ${
+                format === "feed" ? "p-1.5" : "p-2"
+              }`}
+            >
               {qrDataUrl ? (
                 <img
                   src={qrDataUrl}
                   alt={`QR ${publicCredentialUrl}`}
                   className={
                     format === "feed"
-                      ? "h-18 w-18 sm:h-22 sm:w-22"
+                      ? "h-16 w-16 sm:h-18 sm:w-18"
                       : "h-26 w-26 sm:h-30 sm:w-30"
                   }
                 />
               ) : (
-                <div className="flex h-20 w-20 items-center justify-center text-xs text-[#2B1F42]">
+                <div className="flex h-16 w-16 items-center justify-center text-xs text-[#2B1F42]">
                   QR...
                 </div>
               )}
@@ -722,7 +726,7 @@ export default function UserCredentialPanel({
               href={`/${cleanNickname}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline"
+              className="mt-1 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-[#F3D791] hover:underline"
             >
               <span>{displayShortUrl}</span>
               <ExternalLink className="h-3 w-3" />

@@ -313,7 +313,7 @@ export default function NetworkProfilesDirectory({
                 <img
                   src="/brand/Reiki_Online_Lavanda_Unificado.png"
                   alt="Reiki online — CONECTANDO BIENESTAR"
-                  className="h-20 sm:h-24 w-auto max-w-[82%] object-contain drop-shadow-sm"
+                  className="h-18 sm:h-20 w-auto max-w-[82%] object-contain"
                 />
               </div>
 
