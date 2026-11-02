@@ -1656,7 +1656,6 @@ export function TerapiasAccessPanel({
                   selectedTherapies={activeSelections}
                   activeRoleLabel={selectedRole || "Terapeuta"}
                   onSaveProfile={(updated) => saveUserProfile(updated)}
-                  onBack={handleGoToComoIngresas}
                 />
               )}
 
@@ -1667,32 +1666,12 @@ export function TerapiasAccessPanel({
                   activeRole={selectedRole || "Consultante"}
                   terapeutaSelections={terapeutaSelections}
                   onSaveProfile={(updated) => saveUserProfile(updated)}
-                  onBack={handleGoToComoIngresas}
                 />
               )}
 
               {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI BILLETERA (Cobros y cuenta de Mercado Pago Split 1:1) */}
               {activeSection === "Mi Billetera" && (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-3">
-                    <div>
-                      <h4 className="text-sm font-bold text-[#2B1F42]">
-                        Mi Billetera · Cobros y Cuenta de Mercado Pago
-                      </h4>
-                      <p className="text-xs text-[#2B1F42]/70">
-                        Vinculación OAuth 2.0 y liquidación automática por Split de Pagos 1:1.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleGoToComoIngresas}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
-                    >
-                      <span>← Volver a ¿Cómo ingresas?</span>
-                    </button>
-                  </div>
-                  <TherapistMercadoPagoSection profile={activeUserProfile} />
-                </div>
+                <TherapistMercadoPagoSection profile={activeUserProfile} />
               )}
 
               {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MIS CONSULTAS */}
@@ -1707,13 +1686,6 @@ export function TerapiasAccessPanel({
                         Historial de sesiones confirmadas y estado de pagos procesados con Mercado Pago.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleGoToComoIngresas}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
-                    >
-                      <span>← Volver a ¿Cómo ingresas?</span>
-                    </button>
                   </div>
 
                   {(() => {

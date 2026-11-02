@@ -23,8 +23,6 @@ import {
 } from "@/lib/geoData";
 import { isNicknameAlreadyInUse } from "@/lib/socialNetwork";
 import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
-import SocialNetworkProfileView from "@/components/profile/SocialNetworkProfileView";
-import TherapistMercadoPagoSection from "@/components/payments/TherapistMercadoPagoSection";
 
 interface UserProfilePanelProps {
   profile: ReikiUserProfile;
@@ -59,7 +57,6 @@ export default function UserProfilePanel({
     profile.fotoUrl || googlePhotoUrl || ""
   );
   const [nickname, setNickname] = useState(getEffectiveNickname(profile));
-  const [showSocialPreview, setShowSocialPreview] = useState(true);
   const [visibleEnRed, setVisibleEnRed] = useState<boolean>(
     profile.visibleEnRed ?? true
   );
@@ -556,16 +553,6 @@ export default function UserProfilePanel({
             >
               <span className="h-2 w-2 rounded-full bg-amber-600 animate-ping" />
               WhatsApp sin verificar • Clic para verificar
-            </button>
-          )}
-
-          {onBack && (
-            <button
-              type="button"
-              onClick={onBack}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
-            >
-              <span>← Volver a ¿Cómo ingresas?</span>
             </button>
           )}
         </div>
@@ -1558,58 +1545,6 @@ export default function UserProfilePanel({
           </button>
         </div>
       </form>
-
-      {/* SECCIÓN OFICIAL: COBROS Y CUENTA DE MERCADO PAGO (PERFIL DEL TERAPEUTA) */}
-      {(soyTerapeuta || activeRoleLabel === "Terapeuta") && (
-        <div className="pt-2">
-          <TherapistMercadoPagoSection
-            profile={{
-              ...profile,
-              nickname: cleanNickname || profile.nickname,
-              nombre: nombre.trim() || profile.nombre,
-              apellido: apellido.trim() || profile.apellido,
-              soyTerapeuta: true,
-            }}
-          />
-        </div>
-      )}
-
-      {/* VISTA INTEGRADA DE LA RED SOCIAL DEL USUARIO (https://www.reikionline.com.ar/nickname)
-          Con calificación de 1 a 5 estrellas (solo luego de consultas efectuadas) y reseña de hasta 150 caracteres */}
-      {showSocialPreview && cleanNickname.length >= 4 && !nicknameTaken && (
-        <div className="pt-2 space-y-2">
-          <div className="flex items-center justify-between px-1">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-[#5E4B8B]">
-              Vista previa en vivo de tu Red Social (https://www.reikionline.com.ar/{cleanNickname})
-            </h5>
-          </div>
-          <SocialNetworkProfileView
-            nickname={cleanNickname}
-            compact
-            currentUserEmail={profile.email}
-            currentUserName={`${nombre} ${apellido}`.trim() || profile.nombre}
-            currentUserNickname={cleanNickname}
-            currentUserPhotoUrl={fotoUrl}
-            overrideProfile={{
-              nickname: cleanNickname,
-              displayName:
-                `${nombre} ${apellido}`.trim() ||
-                profile.nombre ||
-                cleanNickname,
-              role: activeRoleLabel,
-              fotoUrl: fotoUrl,
-              localidad: localidadFinal || profile.localidad,
-              provincia: provincia || profile.provincia,
-              pais: pais || profile.pais,
-              therapies:
-                selectedTherapies && selectedTherapies.length > 0
-                  ? selectedTherapies
-                  : undefined,
-              whatsappVerified: whatsappVerified,
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 }

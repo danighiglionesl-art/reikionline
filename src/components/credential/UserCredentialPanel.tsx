@@ -432,16 +432,6 @@ export default function UserCredentialPanel({
             </p>
           </div>
         </div>
-
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
-          >
-            <span>← Volver a ¿Cómo ingresas?</span>
-          </button>
-        )}
       </div>
 
       {/* Barra de configuración rápida: Foto, Nickname, Rol y Tamaño */}
