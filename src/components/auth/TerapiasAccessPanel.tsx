@@ -32,10 +32,12 @@ import {
 import {
   DEFAULT_ADMIN_PROFILE,
   ReikiUserProfile,
+  sanitizeNickname,
 } from "@/lib/geoData";
 import WhatsAppVerificationStep from "@/components/auth/WhatsAppVerificationStep";
 import UserProfilePanel from "@/components/profile/UserProfilePanel";
 import ModalityWorkflowPanel from "@/components/auth/ModalityWorkflowPanel";
+import UserCredentialPanel from "@/components/credential/UserCredentialPanel";
 
 export type AccessTab = "login" | "register" | "recover" | "role-select";
 export type ActiveRole = "Consultante" | "Terapeuta";
@@ -119,6 +121,7 @@ function buildDefaultProfileForUser(user: AuthenticatedUser): ReikiUserProfile {
   ) {
     return {
       ...DEFAULT_ADMIN_PROFILE,
+      fotoUrl: user.picture || DEFAULT_ADMIN_PROFILE.fotoUrl || "",
       isAdmin: true,
     };
   }
@@ -126,16 +129,23 @@ function buildDefaultProfileForUser(user: AuthenticatedUser): ReikiUserProfile {
   const parts = (user.name || "Usuario").trim().split(" ");
   const nombre = parts[0] || "Usuario";
   const apellido = parts.slice(1).join(" ") || "";
+  const rawNick = sanitizeNickname(
+    `${nombre}${apellido}` || lowerEmail.split("@")[0] || "usuarioreiki"
+  ).toLowerCase();
+  const safeNick =
+    rawNick.length >= 4 ? rawNick.slice(0, 16) : `${rawNick}reiki`.slice(0, 16);
 
   return {
     ...DEFAULT_ADMIN_PROFILE,
     id: `usr-${lowerEmail.replace(/[^a-z0-9]/g, "-")}`,
-    username: lowerEmail,
+    username: lowerEmail.split("@")[0].replace(/[^a-z0-9._-]/g, "") || "usuario",
+    nickname: safeNick,
     isAdmin: false,
     role: "pendiente",
     nombre: nombre || DEFAULT_ADMIN_PROFILE.nombre,
     apellido: apellido || DEFAULT_ADMIN_PROFILE.apellido,
     email: user.email.includes("@") ? user.email : "danighiglione@gmail.com",
+    fotoUrl: user.picture || "",
     // Nuevos usuarios comienzan en estado «WhatsApp sin verificar» hasta completar Twilio Verify
     whatsappVerified: false,
     whatsappVerifiedAt: null,
@@ -390,11 +400,30 @@ export function TerapiasAccessPanel({
     }
 
     const key = user.email.toLowerCase();
-    if (!profilesByEmail[key]) {
+    const existing = profilesByEmail[key];
+    if (!existing) {
       const initialProfile = buildDefaultProfileForUser(user);
       const nextMap = {
         ...profilesByEmail,
         [key]: initialProfile,
+      };
+      setProfilesByEmail(nextMap);
+      try {
+        window.localStorage.setItem(
+          PROFILES_STORAGE_KEY,
+          JSON.stringify(nextMap)
+        );
+      } catch {
+        // Ignore
+      }
+    } else if (user.picture && !existing.fotoUrl) {
+      const updatedWithGooglePhoto: ReikiUserProfile = {
+        ...existing,
+        fotoUrl: user.picture,
+      };
+      const nextMap = {
+        ...profilesByEmail,
+        [key]: updatedWithGooglePhoto,
       };
       setProfilesByEmail(nextMap);
       try {
@@ -1436,29 +1465,47 @@ export function TerapiasAccessPanel({
               {activeSection === "Mi Perfil" && (
                 <UserProfilePanel
                   profile={activeUserProfile}
+                  googlePhotoUrl={authenticatedUser?.picture}
+                  allProfiles={profilesByEmail}
+                  selectedTherapies={activeSelections}
+                  activeRoleLabel={selectedRole || "Terapeuta"}
                   onSaveProfile={(updated) => saveUserProfile(updated)}
                 />
               )}
 
-              {activeSection && activeSection !== "Mi Perfil" && (
-                <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 text-sm text-[#2B1F42]">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-[#836DAD]">
-                      {activeSection}
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => setActiveSection(null)}
-                      className="text-xs font-semibold text-[#836DAD] underline cursor-pointer"
-                    >
-                      Volver a categorías de terapias
-                    </button>
-                  </div>
-                  <p className="mt-2 text-xs text-[#2B1F42]/75">
-                    Sección {activeSection} vinculada a tu cuenta.
-                  </p>
-                </div>
+              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI CREDENCIAL (Tamaño Feed + Tamaño Estados + QR) */}
+              {activeSection === "Mi Credencial" && (
+                <UserCredentialPanel
+                  profile={activeUserProfile}
+                  activeRole={selectedRole || "Consultante"}
+                  terapeutaSelections={terapeutaSelections}
+                  onSaveProfile={(updated) => saveUserProfile(updated)}
+                  onChangeRole={(role) => handleChooseRole(role)}
+                  onBack={() => setActiveSection(null)}
+                />
               )}
+
+              {activeSection &&
+                activeSection !== "Mi Perfil" &&
+                activeSection !== "Mi Credencial" && (
+                  <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 text-sm text-[#2B1F42]">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-[#836DAD]">
+                        {activeSection}
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection(null)}
+                        className="text-xs font-semibold text-[#836DAD] underline cursor-pointer"
+                      >
+                        Volver a categorías de terapias
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs text-[#2B1F42]/75">
+                      Sección {activeSection} vinculada a tu cuenta.
+                    </p>
+                  </div>
+                )}
 
               {/* NUEVA VENTANA LIMPIA TRAS CONFIRMAR/GUARDAR TERAPIAS:
                   - Presencial con turno
