@@ -48,6 +48,8 @@ export default function UserCredentialPanel({
   }, [profile]);
 
   const [format, setFormat] = useState<CredentialFormat>("feed");
+  const [maxTherapiesPerFlyer, setMaxTherapiesPerFlyer] = useState<4 | 6>(4);
+  const [activeFlyerIndex, setActiveFlyerIndex] = useState<number>(0);
   const credentialRole: CredentialRole =
     profile.soyTerapeuta || profile.role === "terapeuta"
       ? "Terapeuta"
@@ -86,6 +88,24 @@ export default function UserCredentialPanel({
     if (terapeutaSelections.length > 0) return terapeutaSelections;
     return ["Reiki Usui", "Alineación de chakras", "Armonización energética"];
   }, [credentialRole, terapeutaSelections]);
+
+  // Dividir las terapias en múltiples Flyers (máximo 4 o 6 por Flyer) para no distorsionar la imagen
+  const flyerChunks = useMemo<string[][]>(() => {
+    if (credentialRole !== "Terapeuta" || therapiesToShow.length === 0) {
+      return [[]];
+    }
+    const chunks: string[][] = [];
+    for (let i = 0; i < therapiesToShow.length; i += maxTherapiesPerFlyer) {
+      chunks.push(therapiesToShow.slice(i, i + maxTherapiesPerFlyer));
+    }
+    return chunks.length > 0 ? chunks : [[]];
+  }, [credentialRole, therapiesToShow, maxTherapiesPerFlyer]);
+
+  useEffect(() => {
+    if (activeFlyerIndex >= flyerChunks.length) {
+      setActiveFlyerIndex(0);
+    }
+  }, [flyerChunks.length, activeFlyerIndex]);
 
   // Generar código QR escaneable hacia https://www.reikionline.com.ar/nickname
   useEffect(() => {
@@ -174,10 +194,17 @@ export default function UserCredentialPanel({
   };
 
   // Renderizado en Canvas de alta resolución para descargar PNG (Tamaño Feed 1080x1080 o Tamaño Estados 1080x1920)
-  const handleDownloadPng = async (targetFormat: CredentialFormat) => {
+  const handleDownloadPng = async (
+    targetFormat: CredentialFormat,
+    flyerIdx = activeFlyerIndex
+  ) => {
     setExporting(true);
     setFeedbackMsg(null);
     try {
+      const chunkForThisFlyer =
+        flyerChunks[flyerIdx] || flyerChunks[0] || [];
+      const totalFlyers = flyerChunks.length;
+
       const width = 1080;
       const height = targetFormat === "feed" ? 1080 : 1920;
       const canvas = document.createElement("canvas");
@@ -220,7 +247,7 @@ export default function UserCredentialPanel({
 
       // 2. Cabecera con el Isologotipo Oficial completo de Reiki Online integrado al fondo #836DAD (proporción 2:1)
       if (logoImg) {
-        const logoW = isFeed ? 380 : 560;
+        const logoW = isFeed ? 360 : 520;
         const logoH = logoW / 2;
         ctx.drawImage(
           logoImg,
@@ -229,17 +256,23 @@ export default function UserCredentialPanel({
           logoW,
           logoH
         );
-        cursorY += logoH + (isFeed ? 8 : 18);
+        cursorY += logoH + (isFeed ? 8 : 16);
       }
 
       ctx.fillStyle = "#F3D791";
       ctx.font = `700 ${isFeed ? 18 : 24}px sans-serif`;
       ctx.textAlign = "center";
-      ctx.fillText("CREDENCIAL OFICIAL", width / 2, cursorY);
-      cursorY += isFeed ? 22 : 46;
+      ctx.fillText(
+        totalFlyers > 1
+          ? `CREDENCIAL OFICIAL • FLYER ${flyerIdx + 1} DE ${totalFlyers}`
+          : "CREDENCIAL OFICIAL",
+        width / 2,
+        cursorY
+      );
+      cursorY += isFeed ? 22 : 42;
 
       // 3. Foto del usuario circular con aro Champán (#F3D791)
-      const avatarRadius = isFeed ? 76 : 130;
+      const avatarRadius = isFeed ? 74 : 122;
       const centerX = width / 2;
       const avatarCenterY = cursorY + avatarRadius;
 
@@ -270,7 +303,7 @@ export default function UserCredentialPanel({
           avatarRadius * 2
         );
         ctx.fillStyle = "#836DAD";
-        ctx.font = `700 ${isFeed ? 56 : 88}px sans-serif`;
+        ctx.font = `700 ${isFeed ? 54 : 84}px sans-serif`;
         const initials = fullName
           .split(" ")
           .map((n) => n[0])
@@ -281,12 +314,12 @@ export default function UserCredentialPanel({
       }
       ctx.restore();
 
-      cursorY = avatarCenterY + avatarRadius + (isFeed ? 36 : 62);
+      cursorY = avatarCenterY + avatarRadius + (isFeed ? 34 : 56);
 
       // 4. Insignia de Rol: Consultante o Terapeuta (colores del Manual)
       const roleText = credentialRole.toUpperCase();
       const badgeW = isFeed ? 240 : 300;
-      const badgeH = isFeed ? 40 : 54;
+      const badgeH = isFeed ? 40 : 52;
       ctx.save();
       ctx.fillStyle =
         credentialRole === "Terapeuta"
@@ -307,31 +340,29 @@ export default function UserCredentialPanel({
       ctx.restore();
 
       ctx.fillStyle = credentialRole === "Terapeuta" ? "#2B1F42" : "#FFFFFF";
-      ctx.font = `700 ${isFeed ? 19 : 25}px sans-serif`;
+      ctx.font = `700 ${isFeed ? 19 : 24}px sans-serif`;
       ctx.fillText(roleText, centerX, cursorY - badgeH / 2 + 17);
 
-      cursorY += isFeed ? 40 : 68;
+      cursorY += isFeed ? 38 : 62;
 
       // 5. Nombre y Apellido + Nickname
       ctx.fillStyle = "#FFFFFF";
-      ctx.font = `700 ${isFeed ? 38 : 52}px sans-serif`;
+      ctx.font = `700 ${isFeed ? 36 : 48}px sans-serif`;
       ctx.fillText(fullName, centerX, cursorY);
 
-      cursorY += isFeed ? 32 : 50;
+      cursorY += isFeed ? 30 : 46;
       ctx.fillStyle = "#F3D791";
-      ctx.font = `600 ${isFeed ? 24 : 34}px monospace`;
+      ctx.font = `600 ${isFeed ? 24 : 32}px monospace`;
       ctx.fillText(`@${cleanNickname}`, centerX, cursorY);
 
-      cursorY += isFeed ? 28 : 52;
+      cursorY += isFeed ? 28 : 48;
 
-      // 6. En el caso del Terapeuta: terapias que ofrece
-      if (credentialRole === "Terapeuta" && therapiesToShow.length > 0) {
-        const shown = therapiesToShow.slice(0, isFeed ? 4 : 8);
-        const summaryLine = shown.join("  •  ");
+      // 6. En el caso del Terapeuta: terapias correspondientes a este Flyer (máx 4 o 6)
+      if (credentialRole === "Terapeuta" && chunkForThisFlyer.length > 0) {
+        const summaryLine = chunkForThisFlyer.join("  •  ");
         ctx.fillStyle = "#FFFFFF";
-        ctx.font = `600 ${isFeed ? 19 : 26}px sans-serif`;
+        ctx.font = `600 ${isFeed ? 19 : 25}px sans-serif`;
 
-        // Wrap text nicely within width - 180
         const maxTextWidth = width - 180;
         const words = summaryLine.split(" ");
         let line = "";
@@ -347,15 +378,15 @@ export default function UserCredentialPanel({
         }
         if (line) lines.push(line);
 
-        for (const l of lines.slice(0, isFeed ? 2 : 4)) {
+        for (const l of lines.slice(0, 3)) {
           ctx.fillText(l, centerX, cursorY);
-          cursorY += isFeed ? 25 : 38;
+          cursorY += isFeed ? 26 : 38;
         }
       }
 
       // 7. Bloque QR inferior vinculado a https://www.reikionline.com.ar/nickname
-      const qrBoxSize = isFeed ? 168 : 270;
-      const qrY = height - pad - qrBoxSize - (isFeed ? 62 : 114);
+      const qrBoxSize = isFeed ? 164 : 250;
+      const qrY = height - pad - qrBoxSize - (isFeed ? 66 : 120);
 
       if (qrImg) {
         ctx.fillStyle = "#FFFFFF";
@@ -382,21 +413,32 @@ export default function UserCredentialPanel({
       ctx.fillText(
         displayShortUrl,
         centerX,
-        qrY + qrBoxSize + (isFeed ? 44 : 62)
+        qrY + qrBoxSize + (isFeed ? 46 : 64)
       );
 
       const pngUrl = canvas.toDataURL("image/png");
       const a = document.createElement("a");
       a.href = pngUrl;
-      a.download = `credencial-reikionline-${cleanNickname}-${targetFormat}.png`;
+      const flyerSuffix = totalFlyers > 1 ? `-flyer-${flyerIdx + 1}` : "";
+      a.download = `credencial-reikionline-${cleanNickname}-${targetFormat}${flyerSuffix}.png`;
       a.click();
       setFeedbackMsg(
-        `Credencial descargada en Tamaño ${
-          targetFormat === "feed" ? "Feed" : "Estados"
-        }.`
+        totalFlyers > 1
+          ? `Flyer ${flyerIdx + 1} de ${totalFlyers} descargado en Tamaño ${
+              targetFormat === "feed" ? "Feed" : "Estados"
+            }.`
+          : `Credencial descargada en Tamaño ${
+              targetFormat === "feed" ? "Feed" : "Estados"
+            }.`
       );
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleDownloadAllFlyers = async (targetFormat: CredentialFormat) => {
+    for (let i = 0; i < flyerChunks.length; i++) {
+      await handleDownloadPng(targetFormat, i);
     }
   };
 
@@ -486,46 +528,83 @@ export default function UserCredentialPanel({
         </div>
       </div>
 
-      {/* Selector de los 2 tipos de credenciales: Tamaño Feed | Tamaño Estados */}
+      {/* Selector de los 2 tipos de credenciales: Tamaño Feed | Tamaño Estados + Límite de terapias por Flyer (4 o 6) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-1">
-          <button
-            type="button"
-            onClick={() => setFormat("feed")}
-            className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all ${
-              format === "feed"
-                ? "bg-[#836DAD] text-white shadow-sm"
-                : "text-[#2B1F42] hover:bg-white/70"
-            }`}
-          >
-            <Square className="h-4 w-4" />
-            <span>Tamaño Feed (1:1)</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-1">
+            <button
+              type="button"
+              onClick={() => setFormat("feed")}
+              className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all ${
+                format === "feed"
+                  ? "bg-[#836DAD] text-white shadow-sm"
+                  : "text-[#2B1F42] hover:bg-white/70"
+              }`}
+            >
+              <Square className="h-4 w-4" />
+              <span>Tamaño Feed (1:1)</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setFormat("estados")}
-            className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all ${
-              format === "estados"
-                ? "bg-[#836DAD] text-white shadow-sm"
-                : "text-[#2B1F42] hover:bg-white/70"
-            }`}
-          >
-            <Smartphone className="h-4 w-4" />
-            <span>Tamaño Estados (9:16)</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setFormat("estados")}
+              className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold transition-all ${
+                format === "estados"
+                  ? "bg-[#836DAD] text-white shadow-sm"
+                  : "text-[#2B1F42] hover:bg-white/70"
+              }`}
+            >
+              <Smartphone className="h-4 w-4" />
+              <span>Tamaño Estados (9:16)</span>
+            </button>
+          </div>
+
+          {credentialRole === "Terapeuta" && therapiesToShow.length > 4 && (
+            <div className="inline-flex items-center gap-1 rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-1 text-xs">
+              <span className="px-2.5 font-semibold text-[#2B1F42]/75">
+                Máx. por Flyer:
+              </span>
+              {([4, 6] as const).map((limitVal) => (
+                <button
+                  key={limitVal}
+                  type="button"
+                  onClick={() => {
+                    setMaxTherapiesPerFlyer(limitVal);
+                    setActiveFlyerIndex(0);
+                  }}
+                  className={`cursor-pointer rounded-xl px-3 py-1.5 font-bold transition ${
+                    maxTherapiesPerFlyer === limitVal
+                      ? "bg-[#836DAD] text-white shadow-2xs"
+                      : "text-[#2B1F42] hover:bg-white/70"
+                  }`}
+                >
+                  {limitVal} terapias
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             disabled={exporting}
-            onClick={() => handleDownloadPng(format)}
+            onClick={() =>
+              flyerChunks.length > 1
+                ? handleDownloadAllFlyers(format)
+                : handleDownloadPng(format, 0)
+            }
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#6F599B] disabled:opacity-50"
           >
             <Download className="h-4 w-4 text-[#F3D791]" />
             <span>
-              Descargar {format === "feed" ? "Tamaño Feed" : "Tamaño Estados"}
+              {flyerChunks.length > 1
+                ? `Descargar los ${flyerChunks.length} Flyers (${
+                    format === "feed" ? "Feed" : "Estados"
+                  })`
+                : `Descargar ${
+                    format === "feed" ? "Tamaño Feed" : "Tamaño Estados"
+                  }`}
             </span>
           </button>
 
@@ -547,162 +626,204 @@ export default function UserCredentialPanel({
         </div>
       )}
 
-      {/* PREVISUALIZACIÓN EN VIVO DE LA CREDENCIAL (TAMAÑO FEED O TAMAÑO ESTADOS) */}
-      <div className="flex justify-center py-2">
-        <div
-          className={`relative flex flex-col items-center justify-between overflow-hidden rounded-[2rem] border-2 border-[#F3D791] bg-[#836DAD] text-center text-white shadow-2xl transition-all ${
-            format === "feed"
-              ? "aspect-square w-full max-w-[440px] px-5 py-4 sm:px-6 sm:py-5"
-              : "aspect-[9/16] w-full max-w-[360px] p-6 sm:p-7"
-          }`}
-        >
-          {/* Marco interno sutil con los colores del Manual de Marca */}
-          <div className="pointer-events-none absolute inset-3 rounded-[1.5rem] border border-[#F3D791]/45" />
+      {flyerChunks.length > 1 && (
+        <div className="rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-4 py-2.5 text-xs text-[#2B1F42] flex flex-wrap items-center justify-between gap-2">
+          <span>
+            Tus <strong>{therapiesToShow.length} terapias</strong> se dividieron automáticamente en{" "}
+            <strong>{flyerChunks.length} Flyers</strong> (máximo{" "}
+            {maxTherapiesPerFlyer} terapias por Flyer) para mantener intacto el diseño sin distorsiones.
+          </span>
+        </div>
+      )}
 
-          {/* 1. Cabecera con el Isologotipo Oficial de Reiki Online integrado al fondo sin recuadro */}
-          <div className="relative z-10 flex w-full flex-col items-center">
-            <img
-              src="/brand/Reiki_Online_Lavanda_Unificado.png"
-              alt="Reiki online — CONECTANDO BIENESTAR"
-              className={
-                format === "feed"
-                  ? "h-15 sm:h-17 w-auto object-contain"
-                  : "h-24 sm:h-28 w-auto object-contain"
-              }
-            />
-            <span className="-mt-0.5 block text-[9px] sm:text-[10px] font-bold tracking-[0.2em] uppercase text-[#F3D791]">
-              Credencial Oficial
-            </span>
-          </div>
-
-          {/* 2. Foto aportada por usuario + Rol + Nombre y Apellido + Nickname + Terapias */}
-          <div className="relative z-10 flex w-full flex-col items-center">
-            <div className="relative">
-              <div
-                className={`overflow-hidden rounded-full border-[3px] border-[#F3D791] bg-[#F6F3FA] shadow-lg ${
-                  format === "feed" ? "h-16 w-16 sm:h-18 sm:w-18" : "h-26 w-26"
-                }`}
-              >
-                {photoDataUrl ? (
-                  <img
-                    src={photoDataUrl}
-                    alt={fullName}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xl sm:text-2xl font-bold text-[#836DAD]">
-                    {initials}
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                title="Subir o cambiar foto"
-                className="absolute -right-1 -bottom-1 flex h-6 w-6 sm:h-7 sm:w-7 cursor-pointer items-center justify-center rounded-full bg-[#F3D791] text-[#2B1F42] shadow-md hover:bg-white"
-              >
-                <Camera className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              </button>
-            </div>
-
-            {/* Insignia Consultante / Terapeuta + Distintivo ✓ Identidad verificada */}
-            <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[10px] sm:text-[11px] font-bold tracking-wide uppercase shadow-xs ${
-                  credentialRole === "Terapeuta"
-                    ? "bg-[#F3D791] text-[#2B1F42]"
-                    : "border border-[#F3D791] bg-white/15 text-white"
-                }`}
-              >
-                {credentialRole === "Terapeuta" ? (
-                  <UserCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                ) : (
-                  <HeartHandshake className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#F3D791]" />
-                )}
-                <span>{credentialRole}</span>
-              </span>
-              {(profile.isAdmin ||
-                isBiometricVerifiedAndValid(profile.biometricVerification)) && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#F3D791]/70 bg-white/15 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-[#F3D791]">
-                  <span>✓ Identidad verificada</span>
+      {/* PREVISUALIZACIÓN EN VIVO DE LOS FLYERS (SI HAY MÁS DE 4 O 6 TERAPIAS, PASA EL RESTO A OTRO FLYER) */}
+      <div
+        className={`grid gap-6 py-2 justify-items-center ${
+          flyerChunks.length > 1
+            ? "grid-cols-1 lg:grid-cols-2"
+            : "grid-cols-1"
+        }`}
+      >
+        {flyerChunks.map((chunkTherapies, flyerIdx) => (
+          <div
+            key={`flyer-${flyerIdx}`}
+            className="flex w-full flex-col items-center space-y-2.5"
+          >
+            {flyerChunks.length > 1 && (
+              <div className="flex w-full max-w-[360px] items-center justify-between px-1">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#836DAD]/15 px-3 py-1 text-xs font-bold text-[#836DAD]">
+                  Flyer {flyerIdx + 1} de {flyerChunks.length}
                 </span>
-              )}
-            </div>
-
-            {/* Nombre y Apellido */}
-            <h3
-              className={`mt-1 font-bold text-white leading-snug ${
-                format === "feed" ? "text-base sm:text-lg" : "text-xl sm:text-2xl"
-              }`}
-            >
-              {fullName}
-            </h3>
-
-            {/* Nickname */}
-            <p className="font-mono text-xs sm:text-sm font-semibold text-[#F3D791]">
-              @{cleanNickname}
-            </p>
-
-            {/* En el caso del Terapeuta: agrega las terapias que ofrece */}
-            {credentialRole === "Terapeuta" && therapiesToShow.length > 0 && (
-              <div className="mt-1.5 flex max-w-xs flex-wrap justify-center gap-1">
-                {therapiesToShow
-                  .slice(0, format === "feed" ? 3 : 7)
-                  .map((therapy) => (
-                    <span
-                      key={therapy}
-                      className="rounded-full border border-[#F3D791]/50 bg-white/15 px-2 py-0.5 text-[9px] sm:text-[10px] font-medium text-white"
-                    >
-                      {therapy}
-                    </span>
-                  ))}
-                {therapiesToShow.length > (format === "feed" ? 3 : 7) && (
-                  <span className="rounded-full bg-[#F3D791] px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-[#2B1F42]">
-                    +{therapiesToShow.length - (format === "feed" ? 3 : 7)} más
-                  </span>
-                )}
+                <button
+                  type="button"
+                  disabled={exporting}
+                  onClick={() => handleDownloadPng(format, flyerIdx)}
+                  className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#836DAD] underline hover:text-[#5E4B8B]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Descargar Flyer {flyerIdx + 1}
+                </button>
               </div>
             )}
-          </div>
 
-          {/* 3. Código QR vinculado a https://www.reikionline.com.ar/nickname */}
-          <div className="relative z-10 flex w-full shrink-0 flex-col items-center">
             <div
-              className={`shrink-0 rounded-2xl bg-white shadow-lg ${
-                format === "feed" ? "p-2" : "p-2.5"
+              className={`relative flex flex-col items-center justify-between overflow-hidden rounded-[2rem] border-2 border-[#F3D791] bg-[#836DAD] text-center text-white shadow-2xl transition-all ${
+                format === "feed"
+                  ? "aspect-square w-full max-w-[440px] px-5 py-4 sm:px-6 sm:py-5"
+                  : "aspect-[9/16] w-full max-w-[360px] px-5 py-5 sm:px-6 sm:py-6"
               }`}
             >
-              {qrDataUrl ? (
+              {/* Marco interno sutil con los colores del Manual de Marca */}
+              <div className="pointer-events-none absolute inset-3 rounded-[1.5rem] border border-[#F3D791]/45" />
+
+              {/* 1. Cabecera con el Isologotipo Oficial de Reiki Online integrado al fondo sin recuadro */}
+              <div className="relative z-10 flex w-full flex-col items-center">
                 <img
-                  src={qrDataUrl}
-                  alt={`QR ${publicCredentialUrl}`}
-                  width={format === "feed" ? 88 : 120}
-                  height={format === "feed" ? 88 : 120}
+                  src="/brand/Reiki_Online_Lavanda_Unificado.png"
+                  alt="Reiki online — CONECTANDO BIENESTAR"
                   className={
                     format === "feed"
-                      ? "block h-[80px] w-[80px] sm:h-[88px] sm:w-[88px] min-h-[80px] min-w-[80px] shrink-0 object-contain"
-                      : "block h-[112px] w-[112px] sm:h-[124px] sm:w-[124px] min-h-[112px] min-w-[112px] shrink-0 object-contain"
+                      ? "h-14 sm:h-16 w-auto object-contain"
+                      : "h-20 sm:h-22 w-auto object-contain"
                   }
                 />
-              ) : (
-                <div className="flex h-[80px] w-[80px] items-center justify-center text-xs font-bold text-[#2B1F42]">
-                  QR...
-                </div>
-              )}
-            </div>
+                <span className="-mt-0.5 block text-[9px] sm:text-[10px] font-bold tracking-[0.18em] uppercase text-[#F3D791]">
+                  {flyerChunks.length > 1
+                    ? `Credencial Oficial • Flyer ${flyerIdx + 1}/${flyerChunks.length}`
+                    : "Credencial Oficial"}
+                </span>
+              </div>
 
-            <a
-              href={`/${cleanNickname}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-[#F3D791] hover:underline"
-            >
-              <span>{displayShortUrl}</span>
-              <ExternalLink className="h-3 w-3" />
-            </a>
+              {/* 2. Foto aportada por usuario + Rol + Nombre y Apellido + Nickname + Terapias de este Flyer */}
+              <div className="relative z-10 flex w-full flex-col items-center">
+                <div className="relative">
+                  <div
+                    className={`overflow-hidden rounded-full border-[3px] border-[#F3D791] bg-[#F6F3FA] shadow-lg ${
+                      format === "feed"
+                        ? "h-15 w-15 sm:h-17 sm:w-17"
+                        : "h-20 w-20 sm:h-22 sm:w-22"
+                    }`}
+                  >
+                    {photoDataUrl ? (
+                      <img
+                        src={photoDataUrl}
+                        alt={fullName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xl sm:text-2xl font-bold text-[#836DAD]">
+                        {initials}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Subir o cambiar foto"
+                    className="absolute -right-1 -bottom-1 flex h-6 w-6 sm:h-7 sm:w-7 cursor-pointer items-center justify-center rounded-full bg-[#F3D791] text-[#2B1F42] shadow-md hover:bg-white"
+                  >
+                    <Camera className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  </button>
+                </div>
+
+                {/* Insignia Consultante / Terapeuta + Distintivo ✓ Identidad verificada */}
+                <div className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[10px] sm:text-[11px] font-bold tracking-wide uppercase shadow-xs ${
+                      credentialRole === "Terapeuta"
+                        ? "bg-[#F3D791] text-[#2B1F42]"
+                        : "border border-[#F3D791] bg-white/15 text-white"
+                    }`}
+                  >
+                    {credentialRole === "Terapeuta" ? (
+                      <UserCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                    ) : (
+                      <HeartHandshake className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-[#F3D791]" />
+                    )}
+                    <span>{credentialRole}</span>
+                  </span>
+                  {(profile.isAdmin ||
+                    isBiometricVerifiedAndValid(
+                      profile.biometricVerification
+                    )) && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#F3D791]/70 bg-white/15 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-bold text-[#F3D791]">
+                      <span>✓ Identidad verificada</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Nombre y Apellido */}
+                <h3
+                  className={`mt-1 font-bold text-white leading-tight ${
+                    format === "feed"
+                      ? "text-base sm:text-lg"
+                      : "text-lg sm:text-xl"
+                  }`}
+                >
+                  {fullName}
+                </h3>
+
+                {/* Nickname */}
+                <p className="font-mono text-xs sm:text-sm font-semibold text-[#F3D791]">
+                  @{cleanNickname}
+                </p>
+
+                {/* En el caso del Terapeuta: muestra hasta 4 (o 6) terapias en este Flyer */}
+                {credentialRole === "Terapeuta" &&
+                  chunkTherapies.length > 0 && (
+                    <div className="mt-2 flex max-w-[300px] flex-wrap justify-center gap-1">
+                      {chunkTherapies.map((therapy) => (
+                        <span
+                          key={therapy}
+                          className="rounded-full border border-[#F3D791]/50 bg-white/15 px-2.5 py-0.5 text-[9px] sm:text-[10px] font-medium text-white"
+                        >
+                          {therapy}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+              </div>
+
+              {/* 3. Código QR vinculado a https://www.reikionline.com.ar/nickname */}
+              <div className="relative z-10 flex w-full shrink-0 flex-col items-center pb-0.5">
+                <div
+                  className={`shrink-0 rounded-2xl bg-white shadow-lg ${
+                    format === "feed" ? "p-1.5" : "p-2"
+                  }`}
+                >
+                  {qrDataUrl ? (
+                    <img
+                      src={qrDataUrl}
+                      alt={`QR ${publicCredentialUrl}`}
+                      width={format === "feed" ? 80 : 100}
+                      height={format === "feed" ? 80 : 100}
+                      className={
+                        format === "feed"
+                          ? "block h-[74px] w-[74px] sm:h-[82px] sm:w-[82px] min-h-[74px] min-w-[74px] shrink-0 object-contain"
+                          : "block h-[96px] w-[96px] sm:h-[104px] sm:w-[104px] min-h-[96px] min-w-[96px] shrink-0 object-contain"
+                      }
+                    />
+                  ) : (
+                    <div className="flex h-[74px] w-[74px] items-center justify-center text-xs font-bold text-[#2B1F42]">
+                      QR...
+                    </div>
+                  )}
+                </div>
+
+                <a
+                  href={`/${cleanNickname}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1.5 inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-[#F3D791] hover:underline"
+                >
+                  <span>{displayShortUrl}</span>
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </a>
+              </div>
+            </div>
           </div>
-        </div>
+        ))}
       </div>
     </div>
   );
