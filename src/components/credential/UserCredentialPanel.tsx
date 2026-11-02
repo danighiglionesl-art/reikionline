@@ -468,63 +468,6 @@ export default function UserCredentialPanel({
         </div>
       </div>
 
-      {/* Barra de configuración rápida: Foto y Nickname (el Rol se toma de Mi Perfil) */}
-      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-[#836DAD]/20 bg-white p-4 sm:grid-cols-2 shadow-xs">
-        {/* 1. Foto aportada por usuario */}
-        <div>
-          <label className="block text-xs font-bold text-[#2B1F42] mb-1.5">
-            Foto en tu credencial
-          </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handlePhotoUpload}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#836DAD]/35 bg-[#FAF8FC] px-3.5 py-2.5 text-xs font-semibold text-[#2B1F42] transition-colors hover:border-[#836DAD] hover:bg-[#836DAD] hover:text-white"
-          >
-            <Camera className="h-4 w-4 text-[#836DAD] group-hover:text-white" />
-            <span>{photoDataUrl ? "Cambiar foto" : "Subir foto"}</span>
-          </button>
-        </div>
-
-        {/* 2. Nickname para el QR */}
-        <div>
-          <label
-            htmlFor="ro-credential-nickname"
-            className="block text-xs font-bold text-[#2B1F42] mb-1.5"
-          >
-            Nickname (URL del QR)
-          </label>
-          <div className="flex gap-1.5">
-            <div className="relative flex-1">
-              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-xs font-bold text-[#836DAD]">
-                @
-              </span>
-              <input
-                id="ro-credential-nickname"
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(sanitizeNickname(e.target.value))}
-                placeholder="tunickname"
-                className="w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] py-2 pr-2.5 pl-7 text-xs font-semibold text-[#2B1F42] focus:border-[#836DAD] focus:bg-white focus:outline-none"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleSaveNickname}
-              className="cursor-pointer rounded-xl bg-[#836DAD] px-3 py-2 text-xs font-semibold text-white hover:bg-[#6F599B]"
-            >
-              Guardar
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Selector de los 2 tipos de credenciales: Tamaño Feed | Tamaño Estados + Límite de terapias por Flyer (4 o 6) */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
