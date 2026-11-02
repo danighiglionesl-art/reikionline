@@ -9,8 +9,6 @@ import {
   MapPin,
   ExternalLink,
   CalendarCheck,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { ReikiUserProfile, sanitizeNickname } from "@/lib/geoData";
 
@@ -252,9 +250,9 @@ export default function NetworkProfilesDirectory({
 
   return (
     <div className="space-y-4">
-      {/* Barra superior: Buscador + Control rápido de visibilidad para el Consultante */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4">
-        <div className="relative flex-1">
+      {/* Barra superior: Buscador */}
+      <div className="rounded-2xl border border-[#836DAD]/25 bg-[#F6F3FA] p-4">
+        <div className="relative w-full">
           <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#836DAD]" />
           <input
             type="search"
@@ -268,23 +266,6 @@ export default function NetworkProfilesDirectory({
             className="w-full rounded-xl border border-[#836DAD]/30 bg-white py-2.5 pr-3.5 pl-9 text-xs sm:text-sm text-[#2B1F42] placeholder:text-[#2B1F42]/45 focus:border-[#836DAD] focus:outline-none"
           />
         </div>
-
-        {viewerRole === "Consultante" && (
-          <label className="ro-choice-label flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl border border-[#836DAD]/30 bg-white px-3.5 py-2 text-xs font-semibold text-[#2B1F42]">
-            <input
-              type="checkbox"
-              checked={viewerIsVisible}
-              onChange={(e) => onToggleViewerVisibility(e.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded border-[#836DAD]"
-            />
-            {viewerIsVisible ? (
-              <Eye className="h-3.5 w-3.5 text-[#836DAD]" />
-            ) : (
-              <EyeOff className="h-3.5 w-3.5 text-[#2B1F42]/50" />
-            )}
-            <span>Visible en la red</span>
-          </label>
-        )}
       </div>
 
       {/* Grilla de Perfiles con formato similar a la Credencial */}
@@ -372,29 +353,36 @@ export default function NetworkProfilesDirectory({
                 )}
               </div>
 
-              {/* 3. Mini QR + Link + Acción */}
-              <div className="w-full space-y-2.5 border-t border-white/15 pt-3">
-                <div className="flex items-center justify-center gap-2.5">
-                  {qrUrl && (
-                    <div className="rounded-xl bg-white p-1 shadow-sm">
+              {/* 3. Código QR visible + Link + Acción */}
+              <div className="w-full space-y-3 border-t border-white/15 pt-3.5">
+                <div className="flex flex-col items-center gap-2">
+                  {qrUrl ? (
+                    <div className="shrink-0 rounded-2xl bg-white p-2 shadow-md">
                       <img
                         src={qrUrl}
                         alt={`QR ${item.nickname}`}
-                        className="h-12 w-12"
+                        width={84}
+                        height={84}
+                        className="block h-[84px] w-[84px] min-h-[84px] min-w-[84px] shrink-0 object-contain"
                       />
                     </div>
+                  ) : (
+                    <div className="flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-2xl bg-white p-2 text-[10px] font-bold text-[#2B1F42] shadow-md">
+                      QR...
+                    </div>
                   )}
-                  <div className="text-left">
+
+                  <div className="text-center">
                     <a
                       href={`/${item.nickname}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#F3D791] hover:underline break-all"
                     >
                       <span>reikionline.com.ar/{item.nickname}</span>
-                      <ExternalLink className="h-3 w-3" />
+                      <ExternalLink className="h-3 w-3 shrink-0" />
                     </a>
-                    <span className="block text-[10px] text-white/70">
+                    <span className="block text-[10px] text-white/75">
                       Credencial verificada
                     </span>
                   </div>

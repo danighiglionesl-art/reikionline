@@ -436,9 +436,9 @@ export default function UserCredentialPanel({
           <button
             type="button"
             onClick={onBack}
-            className="cursor-pointer text-xs font-semibold text-[#836DAD] underline hover:text-[#5E4987]"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
           >
-            Volver a categorías de terapias
+            <span>← Volver a ¿Cómo ingresas?</span>
           </button>
         )}
       </div>
@@ -699,24 +699,26 @@ export default function UserCredentialPanel({
           </div>
 
           {/* 3. Código QR vinculado a https://www.reikionline.com.ar/nickname */}
-          <div className="relative z-10 flex w-full flex-col items-center">
+          <div className="relative z-10 flex w-full shrink-0 flex-col items-center">
             <div
-              className={`rounded-2xl bg-white shadow-lg ${
-                format === "feed" ? "p-1.5" : "p-2"
+              className={`shrink-0 rounded-2xl bg-white shadow-lg ${
+                format === "feed" ? "p-2" : "p-2.5"
               }`}
             >
               {qrDataUrl ? (
                 <img
                   src={qrDataUrl}
                   alt={`QR ${publicCredentialUrl}`}
+                  width={format === "feed" ? 88 : 120}
+                  height={format === "feed" ? 88 : 120}
                   className={
                     format === "feed"
-                      ? "h-16 w-16 sm:h-18 sm:w-18"
-                      : "h-26 w-26 sm:h-30 sm:w-30"
+                      ? "block h-[80px] w-[80px] sm:h-[88px] sm:w-[88px] min-h-[80px] min-w-[80px] shrink-0 object-contain"
+                      : "block h-[112px] w-[112px] sm:h-[124px] sm:w-[124px] min-h-[112px] min-w-[112px] shrink-0 object-contain"
                   }
                 />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center text-xs text-[#2B1F42]">
+                <div className="flex h-[80px] w-[80px] items-center justify-center text-xs font-bold text-[#2B1F42]">
                   QR...
                 </div>
               )}

@@ -587,7 +587,26 @@ export function TerapiasAccessPanel({
     }
   };
 
+  const handleGoToComoIngresas = () => {
+    setActiveSection(null);
+    setSelectedRole(null);
+    setSearchMode(null);
+    setTherapiesConfirmed(false);
+    setSelectedModality(null);
+    setSelectionSavedFeedback(null);
+    try {
+      window.localStorage.removeItem(SELECTED_ROLE_STORAGE_KEY);
+      notifySync();
+    } catch {
+      // Ignore
+    }
+  };
+
   const handleBackToRoleSelect = () => {
+    if (activeSection) {
+      handleGoToComoIngresas();
+      return;
+    }
     if (selectedModality) {
       setSelectedModality(null);
       return;
@@ -601,15 +620,7 @@ export function TerapiasAccessPanel({
       setSearchMode(null);
       return;
     }
-    setSelectedRole(null);
-    setActiveSection(null);
-    setSelectionSavedFeedback(null);
-    try {
-      window.localStorage.removeItem(SELECTED_ROLE_STORAGE_KEY);
-      notifySync();
-    } catch {
-      // Ignore
-    }
+    handleGoToComoIngresas();
   };
 
   const handleResetSession = () => {
@@ -850,18 +861,22 @@ export function TerapiasAccessPanel({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Botón Volver atrás (solo visible cuando ya confirmó Consultante o Terapeuta y desea volver a elegir) */}
-            {authenticatedUser && isWhatsAppVerified && selectedRole && (
-              <button
-                type="button"
-                onClick={handleBackToRoleSelect}
-                title="Volver atrás a la selección de rol"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Volver atrás</span>
-              </button>
-            )}
+            {/* Botón Volver atrás (visible en cualquier sub-sección como Mi Perfil, Mi Credencial o al elegir rol) */}
+            {authenticatedUser &&
+              isWhatsAppVerified &&
+              (selectedRole || activeSection) && (
+                <button
+                  type="button"
+                  onClick={handleBackToRoleSelect}
+                  title="Volver a ¿Cómo ingresas?"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>
+                    {activeSection ? "¿Cómo ingresas?" : "Volver atrás"}
+                  </span>
+                </button>
+              )}
 
             {/* Botón / Indicador de Alerta al Administrador */}
             {(pendingAdminAlerts.length > 0 || authenticatedUser?.isAdmin) && (
@@ -1480,6 +1495,7 @@ export function TerapiasAccessPanel({
                   selectedTherapies={activeSelections}
                   activeRoleLabel={selectedRole || "Terapeuta"}
                   onSaveProfile={(updated) => saveUserProfile(updated)}
+                  onBack={handleGoToComoIngresas}
                 />
               )}
 
@@ -1490,8 +1506,7 @@ export function TerapiasAccessPanel({
                   activeRole={selectedRole || "Consultante"}
                   terapeutaSelections={terapeutaSelections}
                   onSaveProfile={(updated) => saveUserProfile(updated)}
-                  onChangeRole={(role) => handleChooseRole(role)}
-                  onBack={() => setActiveSection(null)}
+                  onBack={handleGoToComoIngresas}
                 />
               )}
 
@@ -1505,10 +1520,10 @@ export function TerapiasAccessPanel({
                       </h4>
                       <button
                         type="button"
-                        onClick={() => setActiveSection(null)}
-                        className="text-xs font-semibold text-[#836DAD] underline cursor-pointer"
+                        onClick={handleGoToComoIngresas}
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
                       >
-                        Volver a categorías de terapias
+                        <span>← Volver a ¿Cómo ingresas?</span>
                       </button>
                     </div>
                     <p className="mt-2 text-xs text-[#2B1F42]/75">

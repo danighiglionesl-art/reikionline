@@ -42,7 +42,6 @@ export interface TherapistAvailabilityConfig {
   localidad: string;
   lat: number;
   lng: number;
-  whatsappE164: string;
   therapies: string[];
   // Keys: `${dayIndex}-${hour}` e.g. "0-12" = Lunes 12:00 hs (turno de 1 hora)
   presencialSlots: Record<string, boolean>;
@@ -58,11 +57,11 @@ export interface MatchAlertItem {
   id: string;
   consultanteName: string;
   consultanteLocalidad: string;
-  consultanteWhatsapp: string;
   therapistId: string;
   therapistName: string;
   therapies: string[];
   distanceKm: number;
+  status?: "pendiente" | "aceptado";
   createdAt: string;
 }
 
@@ -121,7 +120,6 @@ const DEMO_THERAPISTS: TherapistAvailabilityConfig[] = [
     localidad: "Córdoba",
     lat: -31.4201,
     lng: -64.1888,
-    whatsappE164: "+5493515550101",
     therapies: [
       "Reiki Usui",
       "Alineación de chakras",
@@ -165,7 +163,6 @@ const DEMO_THERAPISTS: TherapistAvailabilityConfig[] = [
     localidad: "Río Cuarto",
     lat: -33.1232,
     lng: -64.3493,
-    whatsappE164: "+5493585550202",
     therapies: [
       "Reiki Karuna",
       "Tarot",
@@ -204,7 +201,6 @@ const DEMO_THERAPISTS: TherapistAvailabilityConfig[] = [
     localidad: "Palermo",
     lat: -34.5889,
     lng: -58.4305,
-    whatsappE164: "+5491155550303",
     therapies: [
       "Flores de Bach",
       "Biodescodificación",
@@ -317,7 +313,6 @@ export default function ModalityWorkflowPanel({
         localidad: userProfile.localidad,
         lat: userProfile.geo.lat,
         lng: userProfile.geo.lng,
-        whatsappE164: userProfile.whatsappE164,
         therapies:
           selectedTherapies.length > 0 ? selectedTherapies : existing.therapies,
       };
@@ -329,7 +324,6 @@ export default function ModalityWorkflowPanel({
       localidad: userProfile.localidad || "Alcira Gigena",
       lat: userProfile.geo?.lat ?? -32.75472,
       lng: userProfile.geo?.lng ?? -64.33648,
-      whatsappE164: userProfile.whatsappE164 || "+543584244165",
       therapies: selectedTherapies,
       presencialSlots: {
         "0-12": true,
@@ -554,7 +548,6 @@ export default function ModalityWorkflowPanel({
       id: `match-${Date.now()}`,
       consultanteName: `${userProfile.nombre} ${userProfile.apellido}`.trim(),
       consultanteLocalidad: `${userProfile.localidad}, ${userProfile.provincia}`,
-      consultanteWhatsapp: userProfile.whatsappE164,
       therapistId: target.therapistId,
       therapistName: target.therapistName,
       therapies:
@@ -562,12 +555,13 @@ export default function ModalityWorkflowPanel({
           ? selectedTherapies
           : target.therapies.slice(0, 2),
       distanceKm,
+      status: "pendiente",
       createdAt: new Date().toISOString(),
     };
     const nextAlerts = [newMatch, ...matchAlerts];
     setMatchAlerts(nextAlerts);
     setBookingNotice(
-      `¡Match enviado a ${target.therapistName}! Se disparó la alerta a su WhatsApp (${target.whatsappE164}).`
+      `¡Match enviado a ${target.therapistName}! El sistema notificó de forma interna a su cuenta verificada (los números de WhatsApp de consultantes y terapeutas no son publicables bajo ningún concepto).`
     );
     try {
       window.localStorage.setItem(
@@ -1139,10 +1133,10 @@ export default function ModalityWorkflowPanel({
           <label className="ro-choice-label flex cursor-pointer items-center justify-between gap-3 rounded-2xl border-2 border-[#836DAD]/30 bg-white p-4">
             <div>
               <span className="block text-sm font-bold text-[#2B1F42]">
-                Alertas a mi WhatsApp de búsqueda de Match
+                Alertas internas a mi WhatsApp verificado
               </span>
               <span className="text-xs text-[#2B1F42]/70">
-                Destino verificado: {userProfile.whatsappE164 || "WhatsApp activo"}
+                Tu número es estrictamente confidencial y no será publicable bajo ningún concepto.
               </span>
             </div>
             <input
@@ -1195,21 +1189,43 @@ export default function ModalityWorkflowPanel({
                       Busca: {alert.therapies.join(", ")}
                     </p>
                   </div>
-                  <a
-                    href={`https://wa.me/${alert.consultanteWhatsapp.replace(/\D/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6F599B]"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updated = matchAlerts.map((item) =>
+                        item.id === alert.id
+                          ? { ...item, status: "aceptado" as const }
+                          : item
+                      );
+                      setMatchAlerts(updated);
+                      setSavedNotice(
+                        `Match confirmado en plataforma con ${alert.consultanteName}. Por privacidad y transparencia, los números de WhatsApp nunca se exponen.`
+                      );
+                      try {
+                        window.localStorage.setItem(
+                          MATCH_ALERTS_STORAGE_KEY,
+                          JSON.stringify(updated)
+                        );
+                        window.dispatchEvent(new Event(SYNC_EVENT_NAME));
+                      } catch {
+                        // Ignore
+                      }
+                    }}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-xl bg-[#836DAD] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#6F599B]"
                   >
-                    <MessageCircle className="h-3.5 w-3.5 text-[#F3D791]" />
-                    <span>Responder WhatsApp</span>
-                  </a>
+                    <CheckCircle2 className="h-3.5 w-3.5 text-[#F3D791]" />
+                    <span>
+                      {alert.status === "aceptado"
+                        ? "Match confirmado"
+                        : "Confirmar Match en plataforma"}
+                    </span>
+                  </button>
                 </li>
               ))}
             </ul>
           ) : (
             <p className="text-xs text-[#2B1F42]/65">
-              Cuando un consultante toque «Match ahora» con tu perfil en línea, recibirás la alerta inmediata en tu WhatsApp ({userProfile.whatsappE164}).
+              Cuando un consultante toque «Match ahora» con tu perfil en línea, el sistema te enviará una alerta interna a tu WhatsApp verificado (sin publicar jamás tu número ni el del consultante).
             </p>
           )}
         </div>

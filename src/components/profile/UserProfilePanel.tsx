@@ -31,6 +31,7 @@ interface UserProfilePanelProps {
   selectedTherapies?: string[];
   activeRoleLabel?: "Consultante" | "Terapeuta";
   onSaveProfile: (updated: ReikiUserProfile) => void;
+  onBack?: () => void;
 }
 
 function detectDeviceOS(): "Android" | "iOS" | "Windows" | "Other" {
@@ -49,6 +50,7 @@ export default function UserProfilePanel({
   selectedTherapies,
   activeRoleLabel = "Terapeuta",
   onSaveProfile,
+  onBack,
 }: UserProfilePanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [fotoUrl, setFotoUrl] = useState(
@@ -541,8 +543,8 @@ export default function UserProfilePanel({
           </p>
         </div>
 
-        {(phoneChangedSinceVerification || !whatsappVerified) && (
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {(phoneChangedSinceVerification || !whatsappVerified) && (
             <button
               type="button"
               onClick={() => setShowReverifyModal(true)}
@@ -551,8 +553,18 @@ export default function UserProfilePanel({
               <span className="h-2 w-2 rounded-full bg-amber-600 animate-ping" />
               WhatsApp sin verificar • Clic para verificar
             </button>
-          </div>
-        )}
+          )}
+
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/30 bg-white px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD] hover:text-white"
+            >
+              <span>← Volver a ¿Cómo ingresas?</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Modal/Sección de reverificación de WhatsApp cuando cambia el número */}
@@ -616,7 +628,7 @@ export default function UserProfilePanel({
               onSaveProfile(updatedAfterVerify);
               setSaveMessage({
                 type: "ok",
-                text: `¡Número ${res.whatsappE164} verificado con éxito! Perfil actualizado.`,
+                text: "¡WhatsApp verificado con éxito! Tu número es confidencial y no será publicable bajo ningún concepto.",
               });
             }}
             onCancel={() => setShowReverifyModal(false)}
@@ -980,11 +992,7 @@ export default function UserProfilePanel({
                 />
               </div>
               <p className="mt-1 text-[11px] text-[#64748B]">
-                Número activo para notificaciones y avisos de Reiki Online (E.164:{" "}
-                <span className="font-mono font-semibold text-[#5E4B8B]">
-                  {currentE164}
-                </span>
-                ).
+                El número de WhatsApp, a todos los fines, <strong>no será publicable bajo ningún concepto</strong> (ni de consultantes ni de terapeutas). Sirve a los fines de mostrar seriedad, transparencia y tranquilidad.
               </p>
             </div>
 
