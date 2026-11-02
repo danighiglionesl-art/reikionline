@@ -482,11 +482,17 @@ export default function WhatsAppVerificationStep({
       </div>
 
       {/* Nota institucional obligatoria */}
-      <div className="rounded-xl border border-[#F3D791]/60 bg-[#FAF8FC] px-4 py-3 text-[11px] leading-relaxed text-[#2E2344]/80">
-        <strong className="font-semibold text-[#5E4B8B]">Importante:</strong> La
-        verificación de WhatsApp demuestra el control del número telefónico,
-        pero no acredita por sí sola la identidad ni las competencias
-        profesionales de un terapeuta.
+      <div className="rounded-xl border border-[#F3D791]/60 bg-[#FAF8FC] px-4 py-3 text-[11px] leading-relaxed text-[#2E2344]/80 space-y-1.5">
+        <p>
+          <strong className="font-semibold text-[#5E4B8B]">Confidencialidad absoluta:</strong>{" "}
+          El número de WhatsApp, a todos los fines, <strong>no será publicable bajo ningún concepto</strong>, tanto de consultantes cuanto de terapeutas. El mismo sirve a los fines de mostrar seriedad, transparencia y tranquilidad.
+        </p>
+        <p>
+          <strong className="font-semibold text-[#5E4B8B]">Importante:</strong> La
+          verificación de WhatsApp demuestra el control del número telefónico,
+          pero no acredita por sí sola la identidad ni las competencias
+          profesionales de un terapeuta.
+        </p>
       </div>
     </div>
   );

@@ -7,7 +7,21 @@ import {
 export const PROFILES_STORAGE_KEY = "reiki_online_user_profiles_v1";
 export const REVIEWS_STORAGE_KEY = "reiki_online_social_reviews_v1";
 export const CONSULTATIONS_STORAGE_KEY = "reiki_online_consultations_v1";
+export const FOLLOWS_STORAGE_KEY = "reiki_online_social_follows_v1";
 export const SYNC_EVENT_NAME = "reiki-online-catalog-sync";
+
+export interface SocialFollowRecord {
+  id: string;
+  followerNickname: string; // normalized lowercase
+  followerName: string;
+  followerRole: "Consultante" | "Terapeuta";
+  followerFotoUrl?: string;
+  targetNickname: string; // normalized lowercase
+  targetName: string;
+  targetRole: "Consultante" | "Terapeuta";
+  targetFotoUrl?: string;
+  createdAt: string;
+}
 
 export interface TherapistReview {
   id: string;
