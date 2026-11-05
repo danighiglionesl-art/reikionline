@@ -95,6 +95,7 @@ export interface TrainingCourse {
   therapistBiometricVerified: boolean;
   additionalDocumentationRef?: string;
   moderationNote?: string;
+  promoSlug?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -865,3 +866,70 @@ export function issueTrainingCertificate(params: {
 
   return cert;
 }
+
+/**
+ * Genera un slug limpio para promocionar una capacitación en Reiki Online.
+ */
+export function buildTrainingSlug(title: string, fallbackId?: string): string {
+  const normalized = (title || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48)
+    .replace(/-+$/g, "");
+  if (normalized.length >= 3) {
+    return normalized;
+  }
+  return (fallbackId || "capacitacion-reiki").toLowerCase();
+}
+
+export function getTrainingPromoSlug(course: {
+  id?: string;
+  title?: string;
+  promoSlug?: string;
+}): string {
+  if (course.promoSlug && course.promoSlug.trim()) {
+    return buildTrainingSlug(course.promoSlug.trim(), course.id);
+  }
+  if (course.id && course.id.startsWith("cap-")) {
+    return course.id;
+  }
+  return buildTrainingSlug(course.title || "", course.id);
+}
+
+export function getTrainingPromoUrl(course: {
+  id?: string;
+  title?: string;
+  promoSlug?: string;
+}): string {
+  const slug = getTrainingPromoSlug(course);
+  return `https://www.reikionline.com.ar/capacitaciones/${slug}`;
+}
+
+export function getTrainingDisplayUrl(course: {
+  id?: string;
+  title?: string;
+  promoSlug?: string;
+}): string {
+  const slug = getTrainingPromoSlug(course);
+  return `www.reikionline.com.ar/capacitaciones/${slug}`;
+}
+
+export function findTrainingBySlugOrId(
+  slugOrId: string,
+  catalogInput?: TrainingCourse[]
+): TrainingCourse | undefined {
+  const catalog = catalogInput || loadTrainingsCatalog();
+  const clean = decodeURIComponent(slugOrId || "").trim().toLowerCase();
+  if (!clean) return undefined;
+  return catalog.find(
+    (c) =>
+      c.id.toLowerCase() === clean ||
+      (c.promoSlug || "").toLowerCase() === clean ||
+      getTrainingPromoSlug(c).toLowerCase() === clean ||
+      buildTrainingSlug(c.title, c.id).toLowerCase() === clean
+  );
+}
+

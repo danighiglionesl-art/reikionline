@@ -22,13 +22,20 @@ import {
   BookOpen,
   PlayCircle,
   AlertTriangle,
+  QrCode,
+  Copy,
+  Share2,
+  ExternalLink,
 } from "lucide-react";
 import { ReikiUserProfile, sanitizeNickname } from "@/lib/geoData";
 import {
+  buildTrainingSlug,
   CertificateType,
   dispatchTrainingNotification,
   enrollStudentInTraining,
   EVENT_LABELS,
+  getTrainingPromoSlug,
+  getTrainingPromoUrl,
   issueTrainingCertificate,
   loadTrainingCertificates,
   loadTrainingEnrollments,
@@ -55,6 +62,7 @@ import {
   resolveTrainingCommission,
 } from "@/lib/mercadoPagoSplit";
 import TrainingClassroomModal from "@/components/trainings/TrainingClassroomModal";
+import TrainingPromotionFlyerPanel from "@/components/trainings/TrainingPromotionFlyerPanel";
 
 interface MisCapacitacionesPanelProps {
   profile: ReikiUserProfile;
@@ -207,6 +215,12 @@ export default function MisCapacitacionesPanel({
     useState<CertificateType>("aprobacion");
   const [formStatus, setFormStatus] = useState<TrainingStatus>("publicada");
   const [formAdditionalDoc, setFormAdditionalDoc] = useState("");
+  const [formPromoSlug, setFormPromoSlug] = useState("");
+
+  // Panel de Promoción (Link + QR + Flyer estilo Credencial) abierto en una capacitación publicada
+  const [promotingCourseId, setPromotingCourseId] = useState<string | null>(
+    "cap-reiki-usui-1"
+  );
 
   // Gestión de Materiales en una capacitación del terapeuta
   const [managingMaterialsCourseId, setManagingMaterialsCourseId] = useState<
@@ -456,6 +470,7 @@ export default function MisCapacitacionesPanel({
     setFormCertificateType("aprobacion");
     setFormStatus("publicada");
     setFormAdditionalDoc("");
+    setFormPromoSlug("");
     setShowCourseForm(true);
   };
 
@@ -481,6 +496,9 @@ export default function MisCapacitacionesPanel({
     setFormCertificateType(course.certificateType);
     setFormStatus(course.status);
     setFormAdditionalDoc(course.additionalDocumentationRef || "");
+    setFormPromoSlug(
+      course.promoSlug || getTrainingPromoSlug(course)
+    );
     setShowCourseForm(true);
   };
 
@@ -577,6 +595,7 @@ export default function MisCapacitacionesPanel({
       therapistPhotoUrl: profile.fotoUrl,
       therapistBiometricVerified: isBiometricVerified,
       additionalDocumentationRef: formAdditionalDoc.trim() || undefined,
+      promoSlug: buildTrainingSlug(formPromoSlug.trim() || cleanTitle, courseId),
       createdAt: existingCourse?.createdAt || nowIso,
       updatedAt: nowIso,
     };
@@ -612,12 +631,13 @@ export default function MisCapacitacionesPanel({
 
     setShowCourseForm(false);
     setEditingCourseId(null);
+    setPromotingCourseId(savedCourse.id);
     refreshAll();
     setFeedbackBanner({
       type: "ok",
       text: editingCourseId
-        ? `Capacitación «${savedCourse.title}» actualizada correctamente.`
-        : `Capacitación «${savedCourse.title}» creada y publicada en Academia Reiki Online.`,
+        ? `Capacitación «${savedCourse.title}» actualizada correctamente. Abajo tenés tu Link, Código QR y Flyer listos para promocionar.`
+        : `Capacitación «${savedCourse.title}» creada y publicada. Ya podés compartir el Link, descargar el Flyer o bajar solo el Código QR.`,
     });
   };
 
@@ -2070,6 +2090,63 @@ export default function MisCapacitacionesPanel({
                     className="w-full rounded-xl border border-[#836DAD]/30 bg-[#FAF8FC] px-3 py-2 text-xs text-[#2B1F42]"
                   />
                 </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-[#2B1F42] mb-1">
+                    Link personalizado para promocionar la Capacitación
+                  </label>
+                  <div className="flex flex-wrap items-center overflow-hidden rounded-xl border border-[#836DAD]/35 bg-[#FAF8FC]">
+                    <span className="bg-[#836DAD]/10 px-3 py-2 text-xs font-bold text-[#5E4B8B]">
+                      https://www.reikionline.com.ar/capacitaciones/
+                    </span>
+                    <input
+                      type="text"
+                      value={
+                        formPromoSlug ||
+                        buildTrainingSlug(
+                          formTitle || "mi-capacitacion",
+                          editingCourseId || undefined
+                        )
+                      }
+                      onChange={(e) => setFormPromoSlug(e.target.value)}
+                      placeholder="nombre-de-tu-capacitacion"
+                      className="flex-1 bg-transparent px-3 py-2 text-xs font-bold text-[#2B1F42] focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* KIT DE PROMOCIÓN EN VIVO AL MOMENTO DE CREAR LA CAPACITACIÓN: LINK + QR + FLYER ESTILO CREDENCIAL */}
+              <div className="pt-2">
+                <TrainingPromotionFlyerPanel
+                  courseId={editingCourseId || undefined}
+                  promoSlug={
+                    formPromoSlug ||
+                    buildTrainingSlug(
+                      formTitle || "mi-capacitacion",
+                      editingCourseId || undefined
+                    )
+                  }
+                  title={
+                    formTitle.trim() ||
+                    `Formación en ${formDiscipline} (Nivel ${formLevel})`
+                  }
+                  discipline={formDiscipline}
+                  level={formLevel}
+                  modality={formModality}
+                  startDate={formStartDate}
+                  startTime={formStartTime}
+                  sessionsCount={formSessionsCount}
+                  durationHoursTotal={formDurationHours}
+                  isFree={formIsFree}
+                  priceArs={formIsFree ? 0 : formPriceArs}
+                  certificateType={formCertificateType}
+                  therapistName={userFullName}
+                  therapistNickname={userNickname}
+                  therapistPhotoUrl={profile.fotoUrl}
+                  therapistBiometricVerified={isBiometricVerified}
+                  compact
+                />
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -2099,6 +2176,8 @@ export default function MisCapacitacionesPanel({
                 (e) =>
                   e.trainingId === course.id && e.status === "confirmada"
               );
+              const coursePromoUrl = getTrainingPromoUrl(course);
+              const isPromoOpen = promotingCourseId === course.id;
 
               return (
                 <div
@@ -2127,6 +2206,27 @@ export default function MisCapacitacionesPanel({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPromotingCourseId((prev) =>
+                            prev === course.id ? null : course.id
+                          )
+                        }
+                        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-extrabold transition ${
+                          isPromoOpen
+                            ? "bg-[#836DAD] text-[#F3D791] shadow-xs"
+                            : "bg-[#F3D791] text-[#2B1F42] hover:bg-[#e5c678]"
+                        }`}
+                      >
+                        <QrCode className="h-3.5 w-3.5" />
+                        <span>
+                          {isPromoOpen
+                            ? "Ocultar Link, QR y Flyer"
+                            : "Promocionar: Link, QR y Flyer"}
+                        </span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => openEditForm(course)}
@@ -2178,6 +2278,84 @@ export default function MisCapacitacionesPanel({
                         )}
                     </div>
                   </div>
+
+                  {/* BARRA RÁPIDA DE LINK PROMOCIONAL Y ACCESO AL FLYER / QR */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-3.5 py-2.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-extrabold text-[#836DAD]">
+                        Link de promoción:
+                      </span>
+                      <a
+                        href={`/capacitaciones/${getTrainingPromoSlug(course)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-[#2B1F42] hover:text-[#836DAD] hover:underline break-all"
+                      >
+                        {coursePromoUrl}
+                      </a>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(coursePromoUrl);
+                            setFeedbackBanner({
+                              type: "ok",
+                              text: `Enlace copiado al portapapeles: ${coursePromoUrl}`,
+                            });
+                          } catch {}
+                        }}
+                        className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-[#836DAD] px-2.5 py-1 text-[11px] font-bold text-white hover:bg-[#6D5898]"
+                      >
+                        <Copy className="h-3 w-3 text-[#F3D791]" />
+                        <span>Copiar Link</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPromotingCourseId((prev) =>
+                            prev === course.id ? null : course.id
+                          )
+                        }
+                        className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-[#836DAD]/35 bg-white px-2.5 py-1 text-[11px] font-bold text-[#836DAD] hover:bg-[#836DAD] hover:text-white"
+                      >
+                        <QrCode className="h-3 w-3" />
+                        <span>
+                          {isPromoOpen
+                            ? "Cerrar Flyer y QR"
+                            : "Ver Flyer y Bajar QR"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* PANEL DESPLEGADO DE FLYER ESTILO CREDENCIAL + DESCARGA DE SOLO EL QR */}
+                  {isPromoOpen && (
+                    <TrainingPromotionFlyerPanel
+                      courseId={course.id}
+                      promoSlug={course.promoSlug}
+                      title={course.title}
+                      discipline={course.discipline}
+                      level={course.level}
+                      modality={course.modality}
+                      startDate={course.startDate}
+                      startTime={course.startTime}
+                      sessionsCount={course.sessionsCount}
+                      durationHoursTotal={course.durationHoursTotal}
+                      isFree={course.isFree}
+                      priceArs={course.priceArs}
+                      certificateType={course.certificateType}
+                      therapistName={course.therapistName}
+                      therapistNickname={course.therapistNickname}
+                      therapistPhotoUrl={
+                        course.therapistPhotoUrl || profile.fotoUrl
+                      }
+                      therapistBiometricVerified={
+                        course.therapistBiometricVerified
+                      }
+                    />
+                  )}
 
                   {/* ENCUENTROS PROGRAMADOS Y ACCESO A LA SALA COMO ORGANIZADOR */}
                   <div className="space-y-2">

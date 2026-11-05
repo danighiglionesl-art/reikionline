@@ -424,9 +424,6 @@ export function TerapiasAccessPanel({
         if (parsed && parsed.email) {
           setAuthenticatedUser(parsed);
           setMode("role-select");
-          if (parsed.isAdmin) {
-            setShowAdminPanel(true);
-          }
         }
       } else {
         setAuthenticatedUser(null);
@@ -580,15 +577,16 @@ export function TerapiasAccessPanel({
     }
   };
 
-  const persistUserSession = (user: AuthenticatedUser) => {
+  const persistUserSession = (
+    user: AuthenticatedUser,
+    openAdminDirectly = false
+  ) => {
     setAuthenticatedUser(user);
     setSelectedRole(null);
     setActiveSection(null);
     setAuthError(null);
     setMode("role-select");
-    if (user.isAdmin) {
-      setShowAdminPanel(true);
-    }
+    setShowAdminPanel(openAdminDirectly);
 
     const key = user.email.toLowerCase();
     const rawExisting = profilesByEmail[key];
@@ -657,22 +655,31 @@ export function TerapiasAccessPanel({
     const cleanEmail = email.trim();
     if (!cleanEmail) return;
 
+    const isExplicitAdminKeyword =
+      cleanEmail.toLowerCase() === "reikionline" ||
+      cleanEmail.toLowerCase() === "admin@reikionline.com.ar";
+
     const isAdminLogin =
-      (cleanEmail.toLowerCase() === "reikionline" ||
-        cleanEmail.toLowerCase() === "admin@reikionline.com.ar" ||
+      (isExplicitAdminKeyword ||
         cleanEmail.toLowerCase() === "danighiglione@gmail.com") &&
       password === "Reiki2026";
 
-    const derivedName = isAdminLogin
-      ? "Daniel Alejandro Ghiglione"
-      : cleanEmail.split("@")[0].replace(/[._-]/g, " ");
+    const derivedName =
+      isAdminLogin || cleanEmail.toLowerCase() === "danighiglione@gmail.com"
+        ? "Daniel Alejandro Ghiglione"
+        : cleanEmail.split("@")[0].replace(/[._-]/g, " ");
 
-    persistUserSession({
-      name: derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
-      email: isAdminLogin ? "danighiglione@gmail.com" : cleanEmail,
-      provider: "Correo",
-      isAdmin: isAdminLogin,
-    });
+    persistUserSession(
+      {
+        name: derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
+        email: isAdminLogin ? "danighiglione@gmail.com" : cleanEmail,
+        provider: "Correo",
+        isAdmin:
+          isAdminLogin ||
+          cleanEmail.toLowerCase() === "danighiglione@gmail.com",
+      },
+      false
+    );
   };
 
   const handleRegisterSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -1125,23 +1132,25 @@ export function TerapiasAccessPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Botones de navegación de Consultante / Terapeuta: SOLO visibles cuando NO está en pantalla de Administrador */}
+            {/* Botones de navegación siempre visibles para volver a ¿Cómo ingresas? y ¿Cómo buscas? */}
             {authenticatedUser &&
               isWhatsAppVerified &&
-              !isAdminViewActive &&
               !isCurrentUserSuspended && (
                 <>
                   <button
                     type="button"
-                    onClick={handleGoToComoIngresas}
+                    onClick={() => {
+                      setShowAdminPanel(false);
+                      handleGoToComoIngresas();
+                    }}
                     title="Ir a ¿Cómo ingresas?"
                     className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
-                      !selectedRole && !activeSection
+                      !selectedRole && !activeSection && !isAdminViewActive
                         ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
                         : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
                     }`}
                   >
-                    {(selectedRole || activeSection) && (
+                    {(selectedRole || activeSection || isAdminViewActive) && (
                       <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
                     )}
                     <span>¿Cómo ingresas?</span>
@@ -1150,18 +1159,25 @@ export function TerapiasAccessPanel({
                   {selectedRole && (
                     <button
                       type="button"
-                      onClick={handleGoToComoBuscas}
+                      onClick={() => {
+                        setShowAdminPanel(false);
+                        handleGoToComoBuscas();
+                      }}
                       title="Ir a ¿Cómo buscas?"
                       className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
                         selectedRole &&
                         !activeSection &&
                         !searchMode &&
-                        !therapiesConfirmed
+                        !therapiesConfirmed &&
+                        !isAdminViewActive
                           ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
                           : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
                       }`}
                     >
-                      {(activeSection || searchMode || therapiesConfirmed) && (
+                      {(activeSection ||
+                        searchMode ||
+                        therapiesConfirmed ||
+                        isAdminViewActive) && (
                         <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
                       )}
                       <span>¿Cómo buscas?</span>
@@ -1170,27 +1186,27 @@ export function TerapiasAccessPanel({
                 </>
               )}
 
-            {/* Botón para alternar entre Pantalla de Administrador limpia y Modo Consultante/Terapeuta */}
+            {/* Botón para alternar entre Pantalla de Administrador y Modo Consultante/Terapeuta */}
             {authenticatedUser?.isAdmin && (
               <button
                 type="button"
                 onClick={() => setShowAdminPanel((prev) => !prev)}
                 className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all ${
                   isAdminViewActive
-                    ? "border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] hover:bg-[#836DAD] hover:text-white"
-                    : "border-[#836DAD] bg-[#F3D791] text-[#2B1F42] shadow-sm hover:bg-[#836DAD] hover:text-white"
+                    ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
+                    : "border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] hover:bg-[#836DAD] hover:text-white"
                 }`}
                 title={
                   isAdminViewActive
-                    ? "Cambiar a vista de Consultante / Terapeuta"
-                    : "Abrir Pantalla de Administrador"
+                    ? "Cerrar panel Admin y volver a mi vista"
+                    : "Abrir panel de Administrador"
                 }
               >
                 <BellRing className="h-3.5 w-3.5" />
                 <span>
                   {isAdminViewActive
-                    ? "Modo Consultante / Terapeuta"
-                    : `Administrador${
+                    ? "Cerrar Admin"
+                    : `Admin${
                         pendingAdminAlerts.length > 0
                           ? ` (${pendingAdminAlerts.length})`
                           : ""
@@ -1213,10 +1229,9 @@ export function TerapiasAccessPanel({
           </div>
         </div>
 
-        {/* BARRA SUPERIOR DE CONSULTANTE / TERAPEUTA: OCULTA EN PANTALLA DE ADMINISTRADOR */}
+        {/* BARRA SUPERIOR SIEMPRE VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mis Capacitaciones · Mi Billetera · Mi Red Social */}
         {authenticatedUser &&
           isWhatsAppVerified &&
-          !isAdminViewActive &&
           !isCurrentUserSuspended && (
             <nav
               aria-label="Accesos permanentes del usuario"
@@ -1232,16 +1247,17 @@ export function TerapiasAccessPanel({
                   { label: "Mi Red Social", icon: Users },
                 ] as const
               ).map(({ label, icon: Icon }) => {
-                const isActive = activeSection === label;
+                const isActive = !isAdminViewActive && activeSection === label;
                 return (
                   <button
                     key={label}
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
+                      setShowAdminPanel(false);
                       setActiveSection((prev) =>
-                        prev === label ? null : label
-                      )
-                    }
+                        !isAdminViewActive && prev === label ? null : label
+                      );
+                    }}
                     className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
                       isActive
                         ? "bg-[#836DAD] text-white shadow-sm"
