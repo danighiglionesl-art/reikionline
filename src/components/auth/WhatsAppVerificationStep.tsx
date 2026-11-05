@@ -36,6 +36,11 @@ export default function WhatsAppVerificationStep({
 }: WhatsAppVerificationStepProps) {
   const [prefijo, setPrefijo] = useState(initialPrefijo || "+54");
   const [telefono, setTelefono] = useState(initialTelefono || "");
+
+  useEffect(() => {
+    setPrefijo(initialPrefijo || "+54");
+    setTelefono(initialTelefono || "");
+  }, [initialPrefijo, initialTelefono, userEmail]);
   const [consentTurnos, setConsentTurnos] = useState(
     initialConsents?.turnosYRecordatorios ?? true
   );
@@ -307,7 +312,7 @@ export default function WhatsAppVerificationStep({
                   onChange={(e) =>
                     setTelefono(e.target.value.replace(/[^\d\s-]/g, ""))
                   }
-                  placeholder="Ej: 3584244165"
+                  placeholder="Ingresá tu número sin 0 ni 15"
                   className="w-full rounded-xl border border-[#E6E0F0] bg-[#FAF8FC] px-3.5 py-2.5 text-base text-[#2E2344] focus:border-[#836DAD] focus:bg-white focus:outline-none"
                 />
               </div>

@@ -26,6 +26,7 @@ import {
   Video,
   ShieldCheck,
   Users,
+  GraduationCap,
 } from "lucide-react";
 import {
   ROLE_THERAPY_CATEGORIES,
@@ -53,6 +54,8 @@ import NetworkProfilesDirectory from "@/components/credential/NetworkProfilesDir
 import AdminPaymentsCommissionsPanel from "@/components/payments/AdminPaymentsCommissionsPanel";
 import TherapistMercadoPagoSection from "@/components/payments/TherapistMercadoPagoSection";
 import DailyVideoCallModal from "@/components/video/DailyVideoCallModal";
+import MisCapacitacionesPanel from "@/components/trainings/MisCapacitacionesPanel";
+import AdminTrainingsSupervisionPanel from "@/components/trainings/AdminTrainingsSupervisionPanel";
 import { loadConsultations, saveConsultations } from "@/lib/socialNetwork";
 import {
   ATTENTION_MODALITY_LABELS,
@@ -68,6 +71,7 @@ export type PersistentSection =
   | "Mi Perfil"
   | "Mi Credencial"
   | "Mis Consultas"
+  | "Mis Capacitaciones"
   | "Mi Billetera"
   | "Mi Red Social";
 
@@ -135,14 +139,19 @@ const SELECTED_ROLE_STORAGE_KEY = "reiki_online_selected_role_v1";
 const PROFILES_STORAGE_KEY = "reiki_online_user_profiles_v1";
 const SYNC_EVENT_NAME = "reiki-online-catalog-sync";
 
+function isAdminIdentity(email?: string, isAdminFlag?: boolean): boolean {
+  const lower = (email || "").trim().toLowerCase();
+  return Boolean(
+    isAdminFlag ||
+      lower === "reikionline" ||
+      lower === "danighiglione@gmail.com" ||
+      lower === "admin@reikionline.com.ar"
+  );
+}
+
 function buildDefaultProfileForUser(user: AuthenticatedUser): ReikiUserProfile {
-  const lowerEmail = user.email.toLowerCase();
-  if (
-    user.isAdmin ||
-    lowerEmail === "reikionline" ||
-    lowerEmail === "danighiglione@gmail.com" ||
-    lowerEmail === "admin@reikionline.com.ar"
-  ) {
+  const lowerEmail = user.email.trim().toLowerCase();
+  if (isAdminIdentity(lowerEmail, user.isAdmin)) {
     return {
       ...DEFAULT_ADMIN_PROFILE,
       fotoUrl: user.picture || DEFAULT_ADMIN_PROFILE.fotoUrl || "",
@@ -150,34 +159,123 @@ function buildDefaultProfileForUser(user: AuthenticatedUser): ReikiUserProfile {
     };
   }
 
-  const parts = (user.name || "Usuario").trim().split(" ");
-  const nombre = parts[0] || "Usuario";
-  const apellido = parts.slice(1).join(" ") || "";
-  const rawNick = sanitizeNickname(
-    `${nombre}${apellido}` || lowerEmail.split("@")[0] || "usuarioreiki"
-  ).toLowerCase();
-  const safeNick =
-    rawNick.length >= 4 ? rawNick.slice(0, 16) : `${rawNick}reiki`.slice(0, 16);
+  const safeId = `usr-${lowerEmail.replace(/[^a-z0-9]/g, "-")}`;
+  const nowIso = new Date().toISOString();
 
   return {
-    ...DEFAULT_ADMIN_PROFILE,
-    id: `usr-${lowerEmail.replace(/[^a-z0-9]/g, "-")}`,
-    username: lowerEmail.split("@")[0].replace(/[^a-z0-9._-]/g, "") || "usuario",
-    nickname: safeNick,
+    id: safeId,
+    username: "",
+    nickname: "",
     isAdmin: false,
     role: "pendiente",
-    nombre: nombre || DEFAULT_ADMIN_PROFILE.nombre,
-    apellido: apellido || DEFAULT_ADMIN_PROFILE.apellido,
-    email: user.email.includes("@") ? user.email : "danighiglione@gmail.com",
-    fotoUrl: user.picture || "",
-    // Nuevos usuarios comienzan en estado «WhatsApp sin verificar» hasta completar Twilio Verify
+    visibleEnRed: true,
+    soyTerapeuta: false,
+    nombre: "",
+    apellido: "",
+    dni: "",
+    fechaNacimiento: "",
+    genero: "",
+    prefijoTelefono: "+54",
+    telefono: "",
+    whatsappE164: "",
     whatsappVerified: false,
     whatsappVerifiedAt: null,
-    biometricVerification: createInitialBiometricRecord(
-      `usr-${lowerEmail.replace(/[^a-z0-9]/g, "-")}`,
-      false
-    ),
+    email: user.email.includes("@") ? user.email.trim() : lowerEmail,
+    pais: "Argentina",
+    provincia: "",
+    localidad: "",
+    codigoPostal: "",
+    barrio: "",
+    calle: "",
+    numeroCalle: "",
+    edificio: "",
+    torre: "",
+    piso: "",
+    dpto: "",
+    observacionesDomicilio: "",
+    fotoUrl: user.picture || "",
+    geo: {
+      lat: -34.603722,
+      lng: -58.381592,
+      captureMode: "manual-windows",
+      osDetected: "Windows",
+      capturedAt: nowIso,
+      formattedAddress: "",
+    },
+    consents: {
+      turnosYRecordatorios: true,
+      notificacionesComerciales: false,
+      updatedAt: nowIso,
+    },
+    biometricVerification: createInitialBiometricRecord(safeId, false),
+    updatedAt: nowIso,
   };
+}
+
+function sanitizeStoredProfile(
+  prof: ReikiUserProfile,
+  keyEmail: string
+): ReikiUserProfile {
+  const isAdm = isAdminIdentity(prof.email || keyEmail, prof.isAdmin);
+  if (isAdm) {
+    const effNick = getEffectiveNickname({ ...prof, isAdmin: true });
+    return {
+      ...prof,
+      isAdmin: true,
+      nickname: effNick,
+      username: effNick,
+    };
+  }
+
+  // Limpiar cualquier dato de Daniel Ghiglione que haya quedado heredado por error en cuentas de otros usuarios
+  const hadAdminDni = prof.dni === "22523947";
+  const hadAdminPhone =
+    prof.telefono === "3584244165" ||
+    (prof.whatsappE164 || "").includes("3584244165");
+  const hadAdminAddress =
+    prof.calle === "San Martin" && prof.numeroCalle === "362";
+  const hadAdminName =
+    prof.nombre === "Daniel Alejandro" || prof.apellido === "Ghiglione";
+
+  const cleaned: ReikiUserProfile = {
+    ...prof,
+    isAdmin: false,
+    nickname:
+      prof.nickname === "danielghiglione" ? "" : prof.nickname || "",
+    username:
+      prof.username === "danielghiglione" ? "" : prof.username || "",
+    nombre:
+      hadAdminName || hadAdminDni ? "" : prof.nombre || "",
+    apellido:
+      hadAdminName || hadAdminDni ? "" : prof.apellido || "",
+    dni: hadAdminDni ? "" : prof.dni || "",
+    fechaNacimiento:
+      hadAdminDni || prof.fechaNacimiento === "1972-07-11"
+        ? ""
+        : prof.fechaNacimiento || "",
+    genero: hadAdminDni ? "" : prof.genero || "",
+    telefono: hadAdminPhone ? "" : prof.telefono || "",
+    whatsappE164: hadAdminPhone ? "" : prof.whatsappE164 || "",
+    whatsappVerified: hadAdminPhone ? false : Boolean(prof.whatsappVerified),
+    whatsappVerifiedAt: hadAdminPhone ? null : prof.whatsappVerifiedAt || null,
+    provincia: hadAdminAddress || hadAdminDni ? "" : prof.provincia || "",
+    localidad:
+      hadAdminAddress || prof.localidad === "Alcira Gigena"
+        ? ""
+        : prof.localidad || "",
+    codigoPostal:
+      hadAdminAddress || prof.codigoPostal === "5813"
+        ? ""
+        : prof.codigoPostal || "",
+    barrio:
+      hadAdminAddress || (hadAdminDni && prof.barrio === "Centro")
+        ? ""
+        : prof.barrio || "",
+    calle: hadAdminAddress ? "" : prof.calle || "",
+    numeroCalle: hadAdminAddress ? "" : prof.numeroCalle || "",
+  };
+
+  return cleaned;
 }
 
 export function TerapiasAccessPanel({
@@ -264,6 +362,12 @@ export function TerapiasAccessPanel({
     scheduledSlotLabel: string;
   } | null>(null);
 
+  useEffect(() => {
+    if (preselectedContext === "Mis Capacitaciones" && authenticatedUser) {
+      setActiveSection("Mis Capacitaciones");
+    }
+  }, [preselectedContext, authenticatedUser]);
+
   const loadSyncedData = () => {
     if (typeof window === "undefined") return;
 
@@ -275,14 +379,30 @@ export function TerapiasAccessPanel({
           ReikiUserProfile
         >;
         const normalizedProfiles: Record<string, ReikiUserProfile> = {};
+        let didCleanInheritedData = false;
         for (const [k, prof] of Object.entries(parsedProfiles)) {
           if (!prof) continue;
-          const effNick = getEffectiveNickname(prof);
-          normalizedProfiles[k] = {
-            ...prof,
-            nickname: effNick,
-            username: effNick,
-          };
+          const sanitized = sanitizeStoredProfile(prof, k);
+          if (
+            sanitized.dni !== prof.dni ||
+            sanitized.telefono !== prof.telefono ||
+            sanitized.nombre !== prof.nombre ||
+            sanitized.apellido !== prof.apellido ||
+            sanitized.nickname !== prof.nickname
+          ) {
+            didCleanInheritedData = true;
+          }
+          normalizedProfiles[k] = sanitized;
+        }
+        if (didCleanInheritedData) {
+          try {
+            window.localStorage.setItem(
+              PROFILES_STORAGE_KEY,
+              JSON.stringify(normalizedProfiles)
+            );
+          } catch {
+            // Ignore
+          }
         }
         setProfilesByEmail((prev) => ({
           ...prev,
@@ -456,7 +576,8 @@ export function TerapiasAccessPanel({
     }
 
     const key = user.email.toLowerCase();
-    const existing = profilesByEmail[key];
+    const rawExisting = profilesByEmail[key];
+    const existing = rawExisting ? sanitizeStoredProfile(rawExisting, key) : null;
     if (!existing) {
       const initialProfile = buildDefaultProfileForUser(user);
       const nextMap = {
@@ -472,14 +593,14 @@ export function TerapiasAccessPanel({
       } catch {
         // Ignore
       }
-    } else if (user.picture && !existing.fotoUrl) {
-      const updatedWithGooglePhoto: ReikiUserProfile = {
+    } else {
+      const updatedExisting: ReikiUserProfile = {
         ...existing,
-        fotoUrl: user.picture,
+        fotoUrl: existing.fotoUrl || user.picture || "",
       };
       const nextMap = {
         ...profilesByEmail,
-        [key]: updatedWithGooglePhoto,
+        [key]: updatedExisting,
       };
       setProfilesByEmail(nextMap);
       try {
@@ -595,11 +716,15 @@ export function TerapiasAccessPanel({
               picture?: string;
             };
 
+            const isGoogleAdmin = isAdminIdentity(profile.email);
             persistUserSession({
-              name: profile.name || profile.email || "Usuario Google",
+              name: isGoogleAdmin
+                ? "Daniel Alejandro Ghiglione"
+                : profile.name || "",
               email: profile.email || "",
               picture: profile.picture,
               provider: "Google",
+              isAdmin: isGoogleAdmin,
             });
           } catch {
             setAuthError("Error al obtener los datos de tu cuenta de Google.");
@@ -1025,17 +1150,18 @@ export function TerapiasAccessPanel({
           </div>
         </div>
 
-        {/* BARRA SUPERIOR SIEMPRE FIJA Y VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera · Mi Red Social */}
+        {/* BARRA SUPERIOR SIEMPRE FIJA Y VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mis Capacitaciones · Mi Billetera · Mi Red Social */}
         {authenticatedUser && isWhatsAppVerified && (
           <nav
             aria-label="Accesos permanentes del usuario"
-            className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-5"
+            className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-3 lg:grid-cols-6"
           >
             {(
               [
                 { label: "Mi Perfil", icon: User },
                 { label: "Mi Credencial", icon: IdCard },
                 { label: "Mis Consultas", icon: Calendar },
+                { label: "Mis Capacitaciones", icon: GraduationCap },
                 { label: "Mi Billetera", icon: Wallet },
                 { label: "Mi Red Social", icon: Users },
               ] as const
@@ -1312,11 +1438,16 @@ export function TerapiasAccessPanel({
           )}
 
           {/* SECCIÓN EXCLUSIVA PARA EL ADMINISTRADOR (INVISIBLE EN NAVEGACIÓN PÚBLICA):
-              PAGOS Y COMISIONES — MERCADO PAGO SPLIT 1:1 */}
+              PAGOS Y COMISIONES — MERCADO PAGO SPLIT 1:1 + SUPERVISIÓN DE CAPACITACIONES */}
           {authenticatedUser?.isAdmin && (
-            <AdminPaymentsCommissionsPanel
-              adminUser={authenticatedUser.email}
-            />
+            <div className="space-y-4">
+              <AdminPaymentsCommissionsPanel
+                adminUser={authenticatedUser.email}
+              />
+              <AdminTrainingsSupervisionPanel
+                adminUser={authenticatedUser.email}
+              />
+            </div>
           )}
         </div>
       )}
@@ -1649,6 +1780,7 @@ export function TerapiasAccessPanel({
         <div className="mt-6 space-y-6">
           {!isWhatsAppVerified ? (
             <WhatsAppVerificationStep
+              key={activeUserProfile.email}
               initialPrefijo={activeUserProfile.prefijoTelefono}
               initialTelefono={activeUserProfile.telefono}
               initialConsents={activeUserProfile.consents}
@@ -1707,6 +1839,7 @@ export function TerapiasAccessPanel({
               {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MI PERFIL (Geoposición Satelital + Maps) */}
               {activeSection === "Mi Perfil" && (
                 <UserProfilePanel
+                  key={activeUserProfile.email}
                   profile={activeUserProfile}
                   googlePhotoUrl={authenticatedUser?.picture}
                   allProfiles={profilesByEmail}
@@ -1723,6 +1856,24 @@ export function TerapiasAccessPanel({
                   activeRole={selectedRole || "Consultante"}
                   terapeutaSelections={terapeutaSelections}
                   onSaveProfile={(updated) => saveUserProfile(updated)}
+                />
+              )}
+
+              {/* SECCIÓN ACTIVA DE LA BARRA SUPERIOR: MIS CAPACITACIONES (Academia Reiki Online) */}
+              {activeSection === "Mis Capacitaciones" && (
+                <MisCapacitacionesPanel
+                  profile={activeUserProfile}
+                  activeRole={
+                    selectedRole ||
+                    (activeUserProfile.soyTerapeuta ||
+                    activeUserProfile.role === "terapeuta"
+                      ? "Terapeuta"
+                      : "Consultante")
+                  }
+                  isBiometricVerified={isBiometricVerified}
+                  availableDisciplines={ROLE_THERAPY_CATEGORIES.flatMap((cat) =>
+                    getCategoryOptions(cat)
+                  )}
                 />
               )}
 

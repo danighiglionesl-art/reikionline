@@ -58,7 +58,9 @@ export default function UserProfilePanel({
   const [fotoUrl, setFotoUrl] = useState(
     profile.fotoUrl || googlePhotoUrl || ""
   );
-  const [nickname, setNickname] = useState(getEffectiveNickname(profile));
+  const [nickname, setNickname] = useState(
+    profile.isAdmin ? getEffectiveNickname(profile) : profile.nickname || ""
+  );
   const [visibleEnRed, setVisibleEnRed] = useState<boolean>(
     profile.visibleEnRed ?? true
   );
@@ -68,33 +70,33 @@ export default function UserProfilePanel({
   const [showInlineSocialLink, setShowInlineSocialLink] =
     useState<boolean>(false);
 
-  const [nombre, setNombre] = useState(profile.nombre);
-  const [apellido, setApellido] = useState(profile.apellido);
-  const [dni, setDni] = useState(profile.dni);
+  const [nombre, setNombre] = useState(profile.nombre || "");
+  const [apellido, setApellido] = useState(profile.apellido || "");
+  const [dni, setDni] = useState(profile.dni || "");
   const [fechaNacimiento, setFechaNacimiento] = useState(
-    profile.fechaNacimiento
+    profile.fechaNacimiento || ""
   );
   const [genero, setGenero] = useState<ReikiUserProfile["genero"]>(
-    profile.genero || "Hombre"
+    profile.genero || ""
   );
 
   const [prefijoTelefono, setPrefijoTelefono] = useState(
     profile.prefijoTelefono || "+54"
   );
-  const [telefono, setTelefono] = useState(profile.telefono);
+  const [telefono, setTelefono] = useState(profile.telefono || "");
   const [whatsappVerified, setWhatsappVerified] = useState(
     profile.whatsappVerified
   );
   const [whatsappVerifiedAt, setWhatsappVerifiedAt] = useState<string | null>(
     profile.whatsappVerifiedAt
   );
-  const [verifiedE164, setVerifiedE164] = useState(profile.whatsappE164);
+  const [verifiedE164, setVerifiedE164] = useState(profile.whatsappE164 || "");
 
   const [pais, setPais] = useState(profile.pais || "Argentina");
-  const [provincia, setProvincia] = useState(profile.provincia || "Córdoba");
+  const [provincia, setProvincia] = useState(profile.provincia || "");
 
   const localidadesDisponibles = useMemo(() => {
-    if (pais !== "Argentina") return [];
+    if (pais !== "Argentina" || !provincia) return [];
     return getLocalidadesParaProvincia(provincia);
   }, [pais, provincia]);
 
@@ -102,25 +104,22 @@ export default function UserProfilePanel({
     if (pais !== "Argentina") return true;
     return (
       Boolean(profile.localidad) &&
+      localidadesDisponibles.length > 0 &&
       !localidadesDisponibles.includes(profile.localidad)
     );
   }, [pais, profile.localidad, localidadesDisponibles]);
 
   const [usarLocalidadManual, setUsarLocalidadManual] =
     useState(initialIsCustomLoc);
-  const [localidad, setLocalidad] = useState(
-    profile.localidad || "Alcira Gigena"
-  );
+  const [localidad, setLocalidad] = useState(profile.localidad || "");
   const [localidadManual, setLocalidadManual] = useState(
     initialIsCustomLoc ? profile.localidad : ""
   );
 
-  const [codigoPostal, setCodigoPostal] = useState(
-    profile.codigoPostal || "5813"
-  );
-  const [barrio, setBarrio] = useState(profile.barrio || "Centro");
-  const [calle, setCalle] = useState(profile.calle || "San Martin");
-  const [numeroCalle, setNumeroCalle] = useState(profile.numeroCalle || "362");
+  const [codigoPostal, setCodigoPostal] = useState(profile.codigoPostal || "");
+  const [barrio, setBarrio] = useState(profile.barrio || "");
+  const [calle, setCalle] = useState(profile.calle || "");
+  const [numeroCalle, setNumeroCalle] = useState(profile.numeroCalle || "");
 
   const [edificio, setEdificio] = useState(profile.edificio || "");
   const [torre, setTorre] = useState(profile.torre || "");
@@ -401,11 +400,9 @@ export default function UserProfilePanel({
       setPrefijoTelefono(foundPais.prefijo);
     }
     if (nuevoPais === "Argentina") {
-      const provDefault = "Córdoba";
-      setProvincia(provDefault);
-      const locs = getLocalidadesParaProvincia(provDefault);
+      setProvincia("");
       setUsarLocalidadManual(false);
-      setLocalidad(locs.includes("Alcira Gigena") ? "Alcira Gigena" : locs[0]);
+      setLocalidad("");
     } else {
       setProvincia("");
       setUsarLocalidadManual(true);
@@ -1009,6 +1006,7 @@ export default function UserProfilePanel({
                 }
                 className="w-full rounded-xl border border-[#CBD8EE] bg-white px-3.5 py-2.5 text-sm text-[#1E293B] focus:border-[#836DAD] focus:outline-none"
               >
+                <option value="">Seleccionar...</option>
                 <option value="Hombre">Hombre</option>
                 <option value="Mujer">Mujer</option>
                 <option value="No binario">No binario</option>
@@ -1128,6 +1126,7 @@ export default function UserProfilePanel({
                   onChange={(e) => handleProvinciaChange(e.target.value)}
                   className="w-full rounded-xl border border-[#CBD8EE] bg-white px-3.5 py-2.5 text-sm text-[#1E293B] focus:border-[#836DAD] focus:outline-none"
                 >
+                  <option value="">Seleccionar provincia...</option>
                   {PROVINCIAS_ARGENTINA.map((prov) => (
                     <option key={prov} value={prov}>
                       {prov}
@@ -1177,6 +1176,7 @@ export default function UserProfilePanel({
                     }}
                     className="w-full rounded-xl border border-[#CBD8EE] bg-white px-3.5 py-2.5 text-sm text-[#1E293B] focus:border-[#836DAD] focus:outline-none"
                   >
+                    <option value="">Seleccionar localidad...</option>
                     {localidadesDisponibles.map((loc) => (
                       <option key={loc} value={loc}>
                         {loc}
@@ -1186,10 +1186,12 @@ export default function UserProfilePanel({
                       Otra localidad (escribir manualmente)...
                     </option>
                   </select>
-                  <p className="mt-1 text-[11px] text-[#64748B]">
-                    Localidades desplegadas de {provincia} (
-                    {localidadesDisponibles.length} en padrón oficial).
-                  </p>
+                  {provincia && (
+                    <p className="mt-1 text-[11px] text-[#64748B]">
+                      Localidades desplegadas de {provincia} (
+                      {localidadesDisponibles.length} en padrón oficial).
+                    </p>
+                  )}
                 </>
               ) : (
                 <div className="space-y-1">
@@ -1238,7 +1240,7 @@ export default function UserProfilePanel({
                 className="w-full rounded-xl border border-[#CBD8EE] bg-white px-3.5 py-2.5 text-sm text-[#1E293B] focus:border-[#836DAD] focus:outline-none"
               />
               <p className="mt-1 text-[11px] text-[#64748B]">
-                Código postal de tu localidad (ej: 5813 para Alcira Gigena).
+                Código postal de tu localidad.
               </p>
             </div>
           </div>

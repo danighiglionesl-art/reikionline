@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircle2,
   AlertCircle,
@@ -105,6 +105,33 @@ export default function TherapistMercadoPagoSection({
     type: "ok" | "warn" | "err";
     text: string;
   } | null>(null);
+  const [modalNotice, setModalNotice] = useState<{
+    type: "ok" | "warn" | "err";
+    text: string;
+  } | null>(null);
+  const noticeDialogRef = useRef<HTMLDialogElement | null>(null);
+
+  useEffect(() => {
+    if (statusMessage) {
+      setModalNotice(statusMessage);
+    }
+  }, [statusMessage]);
+
+  useEffect(() => {
+    const dialog = noticeDialogRef.current;
+    if (!dialog) return;
+    if (modalNotice) {
+      if (!dialog.open) {
+        try {
+          dialog.showModal();
+        } catch {
+          // Fallback if already open
+        }
+      }
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [modalNotice]);
 
   const activeTherapies = useMemo(() => {
     if (offeredTherapies && offeredTherapies.length > 0) {
@@ -721,6 +748,83 @@ export default function TherapistMercadoPagoSection({
           {statusMessage.text}
         </div>
       )}
+
+      {/* Ventana emergente (Top-Layer Modal Dialog) para que el Terapeuta vea el aviso en pantalla y confirme su lectura */}
+      <dialog
+        ref={noticeDialogRef}
+        aria-labelledby="ro-mp-split-notice-title"
+        onCancel={(e) => {
+          // Exigir confirmación explícita de lectura mediante el botón
+          e.preventDefault();
+        }}
+        onClose={() => setModalNotice(null)}
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-3xl border-2 border-[#836DAD] bg-white p-0 text-[#2B1F42] shadow-2xl backdrop:bg-[#2B1F42]/65 backdrop:backdrop-blur-xs"
+      >
+        {modalNotice && (
+          <div className="p-5 sm:p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <span
+                className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                  modalNotice.type === "ok"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : modalNotice.type === "warn"
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-red-100 text-red-700"
+                }`}
+              >
+                {modalNotice.type === "ok" ? (
+                  <CheckCircle2 className="h-6 w-6" />
+                ) : (
+                  <AlertCircle className="h-6 w-6" />
+                )}
+              </span>
+              <div className="space-y-1">
+                <span className="inline-block rounded-full bg-[#F6F3FA] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#836DAD]">
+                  Aviso de Split de Pagos 1:1
+                </span>
+                <h4
+                  id="ro-mp-split-notice-title"
+                  className="text-base font-extrabold text-[#2B1F42]"
+                >
+                  {modalNotice.type === "ok"
+                    ? "Confirmación de Split de Pagos"
+                    : modalNotice.type === "warn"
+                    ? "Aviso importante de Split de Pagos"
+                    : "Atención requerida en Split de Pagos"}
+                </h4>
+              </div>
+            </div>
+
+            <div
+              className={`rounded-2xl border p-4 text-xs sm:text-sm font-semibold leading-relaxed ${
+                modalNotice.type === "ok"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                  : modalNotice.type === "warn"
+                  ? "border-amber-300 bg-amber-50 text-amber-950"
+                  : "border-red-200 bg-red-50 text-red-800"
+              }`}
+            >
+              {modalNotice.text}
+            </div>
+
+            <form
+              method="dialog"
+              onSubmit={() => setModalNotice(null)}
+              className="pt-1"
+            >
+              <button
+                type="submit"
+                value="confirmed"
+                autoFocus
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#836DAD] px-5 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-[#6F599B]"
+              >
+                <CheckCircle2 className="h-4 w-4 text-[#F3D791]" />
+                <span>He leído y confirmo</span>
+              </button>
+            </form>
+          </div>
+        )}
+      </dialog>
 
       {/* =====================================================================
           OPCIÓN 1: SPLIT DE PAGOS 1:1 (COBROS Y CUENTA DE MERCADO PAGO)
