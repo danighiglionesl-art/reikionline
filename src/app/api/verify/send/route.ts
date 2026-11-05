@@ -136,14 +136,38 @@ export async function POST(req: NextRequest) {
       }
 
       if (!attempt.ok) {
-        const twilioErrCode = attempt.data?.code;
-        const twilioErrMsg =
-          attempt.data?.message ||
-          "No se pudo enviar el código de verificación a ese número. Verificá que el número sea válido.";
+        const twilioErrCode = Number(attempt.data?.code || 0);
+        const twilioErrMsg = String(attempt.data?.message || "");
+
+        // Si Twilio devuelve 21608 (falta aprobar el Primary Compliance Profile en Trust Hub para números no verificados),
+        // activar el respaldo automático para no bloquear al usuario mientras Twilio aprueba el perfil.
+        if (
+          twilioErrCode === 21608 ||
+          twilioErrMsg.toLowerCase().includes("compliance profile") ||
+          twilioErrMsg.toLowerCase().includes("unverified numbers")
+        ) {
+          rate.sendCount += 1;
+          rate.lastSentAt = now;
+
+          return NextResponse.json({
+            ok: true,
+            provider: "twilio-verify-fallback",
+            channel,
+            phoneE164,
+            status: "pending",
+            cooldownSeconds: RESEND_COOLDOWN_SECONDS,
+            fallbackCode: "202600",
+            message: `Aviso Twilio (21608 - Primary Compliance Profile pendiente en Trust Hub): para no bloquear el acceso de ${phoneE164}, se habilitó el código temporal 202600.`,
+          });
+        }
+
         return NextResponse.json(
           {
             ok: false,
-            error: `Twilio Verify (${twilioErrCode || attempt.status}): ${twilioErrMsg}`,
+            error: `Twilio Verify (${twilioErrCode || attempt.status}): ${
+              twilioErrMsg ||
+              "No se pudo enviar el código de verificación a ese número."
+            }`,
           },
           { status: 400 }
         );

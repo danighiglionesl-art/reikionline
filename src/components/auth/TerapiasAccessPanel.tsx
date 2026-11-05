@@ -422,7 +422,16 @@ export function TerapiasAccessPanel({
       if (savedSession) {
         const parsed = JSON.parse(savedSession) as AuthenticatedUser;
         if (parsed && parsed.email) {
-          setAuthenticatedUser(parsed);
+          const lowerSavedEmail = parsed.email.trim().toLowerCase();
+          const isDedicatedAdminSession =
+            lowerSavedEmail === "reikionline" ||
+            lowerSavedEmail === "admin@reikionline.com.ar";
+          const normalizedSession: AuthenticatedUser = {
+            ...parsed,
+            isAdmin: isDedicatedAdminSession,
+          };
+          setAuthenticatedUser(normalizedSession);
+          setShowAdminPanel(isDedicatedAdminSession);
           setMode("role-select");
         }
       } else {
@@ -655,30 +664,29 @@ export function TerapiasAccessPanel({
     const cleanEmail = email.trim();
     if (!cleanEmail) return;
 
-    const isExplicitAdminKeyword =
-      cleanEmail.toLowerCase() === "reikionline" ||
-      cleanEmail.toLowerCase() === "admin@reikionline.com.ar";
-
-    const isAdminLogin =
-      (isExplicitAdminKeyword ||
-        cleanEmail.toLowerCase() === "danighiglione@gmail.com") &&
+    const isExplicitAdminLogin =
+      (cleanEmail.toLowerCase() === "reikionline" ||
+        cleanEmail.toLowerCase() === "admin@reikionline.com.ar") &&
       password === "Reiki2026";
 
+    const isDanielEmail =
+      cleanEmail.toLowerCase() === "danighiglione@gmail.com";
+
     const derivedName =
-      isAdminLogin || cleanEmail.toLowerCase() === "danighiglione@gmail.com"
+      isExplicitAdminLogin || isDanielEmail
         ? "Daniel Alejandro Ghiglione"
         : cleanEmail.split("@")[0].replace(/[._-]/g, " ");
 
     persistUserSession(
       {
         name: derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
-        email: isAdminLogin ? "danighiglione@gmail.com" : cleanEmail,
+        email: isExplicitAdminLogin
+          ? "admin@reikionline.com.ar"
+          : cleanEmail,
         provider: "Correo",
-        isAdmin:
-          isAdminLogin ||
-          cleanEmail.toLowerCase() === "danighiglione@gmail.com",
+        isAdmin: isExplicitAdminLogin,
       },
-      false
+      isExplicitAdminLogin
     );
   };
 
@@ -738,16 +746,21 @@ export function TerapiasAccessPanel({
               picture?: string;
             };
 
-            const isGoogleAdmin = isAdminIdentity(profile.email);
-            persistUserSession({
-              name: isGoogleAdmin
-                ? "Daniel Alejandro Ghiglione"
-                : profile.name || "",
-              email: profile.email || "",
-              picture: profile.picture,
-              provider: "Google",
-              isAdmin: isGoogleAdmin,
-            });
+            const isDanielGoogle =
+              (profile.email || "").trim().toLowerCase() ===
+              "danighiglione@gmail.com";
+            persistUserSession(
+              {
+                name: isDanielGoogle
+                  ? "Daniel Alejandro Ghiglione"
+                  : profile.name || "",
+                email: profile.email || "",
+                picture: profile.picture,
+                provider: "Google",
+                isAdmin: false,
+              },
+              false
+            );
           } catch {
             setAuthError("Error al obtener los datos de tu cuenta de Google.");
           } finally {
@@ -1235,7 +1248,7 @@ export function TerapiasAccessPanel({
           !isCurrentUserSuspended && (
             <nav
               aria-label="Accesos permanentes del usuario"
-              className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-3 lg:grid-cols-6"
+              className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-2 sm:grid-cols-3"
             >
               {(
                 [
@@ -1258,7 +1271,7 @@ export function TerapiasAccessPanel({
                         !isAdminViewActive && prev === label ? null : label
                       );
                     }}
-                    className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                    className={`inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
                       isActive
                         ? "bg-[#836DAD] text-white shadow-sm"
                         : "bg-white text-[#2B1F42] hover:bg-[#836DAD]/12"
