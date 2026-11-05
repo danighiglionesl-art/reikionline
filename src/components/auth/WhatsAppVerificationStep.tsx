@@ -155,16 +155,16 @@ export default function WhatsAppVerificationStep({
         return;
       }
 
-      setActiveChannel(channel);
+      const effectiveChannel: "whatsapp" | "sms" =
+        data.channel === "sms" ? "sms" : channel;
+      setActiveChannel(effectiveChannel);
       setStep("otp");
-      if (data.fallbackCode) {
-        setOtpCode(String(data.fallbackCode));
-      }
+      setOtpCode(data.fallbackCode ? String(data.fallbackCode) : "");
       setCooldown(Number(data.cooldownSeconds || 60));
       setInfoMsg(
         data.message ||
           `Enviamos un código de 6 dígitos a ${computedE164} vía ${
-            channel === "whatsapp" ? "WhatsApp" : "SMS"
+            effectiveChannel === "whatsapp" ? "WhatsApp" : "SMS"
           }.`
       );
     } catch {

@@ -54,44 +54,50 @@ export async function POST(req: NextRequest) {
     }
 
     if (isTwilioConfigured()) {
-      // Si se utilizó el código de respaldo mientras Twilio aprueba el Compliance Profile, aprobar directamente
-      if (code === "202600") {
-        rate.failedChecks = 0;
-        rate.lockedUntil = 0;
-        return NextResponse.json({
-          ok: true,
-          verified: true,
-          phoneE164,
-          verifiedAt: new Date().toISOString(),
-          provider: "twilio-verify-fallback",
-        });
-      }
-
       const accountSid = process.env.TWILIO_ACCOUNT_SID!;
       const authToken = process.env.TWILIO_AUTH_TOKEN!;
       const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID!;
 
       const twilioUrl = `https://verify.twilio.com/v2/Services/${serviceSid}/VerificationCheck`;
-      const params = new URLSearchParams();
-      params.append("To", phoneE164);
-      params.append("Code", code);
-
       const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString(
         "base64"
       );
 
-      const twilioRes = await fetch(twilioUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${basicAuth}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      });
+      const checkViaTwilio = async (targetPhone: string) => {
+        const params = new URLSearchParams();
+        params.append("To", targetPhone);
+        params.append("Code", code);
 
-      const twilioData = await twilioRes.json();
+        const res = await fetch(twilioUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${basicAuth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: params.toString(),
+        });
+        const data = await res.json();
+        return { ok: res.ok && data?.status === "approved", data };
+      };
 
-      if (!twilioRes.ok || twilioData.status !== "approved") {
+      let resolvedPhone = phoneE164;
+      let checkAttempt = await checkViaTwilio(resolvedPhone);
+
+      // Si el envío fue registrado sin el 9 tras +54 en Argentina, verificar también esa variante
+      if (
+        !checkAttempt.ok &&
+        resolvedPhone.startsWith("+549") &&
+        resolvedPhone.length === 14
+      ) {
+        const altPhone = `+54${resolvedPhone.slice(4)}`;
+        const altCheck = await checkViaTwilio(altPhone);
+        if (altCheck.ok) {
+          resolvedPhone = altPhone;
+          checkAttempt = altCheck;
+        }
+      }
+
+      if (!checkAttempt.ok) {
         rate.failedChecks += 1;
         if (rate.failedChecks >= MAX_FAILED_ATTEMPTS) {
           rate.lockedUntil = now + LOCKOUT_DURATION_MS;
@@ -120,7 +126,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         verified: true,
-        phoneE164,
+        phoneE164: resolvedPhone,
         verifiedAt: new Date().toISOString(),
         provider: "twilio-verify",
       });

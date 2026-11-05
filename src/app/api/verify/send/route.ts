@@ -78,41 +78,75 @@ export async function POST(req: NextRequest) {
       const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID!;
 
       const twilioUrl = `https://verify.twilio.com/v2/Services/${serviceSid}/Verifications`;
-      const params = new URLSearchParams();
-      params.append("To", phoneE164);
-      params.append("Channel", channel);
-      params.append("Locale", "es");
-
       const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString(
         "base64"
       );
 
-      const twilioRes = await fetch(twilioUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${basicAuth}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      });
+      const sendViaTwilio = async (
+        targetPhone: string,
+        targetChannel: "whatsapp" | "sms"
+      ) => {
+        const params = new URLSearchParams();
+        params.append("To", targetPhone);
+        params.append("Channel", targetChannel);
+        params.append("Locale", "es");
 
-      const twilioData = await twilioRes.json();
-
-      if (!twilioRes.ok) {
-        // Respaldo automático mientras Twilio aprueba el Primary Compliance Profile o para números aún no agregados en Verified Caller IDs
-        rate.sendCount += 1;
-        rate.lastSentAt = now;
-
-        return NextResponse.json({
-          ok: true,
-          provider: "twilio-verify-fallback",
-          channel,
-          phoneE164,
-          status: "pending",
-          cooldownSeconds: RESEND_COOLDOWN_SECONDS,
-          fallbackCode: "202600",
-          message: `Código de verificación generado para ${phoneE164}: 202600`,
+        const res = await fetch(twilioUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Basic ${basicAuth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: params.toString(),
         });
+        const data = await res.json();
+        return { ok: res.ok, status: res.status, data };
+      };
+
+      let resolvedPhone = phoneE164;
+      let resolvedChannel: "whatsapp" | "sms" = channel;
+      let attempt = await sendViaTwilio(resolvedPhone, resolvedChannel);
+
+      // Si es un móvil de Argentina (+549...) y Twilio requiere el formato sin el 9 (+54...), reintentar automáticamente
+      if (!attempt.ok && resolvedPhone.startsWith("+549") && resolvedPhone.length === 14) {
+        const altPhone = `+54${resolvedPhone.slice(4)}`;
+        const altAttempt = await sendViaTwilio(altPhone, resolvedChannel);
+        if (altAttempt.ok) {
+          resolvedPhone = altPhone;
+          attempt = altAttempt;
+        }
+      }
+
+      // Si el canal WhatsApp no pudo despachar, reintentar automáticamente por SMS real de Twilio Verify
+      if (!attempt.ok && resolvedChannel === "whatsapp") {
+        const smsAttempt = await sendViaTwilio(phoneE164, "sms");
+        if (smsAttempt.ok) {
+          resolvedPhone = phoneE164;
+          resolvedChannel = "sms";
+          attempt = smsAttempt;
+        } else if (phoneE164.startsWith("+549") && phoneE164.length === 14) {
+          const altPhone = `+54${phoneE164.slice(4)}`;
+          const altSmsAttempt = await sendViaTwilio(altPhone, "sms");
+          if (altSmsAttempt.ok) {
+            resolvedPhone = altPhone;
+            resolvedChannel = "sms";
+            attempt = altSmsAttempt;
+          }
+        }
+      }
+
+      if (!attempt.ok) {
+        const twilioErrCode = attempt.data?.code;
+        const twilioErrMsg =
+          attempt.data?.message ||
+          "No se pudo enviar el código de verificación a ese número. Verificá que el número sea válido.";
+        return NextResponse.json(
+          {
+            ok: false,
+            error: `Twilio Verify (${twilioErrCode || attempt.status}): ${twilioErrMsg}`,
+          },
+          { status: 400 }
+        );
       }
 
       rate.sendCount += 1;
@@ -121,14 +155,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         provider: "twilio-verify",
-        channel,
-        phoneE164,
-        status: twilioData.status || "pending",
+        channel: resolvedChannel,
+        phoneE164: resolvedPhone,
+        status: attempt.data?.status || "pending",
         cooldownSeconds: RESEND_COOLDOWN_SECONDS,
         message:
-          channel === "whatsapp"
-            ? `Código de 6 dígitos enviado por WhatsApp a ${phoneE164}.`
-            : `Código de 6 dígitos enviado por SMS a ${phoneE164}.`,
+          resolvedChannel === "whatsapp"
+            ? `Código de 6 dígitos enviado por WhatsApp a ${resolvedPhone}.`
+            : `Código de 6 dígitos enviado por SMS a ${resolvedPhone}.`,
       });
     }
 
