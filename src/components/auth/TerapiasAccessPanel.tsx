@@ -823,8 +823,12 @@ export function TerapiasAccessPanel({
   };
 
   const handleBackToRoleSelect = () => {
+    if (showAdminPanel) {
+      setShowAdminPanel(false);
+      return;
+    }
     if (activeSection) {
-      handleGoToComoIngresas();
+      setActiveSection(null);
       return;
     }
     if (selectedModality) {
@@ -1145,58 +1149,20 @@ export function TerapiasAccessPanel({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Botones de navegación siempre visibles para volver a ¿Cómo ingresas? y ¿Cómo buscas? */}
+            {/* Botón único "Volver atrás" al lado de Salir cuando el usuario avanzó en alguna pantalla o pestaña */}
             {authenticatedUser &&
               isWhatsAppVerified &&
-              !isCurrentUserSuspended && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowAdminPanel(false);
-                      handleGoToComoIngresas();
-                    }}
-                    title="Ir a ¿Cómo ingresas?"
-                    className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
-                      !selectedRole && !activeSection && !isAdminViewActive
-                        ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
-                        : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
-                    }`}
-                  >
-                    {(selectedRole || activeSection || isAdminViewActive) && (
-                      <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-                    )}
-                    <span>¿Cómo ingresas?</span>
-                  </button>
-
-                  {selectedRole && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowAdminPanel(false);
-                        handleGoToComoBuscas();
-                      }}
-                      title="Ir a ¿Cómo buscas?"
-                      className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
-                        selectedRole &&
-                        !activeSection &&
-                        !searchMode &&
-                        !therapiesConfirmed &&
-                        !isAdminViewActive
-                          ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
-                          : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
-                      }`}
-                    >
-                      {(activeSection ||
-                        searchMode ||
-                        therapiesConfirmed ||
-                        isAdminViewActive) && (
-                        <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-                      )}
-                      <span>¿Cómo buscas?</span>
-                    </button>
-                  )}
-                </>
+              !isCurrentUserSuspended &&
+              (selectedRole || activeSection || isAdminViewActive) && (
+                <button
+                  type="button"
+                  onClick={handleBackToRoleSelect}
+                  title="Volver atrás"
+                  className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#836DAD]/25 bg-[#F6F3FA] px-3.5 py-2 text-xs font-semibold text-[#836DAD] transition-all hover:bg-[#836DAD] hover:text-white"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+                  <span>Volver atrás</span>
+                </button>
               )}
 
             {/* Botón para alternar entre Pantalla de Administrador y Modo Consultante/Terapeuta */}
