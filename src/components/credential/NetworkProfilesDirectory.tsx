@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import {
   getEffectiveNickname,
+  isProfileCurrentlySuspended,
   ReikiUserProfile,
 } from "@/lib/geoData";
 import {
@@ -235,6 +236,11 @@ export default function NetworkProfilesDirectory({
 
     for (const prof of Object.values(allStoredProfiles)) {
       const nick = getEffectiveNickname(prof);
+      if (!nick) continue;
+      if (isProfileCurrentlySuspended(prof)) {
+        map.delete(nick);
+        continue;
+      }
       const mappedRole: "Terapeuta" | "Consultante" =
         prof.role === "consultante" && !prof.soyTerapeuta
           ? "Consultante"
@@ -250,7 +256,10 @@ export default function NetworkProfilesDirectory({
         provincia: prof.provincia || "Córdoba",
         lat: prof.geo?.lat ?? -32.75472,
         lng: prof.geo?.lng ?? -64.33648,
-        therapies: ["Reiki Usui", "Alineación de chakras", "Armonización energética"],
+        therapies:
+          prof.therapiesOffered && prof.therapiesOffered.length > 0
+            ? prof.therapiesOffered
+            : ["Reiki Usui", "Alineación de chakras", "Armonización energética"],
         visibleEnRed: prof.visibleEnRed ?? true,
       });
     }

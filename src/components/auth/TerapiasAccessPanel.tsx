@@ -945,7 +945,6 @@ export function TerapiasAccessPanel({
         ...prev,
         [cat.id]: `Se sumó «${formattedOption}» a tus terapias ofrecidas y se envió una alerta al Administrador para evaluar su incorporación a «${cat.title}».`,
       }));
-      setShowAdminPanel(true);
     } else {
       setOtherAlertSentByCat((prev) => ({
         ...prev,
@@ -1013,6 +1012,26 @@ export function TerapiasAccessPanel({
     }
   };
 
+  const handleRemoveCustomOption = (categoryId: string, optionLabel: string) => {
+    const existing = approvedCustomOptions[categoryId] || [];
+    const nextList = existing.filter((opt) => opt !== optionLabel);
+    const nextCustomMap: Record<string, string[]> = {
+      ...approvedCustomOptions,
+      [categoryId]: nextList,
+    };
+    setApprovedCustomOptions(nextCustomMap);
+    setAdminFeedback(`Se quitó «${optionLabel}» del listado personalizado.`);
+    try {
+      window.localStorage.setItem(
+        CUSTOM_OPTIONS_STORAGE_KEY,
+        JSON.stringify(nextCustomMap)
+      );
+      notifySync();
+    } catch {
+      // Ignore
+    }
+  };
+
   const isWhatsAppVerified = Boolean(activeUserProfile?.whatsappVerified);
   const isBiometricVerified = Boolean(
     activeUserProfile &&
@@ -1029,9 +1048,18 @@ export function TerapiasAccessPanel({
       (selectedRole === "Consultante" && consultanteRisk.requiresBiometric)
   );
 
+  const isAdminViewActive = Boolean(
+    authenticatedUser?.isAdmin && showAdminPanel
+  );
+  const isCurrentUserSuspended = Boolean(
+    activeUserProfile &&
+      !isAdminViewActive &&
+      isProfileCurrentlySuspended(activeUserProfile)
+  );
+
   return (
     <div className="rounded-3xl border border-[#836DAD]/25 bg-white p-6 sm:p-8 text-[#2B1F42] shadow-xl shadow-[#836DAD]/10">
-      {/* BORDE SUPERIOR FIJO Y SIEMPRE VISIBLE (Cabecera + Barra Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera) */}
+      {/* BORDE SUPERIOR FIJO Y SIEMPRE VISIBLE */}
       <div
         className={`${
           idPrefix === "modal" ? "sticky top-0" : "sticky top-16 sm:top-20"
@@ -1056,7 +1084,9 @@ export function TerapiasAccessPanel({
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg sm:text-xl font-semibold text-[#2B1F42]">
                   {authenticatedUser
-                    ? !isWhatsAppVerified
+                    ? isAdminViewActive
+                      ? "Administrador · Reiki Online"
+                      : !isWhatsAppVerified
                       ? "Verificación de WhatsApp"
                       : selectedRole
                       ? `Espacio de ${selectedRole}`
@@ -1068,6 +1098,7 @@ export function TerapiasAccessPanel({
                     : "Ingresar"}
                 </h3>
                 {authenticatedUser &&
+                  !isAdminViewActive &&
                   isWhatsAppVerified &&
                   isBiometricVerified && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-[#836DAD] px-2.5 py-0.5 text-[11px] font-bold text-[#F3D791] shadow-2xs">
@@ -1075,78 +1106,95 @@ export function TerapiasAccessPanel({
                       ✓ Identidad verificada
                     </span>
                   )}
+                {isAdminViewActive && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#2B1F42] px-2.5 py-0.5 text-[11px] font-bold text-[#F3D791]">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Panel Exclusivo Administrador
+                  </span>
+                )}
               </div>
-              {authenticatedUser && activeUserProfile && !isWhatsAppVerified && (
-                <p className="text-xs font-medium text-[#836DAD]">
-                  Estado: WhatsApp sin verificar
-                </p>
-              )}
+              {authenticatedUser &&
+                !isAdminViewActive &&
+                activeUserProfile &&
+                !isWhatsAppVerified && (
+                  <p className="text-xs font-medium text-[#836DAD]">
+                    Estado: WhatsApp sin verificar
+                  </p>
+                )}
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Botones rectangulares en la parte fija superior: ¿Cómo ingresas? y ¿Cómo buscas? */}
-            {authenticatedUser && isWhatsAppVerified && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleGoToComoIngresas}
-                  title="Ir a ¿Cómo ingresas?"
-                  className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
-                    !selectedRole && !activeSection
-                      ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
-                      : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
-                  }`}
-                >
-                  {(selectedRole || activeSection) && (
-                    <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
-                  )}
-                  <span>¿Cómo ingresas?</span>
-                </button>
-
-                {selectedRole && (
+            {/* Botones de navegación de Consultante / Terapeuta: SOLO visibles cuando NO está en pantalla de Administrador */}
+            {authenticatedUser &&
+              isWhatsAppVerified &&
+              !isAdminViewActive &&
+              !isCurrentUserSuspended && (
+                <>
                   <button
                     type="button"
-                    onClick={handleGoToComoBuscas}
-                    title="Ir a ¿Cómo buscas?"
+                    onClick={handleGoToComoIngresas}
+                    title="Ir a ¿Cómo ingresas?"
                     className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
-                      selectedRole &&
-                      !activeSection &&
-                      !searchMode &&
-                      !therapiesConfirmed
+                      !selectedRole && !activeSection
                         ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
                         : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
                     }`}
                   >
-                    {(activeSection || searchMode || therapiesConfirmed) && (
+                    {(selectedRole || activeSection) && (
                       <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
                     )}
-                    <span>¿Cómo buscas?</span>
+                    <span>¿Cómo ingresas?</span>
                   </button>
-                )}
-              </>
-            )}
 
-            {/* Botón / Indicador de Alerta al Administrador */}
-            {(pendingAdminAlerts.length > 0 || authenticatedUser?.isAdmin) && (
+                  {selectedRole && (
+                    <button
+                      type="button"
+                      onClick={handleGoToComoBuscas}
+                      title="Ir a ¿Cómo buscas?"
+                      className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all ${
+                        selectedRole &&
+                        !activeSection &&
+                        !searchMode &&
+                        !therapiesConfirmed
+                          ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
+                          : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#2B1F42] hover:bg-[#836DAD] hover:text-white"
+                      }`}
+                    >
+                      {(activeSection || searchMode || therapiesConfirmed) && (
+                        <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span>¿Cómo buscas?</span>
+                    </button>
+                  )}
+                </>
+              )}
+
+            {/* Botón para alternar entre Pantalla de Administrador limpia y Modo Consultante/Terapeuta */}
+            {authenticatedUser?.isAdmin && (
               <button
                 type="button"
                 onClick={() => setShowAdminPanel((prev) => !prev)}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all ${
-                  pendingAdminAlerts.length > 0
-                    ? "border-[#836DAD] bg-[#F3D791] text-[#2B1F42] shadow-sm"
-                    : "border-[#836DAD]/25 bg-[#F6F3FA] text-[#836DAD]"
+                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all ${
+                  isAdminViewActive
+                    ? "border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] hover:bg-[#836DAD] hover:text-white"
+                    : "border-[#836DAD] bg-[#F3D791] text-[#2B1F42] shadow-sm hover:bg-[#836DAD] hover:text-white"
                 }`}
-                title="Ver panel y alertas del Administrador"
+                title={
+                  isAdminViewActive
+                    ? "Cambiar a vista de Consultante / Terapeuta"
+                    : "Abrir Pantalla de Administrador"
+                }
               >
-                <BellRing className="h-3.5 w-3.5 text-[#836DAD]" />
+                <BellRing className="h-3.5 w-3.5" />
                 <span>
-                  Admin
-                  {pendingAdminAlerts.length > 0
-                    ? ` (${pendingAdminAlerts.length} alerta${
-                        pendingAdminAlerts.length === 1 ? "" : "s"
-                      })`
-                    : ""}
+                  {isAdminViewActive
+                    ? "Modo Consultante / Terapeuta"
+                    : `Administrador${
+                        pendingAdminAlerts.length > 0
+                          ? ` (${pendingAdminAlerts.length})`
+                          : ""
+                      }`}
                 </span>
               </button>
             )}
@@ -1156,7 +1204,7 @@ export function TerapiasAccessPanel({
                 type="button"
                 onClick={handleResetSession}
                 title="Salir"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 px-3 py-1.5 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD]/10"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD]/25 px-3 py-2 text-xs font-semibold text-[#836DAD] transition-colors hover:bg-[#836DAD]/10"
               >
                 <LogOut className="h-3.5 w-3.5" />
                 <span>Salir</span>
@@ -1165,305 +1213,65 @@ export function TerapiasAccessPanel({
           </div>
         </div>
 
-        {/* BARRA SUPERIOR SIEMPRE FIJA Y VISIBLE: Mi Perfil · Mi Credencial · Mis Consultas · Mis Capacitaciones · Mi Billetera · Mi Red Social */}
-        {authenticatedUser && isWhatsAppVerified && (
-          <nav
-            aria-label="Accesos permanentes del usuario"
-            className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-3 lg:grid-cols-6"
-          >
-            {(
-              [
-                { label: "Mi Perfil", icon: User },
-                { label: "Mi Credencial", icon: IdCard },
-                { label: "Mis Consultas", icon: Calendar },
-                { label: "Mis Capacitaciones", icon: GraduationCap },
-                { label: "Mi Billetera", icon: Wallet },
-                { label: "Mi Red Social", icon: Users },
-              ] as const
-            ).map(({ label, icon: Icon }) => {
-              const isActive = activeSection === label;
-              return (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() =>
-                    setActiveSection((prev) =>
-                      prev === label ? null : label
-                    )
-                  }
-                  className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
-                    isActive
-                      ? "bg-[#836DAD] text-white shadow-sm"
-                      : "bg-white text-[#2B1F42] hover:bg-[#836DAD]/12"
-                  }`}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        )}
+        {/* BARRA SUPERIOR DE CONSULTANTE / TERAPEUTA: OCULTA EN PANTALLA DE ADMINISTRADOR */}
+        {authenticatedUser &&
+          isWhatsAppVerified &&
+          !isAdminViewActive &&
+          !isCurrentUserSuspended && (
+            <nav
+              aria-label="Accesos permanentes del usuario"
+              className="mt-3.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F3FA] p-1.5 sm:grid-cols-3 lg:grid-cols-6"
+            >
+              {(
+                [
+                  { label: "Mi Perfil", icon: User },
+                  { label: "Mi Credencial", icon: IdCard },
+                  { label: "Mis Consultas", icon: Calendar },
+                  { label: "Mis Capacitaciones", icon: GraduationCap },
+                  { label: "Mi Billetera", icon: Wallet },
+                  { label: "Mi Red Social", icon: Users },
+                ] as const
+              ).map(({ label, icon: Icon }) => {
+                const isActive = activeSection === label;
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() =>
+                      setActiveSection((prev) =>
+                        prev === label ? null : label
+                      )
+                    }
+                    className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                      isActive
+                        ? "bg-[#836DAD] text-white shadow-sm"
+                        : "bg-white text-[#2B1F42] hover:bg-[#836DAD]/12"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
       </div>
 
-      {/* ALERTA AL ADMINISTRADOR: Nueva categoría / opción ofrecida + Estado de Verificación WhatsApp */}
-      {(pendingAdminAlerts.length > 0 || showAdminPanel) && (
-        <div
-          role="alert"
-          aria-live="polite"
-          className="mt-4 rounded-2xl border-2 border-[#836DAD] bg-[#F6F3FA] p-4 sm:p-5 shadow-md space-y-4"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#836DAD] text-[#F3D791]">
-                <ShieldAlert className="h-4 w-4" />
-              </span>
-              <div>
-                <h4 className="text-xs sm:text-sm font-semibold text-[#2B1F42]">
-                  Panel de Administrador · Nuevas opciones y Verificación WhatsApp
-                </h4>
-                <p className="text-[11px] sm:text-xs text-[#2B1F42]/75">
-                  Gestión de terapias propuestas en el PWA y estado de
-                  verificación de WhatsApp (Twilio Verify E.164).
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowAdminPanel(false)}
-              className="cursor-pointer text-xs font-semibold text-[#836DAD] underline"
-            >
-              Ocultar
-            </button>
-          </div>
-
-          {adminFeedback && (
-            <div className="flex items-center gap-2 rounded-xl border border-[#836DAD]/25 bg-white px-3 py-2 text-xs font-semibold text-[#836DAD]">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              <span>{adminFeedback}</span>
-            </div>
-          )}
-
-          {pendingAdminAlerts.length > 0 ? (
-            <ul className="space-y-2.5">
-              {pendingAdminAlerts.map((alertItem) => (
-                <li
-                  key={alertItem.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#836DAD]/25 bg-white p-3.5"
-                >
-                  <div className="space-y-0.5">
-                    <span className="inline-block rounded-full bg-[#836DAD]/12 px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-                      Categoría {alertItem.categoryNumber}: {alertItem.categoryTitle}
-                    </span>
-                    <p className="text-sm font-semibold text-[#2B1F42]">
-                      Nueva opción ofrecida: «{alertItem.proposedOption}»
-                    </p>
-                    <p className="text-[11px] text-[#2B1F42]/65">
-                      Ofrecida por: {alertItem.proposedBy}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleAdminApproveAlert(alertItem)}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#6F599B]"
-                    >
-                      <PlusCircle className="h-3.5 w-3.5 text-[#F3D791]" />
-                      <span>Agregar a la lista existente</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleAdminDismissAlert(alertItem.id)}
-                      className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-[#836DAD]/25 bg-[#FAF8FC] px-3 py-2 text-xs font-semibold text-[#2B1F42]/75 transition-colors hover:bg-[#836DAD]/10 hover:text-[#2B1F42]"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      <span>Descartar</span>
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-xs text-[#2B1F42]/70">
-              No hay alertas pendientes de nuevas terapias en este momento.
-            </p>
-          )}
-
-          {/* Resumen de estado de verificación WhatsApp para herramientas del Administrador */}
-          {authenticatedUser?.isAdmin && (
-            <div className="rounded-xl border border-[#836DAD]/20 bg-white p-3.5 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold text-[#2B1F42]">
-                  Usuarios registrados y Estado de Verificación WhatsApp (Twilio Verify)
-                </span>
-                <span className="rounded-full bg-[#F6F3FA] px-2.5 py-0.5 text-[11px] font-semibold text-[#836DAD]">
-                  Formato E.164 activo
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b border-[#836DAD]/15 text-[#836DAD]">
-                    <tr>
-                      <th className="py-1.5 pr-3">Nombre</th>
-                      <th className="py-1.5 pr-3">WhatsApp</th>
-                      <th className="py-1.5 pr-3">Identidad Biométrica</th>
-                      <th className="py-1.5 pr-3">Simular Estado / Riesgo</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#836DAD]/10">
-                    {Object.values(
-                      Object.values(profilesByEmail).reduce<
-                        Record<string, ReikiUserProfile>
-                      >((acc, prof) => {
-                        acc[prof.id] = prof;
-                        return acc;
-                      }, {})
-                    ).map((prof) => {
-                      const bioRec =
-                        prof.biometricVerification ||
-                        createInitialBiometricRecord(prof.id, Boolean(prof.isAdmin));
-                      return (
-                        <tr key={prof.id}>
-                          <td className="py-1.5 pr-3 font-medium">
-                            {prof.nombre} {prof.apellido}
-                          </td>
-                          <td className="py-1.5 pr-3">
-                            {prof.whatsappVerified ? (
-                              <span className="text-emerald-700 font-semibold">
-                                WhatsApp verificado
-                              </span>
-                            ) : (
-                              <span className="text-amber-700 font-semibold">
-                                WhatsApp sin verificar
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-1.5 pr-3">
-                            <span
-                              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                                bioRec.status === "verificada"
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : bioRec.status === "pendiente"
-                                  ? "bg-amber-100 text-amber-800"
-                                  : bioRec.status === "rechazada"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-[#F4F0FA] text-[#5E4B8B]"
-                              }`}
-                            >
-                              {bioRec.status === "verificada"
-                                ? "✓ Identidad verificada"
-                                : bioRec.status}
-                            </span>
-                          </td>
-                          <td className="py-1.5 pr-3">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <select
-                                aria-label="Cambiar estado biométrico"
-                                value={bioRec.status}
-                                onChange={(e) => {
-                                  const nextSt = e.target
-                                    .value as BiometricVerificationStatus;
-                                  const nowIso = new Date().toISOString();
-                                  const nextBio = {
-                                    ...bioRec,
-                                    status: nextSt,
-                                    resolvedAt:
-                                      nextSt === "verificada" ||
-                                      nextSt === "rechazada"
-                                        ? nowIso
-                                        : null,
-                                    expiresAt:
-                                      nextSt === "verificada"
-                                        ? new Date(
-                                            Date.now() +
-                                              365 * 24 * 60 * 60 * 1000
-                                          ).toISOString()
-                                        : null,
-                                    technicalResult:
-                                      nextSt === "verificada"
-                                        ? {
-                                            dniFrontCaptured: true,
-                                            dniBackCaptured: true,
-                                            selfieCaptured: true,
-                                            livenessPassed: true,
-                                            facialMatchScore: 99.1,
-                                            renaperChecked: true,
-                                            renaperStatus: "validado" as const,
-                                            providerReference: `ADM-${prof.id.toUpperCase()}`,
-                                            serverSignature: `adm-sig-${Date.now()}`,
-                                          }
-                                        : bioRec.technicalResult,
-                                    rejectionOrReviewReason:
-                                      nextSt === "rechazada"
-                                        ? "Imagen del documento borrosa o con reflejos. Intentá nuevamente con buena luz."
-                                        : nextSt === "revision_requerida"
-                                        ? "Derivado a revisión documental asistida."
-                                        : null,
-                                  };
-                                  saveUserProfile({
-                                    ...prof,
-                                    biometricVerification: nextBio,
-                                  });
-                                }}
-                                className="rounded-lg border border-[#836DAD]/30 bg-white px-2 py-1 text-[11px] font-semibold text-[#2B1F42]"
-                              >
-                                <option value="no_iniciada">no_iniciada</option>
-                                <option value="pendiente">pendiente</option>
-                                <option value="verificada">verificada</option>
-                                <option value="rechazada">rechazada</option>
-                                <option value="revision_requerida">
-                                  revision_requerida
-                                </option>
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const hasRisk =
-                                    (bioRec.riskFlags || []).length > 0;
-                                  saveUserProfile({
-                                    ...prof,
-                                    biometricVerification: {
-                                      ...bioRec,
-                                      status: hasRisk
-                                        ? bioRec.status
-                                        : "no_iniciada",
-                                      riskFlags: hasRisk
-                                        ? []
-                                        : ["alerta_seguridad"],
-                                    },
-                                  });
-                                }}
-                                className="cursor-pointer rounded-lg border border-[#836DAD]/30 bg-[#FAF8FC] px-2 py-1 text-[10px] font-bold text-[#5E4B8B] hover:bg-[#836DAD] hover:text-white"
-                              >
-                                {(bioRec.riskFlags || []).length > 0
-                                  ? "Quitar alerta riesgo Consultante"
-                                  : "Simular riesgo Consultante"}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* SECCIÓN EXCLUSIVA PARA EL ADMINISTRADOR (INVISIBLE EN NAVEGACIÓN PÚBLICA):
-              PAGOS Y COMISIONES — MERCADO PAGO SPLIT 1:1 + SUPERVISIÓN DE CAPACITACIONES */}
-          {authenticatedUser?.isAdmin && (
-            <div className="space-y-4">
-              <AdminPaymentsCommissionsPanel
-                adminUser={authenticatedUser.email}
-              />
-              <AdminTrainingsSupervisionPanel
-                adminUser={authenticatedUser.email}
-              />
-            </div>
-          )}
+      {/* PANTALLA EXCLUSIVA Y LIMPIA DE ADMINISTRADOR (Sin secciones de Consultante ni Terapeuta) */}
+      {isAdminViewActive && authenticatedUser && (
+        <div className="mt-6 space-y-6">
+          <AdminDashboardPanel
+            adminEmail={authenticatedUser.email}
+            profilesByEmail={profilesByEmail}
+            onSaveUserProfile={(updated) => saveUserProfile(updated)}
+            pendingAdminAlerts={pendingAdminAlerts}
+            approvedCustomOptions={approvedCustomOptions}
+            adminFeedback={adminFeedback}
+            onApproveAlert={handleAdminApproveAlert}
+            onDismissAlert={handleAdminDismissAlert}
+            onRemoveCustomOption={handleRemoveCustomOption}
+          />
+          <AdminTrainingsSupervisionPanel adminUser={authenticatedUser.email} />
         </div>
       )}
 
@@ -1785,15 +1593,31 @@ export function TerapiasAccessPanel({
         </div>
       )}
 
-      {/* 4. PANTALLA POST-LOGIN:
-          - Si WhatsApp NO está verificado: muestra primero Verificación obligatoria de WhatsApp (Twilio Verify)
-          - Si WhatsApp está verificado:
-            Arriba: «Consultante» | «Terapeuta»
-            Al elegir rol: Las 6 categorías sin números duplicados ni "(podés combinar opciones)"
-            Abajo: Barra fija «Mi Perfil · Mi Credencial · Mis Consultas · Mi Billetera» */}
-      {authenticatedUser && activeUserProfile && (
+      {/* 4. PANTALLA POST-LOGIN EXCLUSIVA DE CONSULTANTE / TERAPEUTA (NO SE MUESTRA EN MODO ADMINISTRADOR) */}
+      {authenticatedUser && activeUserProfile && !isAdminViewActive && (
         <div className="mt-6 space-y-6">
-          {!isWhatsAppVerified ? (
+          {isCurrentUserSuspended ? (
+            <div className="rounded-3xl border-2 border-rose-500 bg-rose-50 p-6 text-center space-y-3">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-600 text-white">
+                <ShieldAlert className="h-6 w-6" />
+              </div>
+              <h4 className="text-lg font-extrabold text-rose-900">
+                Tu perfil se encuentra suspendido en Reiki Online
+              </h4>
+              <p className="text-xs sm:text-sm font-semibold text-rose-800">
+                {activeUserProfile.suspension?.status === "definitiva"
+                  ? "Suspensión definitiva por incumplimiento de las normas de la comunidad."
+                  : `Suspensión temporal vigente hasta el ${new Date(
+                      activeUserProfile.suspension?.suspendedUntil || ""
+                    ).toLocaleString("es-AR")}.`}
+              </p>
+              {activeUserProfile.suspension?.reason && (
+                <div className="mx-auto max-w-xl rounded-2xl border border-rose-300 bg-white px-4 py-3 text-xs text-rose-900">
+                  <strong>Motivo:</strong> {activeUserProfile.suspension.reason}
+                </div>
+              )}
+            </div>
+          ) : !isWhatsAppVerified ? (
             <WhatsAppVerificationStep
               key={activeUserProfile.email}
               initialPrefijo={activeUserProfile.prefijoTelefono}

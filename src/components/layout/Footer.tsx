@@ -142,10 +142,10 @@ export function Footer({ onOpenAccess }: FooterProps) {
               </a>
 
               <a
-                href="https://www.facebook.com/reikionline.ar"
+                href="https://www.facebook.com/ar.reikionline/"
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="Facebook oficial de Reiki Online (reikionline.ar)"
+                aria-label="Facebook oficial de Reiki Online (ar.reikionline)"
                 className="inline-flex items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:border-[#F3D791] hover:text-[#F3D791]"
               >
                 <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">

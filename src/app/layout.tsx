@@ -84,7 +84,7 @@ export default function RootLayout({
     inLanguage: "es-AR",
     sameAs: [
       "https://www.instagram.com/reikionline.ar/",
-      "https://www.facebook.com/reikionline.ar",
+      "https://www.facebook.com/ar.reikionline/",
     ],
   };
 
