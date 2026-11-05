@@ -40,6 +40,8 @@ export interface CommissionAuditLogEntry {
 export interface CommissionConfigState {
   // Porcentaje general predeterminado (inicialmente 10% Reiki Online / 90% Terapeuta)
   defaultPercentage: number;
+  // Porcentaje independiente para Capacitaciones («Mis Capacitaciones» / «Academia Reiki Online»)
+  trainingCommissionPercentage?: number;
   // Configuración administrativa independiente para las 4 modalidades requeridas
   presets: Record<CommissionPresetKey, number>;
   // Reglas específicas adicionales para combinaciones futuras (modalidad + contratación)
@@ -205,6 +207,7 @@ export const BOOKING_TIMING_LABELS: Record<BookingTimingType, string> = {
 
 export const DEFAULT_COMMISSION_CONFIG: CommissionConfigState = {
   defaultPercentage: 10,
+  trainingCommissionPercentage: 10,
   presets: {
     presencial_con_turno: 10,
     distancia_sin_video: 10,
@@ -314,6 +317,44 @@ export function resolveApplicableCommission(
     therapistSharePercentage: round2(100 - defPct),
     ruleSource: "default_general",
     ruleLabel: `Porcentaje general predeterminado (${defPct}%)`,
+    capturedAt: nowIso,
+  };
+}
+
+/**
+ * Resuelve el porcentaje de comisión de Reiki Online aplicable a Capacitaciones
+ * (independiente de la comisión aplicada a las sesiones terapéuticas).
+ */
+export function resolveTrainingCommission(
+  config: CommissionConfigState,
+  therapistId?: string,
+  therapistNickname?: string
+): ImmutableCommissionSnapshot {
+  const nowIso = new Date().toISOString();
+  const cleanNick = (therapistNickname || "").trim().toLowerCase();
+  const exception =
+    (therapistId && config.therapistExceptions[therapistId]) ||
+    (cleanNick && config.therapistExceptions[cleanNick]);
+
+  if (exception && typeof exception.percentage === "number") {
+    const pct = clampPercentage(exception.percentage);
+    return {
+      appliedPercentage: pct,
+      therapistSharePercentage: round2(100 - pct),
+      ruleSource: "therapist_exception",
+      ruleLabel: `Excepción individual en Capacitaciones (${exception.therapistName}): ${pct}%`,
+      capturedAt: nowIso,
+    };
+  }
+
+  const trainingPct = clampPercentage(
+    config.trainingCommissionPercentage ?? config.defaultPercentage ?? 10
+  );
+  return {
+    appliedPercentage: trainingPct,
+    therapistSharePercentage: round2(100 - trainingPct),
+    ruleSource: "modality_preset",
+    ruleLabel: `Comisión Academia Reiki Online / Capacitaciones (${trainingPct}%)`,
     capturedAt: nowIso,
   };
 }

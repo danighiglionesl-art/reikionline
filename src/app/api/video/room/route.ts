@@ -23,20 +23,33 @@ export async function POST(req: NextRequest) {
     ).trim();
     const participantRole =
       body?.participantRole === "Terapeuta" ? "Terapeuta" : "Consultante";
+    const isOrganizer =
+      typeof body?.isOrganizer === "boolean"
+        ? body.isOrganizer
+        : participantRole === "Terapeuta";
     const modality =
       body?.modality === "Online ahora" ? "Online ahora" : "Online con turno";
     const therapyName = String(body?.therapyName || "Sesión de Reiki Online");
+    const maxParticipants = Math.max(
+      2,
+      Math.min(200, Number(body?.maxParticipants) || 2)
+    );
+    const durationMinutes = Math.max(
+      15,
+      Math.min(360, Number(body?.durationMinutes) || 60)
+    );
+    const enableRecording = Boolean(body?.enableRecording);
 
     const nowSec = Math.floor(Date.now() / 1000);
-    // Duración de 60 minutos exactos (3600 segundos)
-    const expSec = nowSec + 3600;
+    // Duración configurable (60 min por defecto para sesiones 1:1, o según la clase de capacitación)
+    const expSec = nowSec + durationMinutes * 60;
     const createdAtIso = new Date(nowSec * 1000).toISOString();
     const expiresAtIso = new Date(expSec * 1000).toISOString();
 
     const dailyApiKey = (process.env.DAILY_API_KEY || "").trim();
 
     if (dailyApiKey) {
-      // 1. Crear o recuperar sala privada 1:1 en Daily.co REST API
+      // 1. Crear o recuperar sala privada en Daily.co REST API
       let roomUrl = "";
       let roomName = safeRoomSlug;
 
@@ -67,10 +80,12 @@ export async function POST(req: NextRequest) {
             privacy: "private",
             properties: {
               exp: expSec,
-              max_participants: 2,
+              max_participants: maxParticipants,
               enable_chat: true,
               enable_screenshare: true,
+              enable_hand_raising: true,
               enable_prejoin_ui: false,
+              ...(enableRecording ? { enable_recording: "cloud" } : {}),
               lang: "es",
             },
           }),
@@ -84,7 +99,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (roomUrl) {
-        // 2. Emitir meeting token firmado por Daily.co para el participante (sin exponer email ni WhatsApp)
+        // 2. Emitir meeting token firmado por Daily.co con permisos diferenciados (Organizador vs Alumno/Consultante)
         const tokenRes = await fetch("https://api.daily.co/v1/meeting-tokens", {
           method: "POST",
           headers: {
@@ -95,7 +110,8 @@ export async function POST(req: NextRequest) {
             properties: {
               room_name: roomName,
               user_name: `${participantName} (${participantRole})`,
-              is_owner: participantRole === "Terapeuta",
+              is_owner: isOrganizer,
+              enable_screenshare: true,
               exp: expSec,
             },
           }),
@@ -117,7 +133,10 @@ export async function POST(req: NextRequest) {
           roomUrl: fullRoomUrl,
           modality,
           therapyName,
-          durationMinutes: 60,
+          maxParticipants,
+          durationMinutes,
+          isOrganizer,
+          enableRecording,
           createdAt: createdAtIso,
           expiresAt: expiresAtIso,
         });
@@ -132,7 +151,9 @@ export async function POST(req: NextRequest) {
 
     const sandboxToken = crypto
       .createHmac("sha256", secret)
-      .update(`${safeRoomSlug}:${participantName}:${participantRole}:${expSec}`)
+      .update(
+        `${safeRoomSlug}:${participantName}:${participantRole}:${isOrganizer}:${expSec}`
+      )
       .digest("hex")
       .slice(0, 24);
 
@@ -148,7 +169,10 @@ export async function POST(req: NextRequest) {
       roomUrl: `https://${dailyDomain}/${safeRoomSlug}?t=${sandboxToken}`,
       modality,
       therapyName,
-      durationMinutes: 60,
+      maxParticipants,
+      durationMinutes,
+      isOrganizer,
+      enableRecording,
       createdAt: createdAtIso,
       expiresAt: expiresAtIso,
     });

@@ -1048,18 +1048,15 @@ export default function AdminPaymentsCommissionsPanel({
   const activeLocks = loadActiveTherapistLocks();
 
   return (
-    <div className="mt-6 rounded-3xl border-2 border-[#836DAD]/30 bg-white p-5 shadow-md">
+    <div className="rounded-3xl border-2 border-[#836DAD]/30 bg-white p-5 shadow-md">
       {/* Cabecera Exclusiva Administrador */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#836DAD]/15 pb-4">
         <div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-[#2B1F42] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#F3D791]">
-            <span>🔒 Panel Exclusivo Administrador · Invisible en Navegación Pública</span>
-          </div>
-          <h3 className="mt-2 text-xl font-extrabold text-[#2B1F42]">
-            Pagos y Comisiones — Mercado Pago Split 1:1
+          <h3 className="text-lg sm:text-xl font-extrabold text-[#2B1F42]">
+            Comisiones y Pagos — Mercado Pago Split 1:1
           </h3>
           <p className="text-xs text-[#2B1F42]/75">
-            Distribución automática en origen entre el terapeuta y Reiki Online sin retención intermedia ni transferencias manuales.
+            Configuración de porcentajes de comisión de Reiki Online y seguimiento de sesiones, reprogramaciones y reembolsos.
           </p>
         </div>
 
@@ -1067,19 +1064,9 @@ export default function AdminPaymentsCommissionsPanel({
           <button
             type="button"
             onClick={handleExportAccountingCsv}
-            className="rounded-xl border border-[#836DAD]/30 bg-[#F6F3FA] px-3.5 py-2 text-xs font-bold text-[#2B1F42] transition hover:bg-[#836DAD] hover:text-white"
+            className="cursor-pointer rounded-xl border border-[#836DAD]/30 bg-[#F6F3FA] px-3.5 py-2 text-xs font-bold text-[#2B1F42] transition hover:bg-[#836DAD] hover:text-white"
           >
             📥 Exportar CSV Contable ({filteredTransactions.length})
-          </button>
-          <button
-            type="button"
-            onClick={handleRunPreProductionTests}
-            disabled={isRunningTests}
-            className="rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#6D5898] disabled:opacity-50"
-          >
-            {isRunningTests
-              ? "Ejecutando pruebas..."
-              : "🧪 Ejecutar Pruebas Pre-Producción"}
           </button>
         </div>
       </div>
@@ -1091,7 +1078,7 @@ export default function AdminPaymentsCommissionsPanel({
       )}
 
       {/* Resumen Ejecutivo de Indicadores */}
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border border-[#836DAD]/20 bg-[#F6F3FA]/70 p-3">
           <p className="text-[11px] font-semibold uppercase text-[#2B1F42]/65">
             Volumen Bruto Aprobado
@@ -1124,15 +1111,6 @@ export default function AdminPaymentsCommissionsPanel({
             {formatArs(accountingTotals.therapistNetApproved)}
           </p>
         </div>
-        <div className="rounded-2xl border border-rose-300/70 bg-rose-50/70 p-3">
-          <p className="text-[11px] font-semibold uppercase text-rose-900/75">
-            Conciliaciones / Alertas
-          </p>
-          <p className="mt-1 text-lg font-extrabold text-rose-700">
-            {accountingTotals.pendingReconciliations +
-              integrationErrors.filter((e) => !e.resolved).length}
-          </p>
-        </div>
       </div>
 
       {/* Pestañas del Módulo */}
@@ -1148,22 +1126,18 @@ export default function AdminPaymentsCommissionsPanel({
           },
           {
             id: "operaciones" as AdminTab,
-            label: `3. Operaciones y Conciliación (${transactions.length})`,
+            label: `3. Operaciones (${transactions.length})`,
           },
           {
             id: "devoluciones" as AdminTab,
-            label: "4. Cancelaciones, Devoluciones y Disputas",
-          },
-          {
-            id: "auditoria_pruebas" as AdminTab,
-            label: `5. Auditoría (${config.auditLog.length}) y Puesta en Producción`,
+            label: "4. Cancelaciones y Reprogramaciones",
           },
         ].map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`rounded-xl px-3.5 py-2 text-xs font-bold transition ${
+            className={`cursor-pointer rounded-xl px-3.5 py-2 text-xs font-bold transition ${
               activeTab === tab.id
                 ? "bg-[#2B1F42] text-[#F3D791] shadow-sm"
                 : "bg-[#F6F3FA] text-[#2B1F42]/80 hover:bg-[#836DAD]/15"

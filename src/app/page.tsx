@@ -7,6 +7,7 @@ import { FloatingAccessButton } from "@/components/layout/FloatingAccessButton";
 import { HeroSection } from "@/components/sections/HeroSection";
 import { AboutObjectivesSection } from "@/components/sections/AboutObjectivesSection";
 import { TherapiesSection } from "@/components/sections/TherapiesSection";
+import { AcademiaReikiSection } from "@/components/sections/AcademiaReikiSection";
 import { HowItWorksSection } from "@/components/sections/HowItWorksSection";
 import { ProfessionalsSection } from "@/components/sections/ProfessionalsSection";
 import { InlineAccessSection } from "@/components/sections/InlineAccessSection";
@@ -45,6 +46,13 @@ export default function HomePage() {
         <TherapiesSection
           onRequestBooking={(specialtyLabel) =>
             handleOpenAccess(specialtyLabel, "login")
+          }
+        />
+
+        {/* 05b. Academia Reiki Online (Catálogo general de capacitaciones online en vivo) */}
+        <AcademiaReikiSection
+          onOpenCapacitaciones={(ctx) =>
+            handleOpenAccess(ctx || "Mis Capacitaciones", "login")
           }
         />
 

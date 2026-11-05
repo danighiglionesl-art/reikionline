@@ -185,6 +185,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Inicio", href: "#inicio" },
   { label: "Quiénes somos", href: "#quienes-somos" },
   { label: "Terapias", href: "#terapias" },
+  { label: "Academia", href: "#academia" },
   { label: "Cómo funciona", href: "#como-funciona" },
   { label: "Profesionales", href: "#profesionales" },
   { label: "Contacto", href: "#contacto" },
