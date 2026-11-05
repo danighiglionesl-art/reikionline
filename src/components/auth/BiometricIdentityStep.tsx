@@ -484,36 +484,9 @@ export default function BiometricIdentityStep({
       {/* Formulario / Procedimiento de Verificación (cuando no está verificada o se desea actualizar en entorno de pruebas) */}
       {currentRecord.status !== "verificada" && !attemptsExhausted && (
         <div className="space-y-5">
-          {/* Selección de adaptador de proveedor API (Arquitectura desacoplada Sección 7) */}
+          {/* Consentimiento e inicio de verificación con el proveedor oficial de Reiki Online */}
           <div className="rounded-2xl border border-[#836DAD]/20 bg-[#FAF8FC] p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label
-                htmlFor="ro-bio-provider"
-                className="text-xs font-bold uppercase tracking-wider text-[#5E4B8B]"
-              >
-                Proveedor especializado de verificación biométrica (API)
-              </label>
-              <span className="rounded-full bg-[#F3D791]/55 px-2.5 py-0.5 text-[10px] font-bold text-[#2B1F42]">
-                Entorno de Pruebas Activo • Sin cargos
-              </span>
-            </div>
-
-            <select
-              id="ro-bio-provider"
-              value={selectedProvider}
-              onChange={(e) =>
-                setSelectedProvider(e.target.value as BiometricProviderId)
-              }
-              className="w-full rounded-xl border border-[#836DAD]/30 bg-white px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-[#2B1F42] focus:border-[#836DAD] focus:outline-none"
-            >
-              {Object.values(BIOMETRIC_PROVIDER_CATALOG).map((prov) => (
-                <option key={prov.id} value={prov.id}>
-                  {prov.name} — {prov.environmentLabel} (DNI Argentino + Liveness + RENAPER)
-                </option>
-              ))}
-            </select>
-
-            <label className="flex items-start gap-2.5 text-xs text-[#2B1F42]/85 cursor-pointer pt-1">
+            <label className="flex items-start gap-2.5 text-xs text-[#2B1F42]/85 cursor-pointer">
               <input
                 type="checkbox"
                 checked={consentAccepted}
@@ -522,7 +495,7 @@ export default function BiometricIdentityStep({
               />
               <span>
                 <strong>Consentimiento informado y tratamiento de datos:</strong>{" "}
-                Autorizo la captura del frente y dorso de mi DNI, selfie con prueba de vida (liveness detection), comparación biométrica facial y validación de identidad contra RENAPER a través del proveedor especializado. Reiki Online no almacena innecesariamente imágenes biométricas crudas (Ley 25.326). *
+                Autorizo la captura del frente y dorso de mi DNI, selfie con prueba de vida (liveness detection), comparación biométrica facial y validación de identidad contra RENAPER. Reiki Online no almacena innecesariamente imágenes biométricas crudas (Ley 25.326). *
               </span>
             </label>
 
@@ -549,7 +522,7 @@ export default function BiometricIdentityStep({
                   RENAPER:{" "}
                   {activeSession.renaperAvailable
                     ? "Disponible y autorizado"
-                    : "Modo estándar"}
+                    : "Validación activa"}
                 </span>
               </div>
             )}
@@ -793,43 +766,15 @@ export default function BiometricIdentityStep({
             </div>
           </div>
 
-          {/* Botón principal de validación automática + Controles del Entorno de Pruebas (Sección 7) */}
+          {/* Botón principal de validación automática */}
           <div className="rounded-2xl border border-[#836DAD]/30 bg-[#FAF8FC] p-4 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <span className="text-xs font-bold text-[#2B1F42] block">
-                  2. Validar identidad biométrica y contraste RENAPER
-                </span>
-                <span className="text-[11px] text-[#2B1F42]/70">
-                  La validación es firmada criptográficamente por el backend de Reiki Online.
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <label
-                  htmlFor="ro-bio-sim-outcome"
-                  className="text-[11px] font-semibold text-[#5E4B8B]"
-                >
-                  Resultado de prueba:
-                </label>
-                <select
-                  id="ro-bio-sim-outcome"
-                  value={simulatedOutcome}
-                  onChange={(e) =>
-                    setSimulatedOutcome(
-                      e.target.value as BiometricVerificationStatus
-                    )
-                  }
-                  className="rounded-xl border border-[#836DAD]/30 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#2B1F42]"
-                >
-                  <option value="verificada">Aprobar (verificada)</option>
-                  <option value="pendiente">En proceso (pendiente)</option>
-                  <option value="rechazada">Rechazar (rechazada)</option>
-                  <option value="revision_requerida">
-                    Revisión (revision_requerida)
-                  </option>
-                </select>
-              </div>
+            <div>
+              <span className="text-xs font-bold text-[#2B1F42] block">
+                2. Validar identidad biométrica y contraste RENAPER
+              </span>
+              <span className="text-[11px] text-[#2B1F42]/70">
+                La validación es firmada criptográficamente por el servidor de Reiki Online.
+              </span>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
