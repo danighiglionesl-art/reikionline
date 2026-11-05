@@ -33,8 +33,10 @@ import {
   RoleTherapyCategory,
 } from "@/lib/reiki-data";
 import {
+  COMMUNITY_SEED_PROFILES,
   DEFAULT_ADMIN_PROFILE,
   getEffectiveNickname,
+  isProfileCurrentlySuspended,
   ReikiUserProfile,
   sanitizeNickname,
 } from "@/lib/geoData";
@@ -51,7 +53,7 @@ import SocialNetworkProfileView from "@/components/profile/SocialNetworkProfileV
 import ModalityWorkflowPanel from "@/components/auth/ModalityWorkflowPanel";
 import UserCredentialPanel from "@/components/credential/UserCredentialPanel";
 import NetworkProfilesDirectory from "@/components/credential/NetworkProfilesDirectory";
-import AdminPaymentsCommissionsPanel from "@/components/payments/AdminPaymentsCommissionsPanel";
+import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
 import TherapistMercadoPagoSection from "@/components/payments/TherapistMercadoPagoSection";
 import DailyVideoCallModal from "@/components/video/DailyVideoCallModal";
 import MisCapacitacionesPanel from "@/components/trainings/MisCapacitacionesPanel";
@@ -281,6 +283,7 @@ function sanitizeStoredProfile(
 export function TerapiasAccessPanel({
   idPrefix = "inline",
   initialMode = "login",
+  preselectedContext = null,
 }: TerapiasAccessPanelProps) {
   const uniqueId = useId();
   const baseId = `${idPrefix}-${uniqueId}`;
@@ -301,12 +304,13 @@ export function TerapiasAccessPanel({
     null
   );
 
-  // Perfiles de usuarios (incluyendo Mi Perfil + Maps + Verificación WhatsApp)
+  // Perfiles de usuarios (incluyendo Consultantes y Terapeutas de la comunidad + Mi Perfil + Maps + Verificación WhatsApp)
   const [profilesByEmail, setProfilesByEmail] = useState<
     Record<string, ReikiUserProfile>
   >({
     reikionline: DEFAULT_ADMIN_PROFILE,
     "danighiglione@gmail.com": DEFAULT_ADMIN_PROFILE,
+    ...COMMUNITY_SEED_PROFILES,
   });
 
   // Selecciones múltiples por rol (combinaciones de terapias)
@@ -525,13 +529,24 @@ export function TerapiasAccessPanel({
     : null;
 
   const saveUserProfile = (updated: ReikiUserProfile) => {
-    if (!authenticatedUser) return;
-    const key = authenticatedUser.email.toLowerCase();
+    const targetEmailKey = (
+      updated.email ||
+      authenticatedUser?.email ||
+      ""
+    )
+      .trim()
+      .toLowerCase();
+    if (!targetEmailKey) return;
+
     const nextMap: Record<string, ReikiUserProfile> = {
       ...profilesByEmail,
-      [key]: updated,
+      [targetEmailKey]: updated,
     };
-    if (authenticatedUser.isAdmin) {
+    if (
+      updated.isAdmin ||
+      targetEmailKey === "danighiglione@gmail.com" ||
+      targetEmailKey === "reikionline"
+    ) {
       nextMap["reikionline"] = updated;
       nextMap["danighiglione@gmail.com"] = updated;
     }
