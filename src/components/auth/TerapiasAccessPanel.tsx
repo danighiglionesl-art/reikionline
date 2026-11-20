@@ -416,7 +416,10 @@ export function TerapiasAccessPanel({
     Record<string, string | null>
   >({});
 
-  // Opciones agregadas y aprobadas por el Administrador + Alertas pendientes
+  // Opciones agregadas y aprobadas por el Administrador + Alertas pendientes + Catálogo ABM de Categorías
+  const [managedCategories, setManagedCategories] = useState<
+    RoleTherapyCategory[]
+  >(ROLE_THERAPY_CATEGORIES);
   const [approvedCustomOptions, setApprovedCustomOptions] = useState<
     Record<string, string[]>
   >({});
@@ -515,6 +518,8 @@ export function TerapiasAccessPanel({
     } catch {
       // Ignore storage read errors
     }
+
+    setManagedCategories(loadManagedRoleCategories());
 
     try {
       const savedCustom = window.localStorage.getItem(
@@ -1773,7 +1778,7 @@ export function TerapiasAccessPanel({
                       : "Consultante")
                   }
                   isBiometricVerified={isBiometricVerified}
-                  availableDisciplines={ROLE_THERAPY_CATEGORIES.flatMap((cat) =>
+                  availableDisciplines={managedCategories.flatMap((cat) =>
                     getCategoryOptions(cat)
                   )}
                 />
@@ -2668,9 +2673,9 @@ export function TerapiasAccessPanel({
                     )}
                   </div>
 
-                  {/* Listado de las 6 categorías usando <details open> nativo accesible y buscable */}
+                  {/* Listado de las categorías usando <details open> nativo accesible y buscable */}
                   <div className="space-y-3">
-                    {ROLE_THERAPY_CATEGORIES.map((cat) => {
+                    {managedCategories.map((cat) => {
                       const allOptions = getCategoryOptions(cat);
                       const cleanQuery = searchFilter.trim().toLowerCase();
                       const visibleOptions = cleanQuery

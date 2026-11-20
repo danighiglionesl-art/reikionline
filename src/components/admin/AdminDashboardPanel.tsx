@@ -30,9 +30,9 @@ import {
   BiometricVerificationStatus,
   createInitialBiometricRecord,
 } from "@/lib/biometricIdentity";
-import { ROLE_THERAPY_CATEGORIES } from "@/lib/reiki-data";
 import type { PendingAdminCategoryAlert } from "@/components/auth/TerapiasAccessPanel";
 import AdminPaymentsCommissionsPanel from "@/components/payments/AdminPaymentsCommissionsPanel";
+import AdminCategoriesTherapiesAbmPanel from "@/components/admin/AdminCategoriesTherapiesAbmPanel";
 
 interface AdminDashboardPanelProps {
   adminEmail: string;
@@ -411,7 +411,7 @@ export default function AdminDashboardPanel({
         >
           <Sparkles className="h-4 w-4 shrink-0" />
           <span>
-            2. Terapias Propuestas
+            2. Categorías y Terapias (ABM)
             {pendingAdminAlerts.length > 0
               ? ` (${pendingAdminAlerts.length})`
               : ""}
@@ -994,123 +994,17 @@ export default function AdminDashboardPanel({
       )}
 
       {/* =====================================================================
-          SECCIÓN 2: GESTIÓN DE NUEVAS TERAPIAS PROPUESTAS («OTRA -> ¿CUÁL?»)
+          SECCIÓN 2: CATEGORÍAS Y TERAPIAS VINCULADAS (ABM COMPLETO + PROPUESTAS)
          ===================================================================== */}
       {activeTab === "terapias" && (
-        <div className="space-y-5">
-          <div className="rounded-3xl border border-[#836DAD]/25 bg-[#F6F3FA] p-5 space-y-4">
-            <div>
-              <h4 className="text-base font-bold text-[#2B1F42]">
-                Propuestas de Nuevas Terapias («Otra → ¿Cuál?»)
-              </h4>
-              <p className="text-xs text-[#2B1F42]/75">
-                Cuando un Terapeuta propone una terapia que no está en las 6 categorías oficiales, podés aprobarla para sumarla al listado general o descartarla.
-              </p>
-            </div>
-
-            {pendingAdminAlerts.length > 0 ? (
-              <ul className="space-y-2.5">
-                {pendingAdminAlerts.map((alertItem) => (
-                  <li
-                    key={alertItem.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#836DAD]/25 bg-white p-4 shadow-2xs"
-                  >
-                    <div className="space-y-0.5">
-                      <span className="inline-block rounded-full bg-[#836DAD]/12 px-2.5 py-0.5 text-[11px] font-bold text-[#836DAD]">
-                        Categoría {alertItem.categoryNumber}:{" "}
-                        {alertItem.categoryTitle}
-                      </span>
-                      <p className="text-sm font-bold text-[#2B1F42]">
-                        Nueva terapia propuesta: «{alertItem.proposedOption}»
-                      </p>
-                      <p className="text-[11px] text-[#2B1F42]/65">
-                        Propuesta por: {alertItem.proposedBy}
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => onApproveAlert(alertItem)}
-                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#836DAD] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#6F599B]"
-                      >
-                        <PlusCircle className="h-3.5 w-3.5 text-[#F3D791]" />
-                        <span>Agregar a la lista existente</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDismissAlert(alertItem.id)}
-                        className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-[#836DAD]/25 bg-[#FAF8FC] px-3 py-2 text-xs font-bold text-[#2B1F42]/75 transition-colors hover:bg-[#836DAD]/10 hover:text-[#2B1F42]"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>Descartar</span>
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="rounded-2xl border border-[#836DAD]/15 bg-white p-4 text-xs text-[#2B1F42]/70">
-                No hay propuestas pendientes de nuevas terapias en este momento.
-              </div>
-            )}
-          </div>
-
-          {/* Listado de las 6 categorías oficiales y terapias agregadas */}
-          <div className="rounded-3xl border border-[#836DAD]/25 bg-white p-5 space-y-4">
-            <h5 className="text-sm font-bold text-[#2B1F42]">
-              Catálogo Vigente de las 6 Categorías de Terapias
-            </h5>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {ROLE_THERAPY_CATEGORIES.map((cat) => {
-                const customForCat = approvedCustomOptions[cat.id] || [];
-                return (
-                  <div
-                    key={cat.id}
-                    className="rounded-2xl border border-[#836DAD]/20 bg-[#FAF8FC] p-3.5 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-[#836DAD]">
-                        {cat.number}. {cat.title}
-                      </span>
-                      <span className="rounded-full bg-[#836DAD]/15 px-2 py-0.5 text-[10px] font-bold text-[#836DAD]">
-                        {cat.options.length + customForCat.length} terapias
-                      </span>
-                    </div>
-                    {customForCat.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {customForCat.map((opt) => (
-                          <span
-                            key={opt}
-                            className="inline-flex items-center gap-1 rounded-full bg-[#836DAD] px-2.5 py-0.5 text-[11px] font-semibold text-white"
-                          >
-                            <span>+ {opt}</span>
-                            {onRemoveCustomOption && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  onRemoveCustomOption(cat.id, opt)
-                                }
-                                title="Quitar terapia agregada"
-                                className="ml-1 cursor-pointer text-[#F3D791] hover:text-white"
-                              >
-                                ×
-                              </button>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[11px] text-[#2B1F42]/60">
-                        {cat.options.slice(0, 4).join(", ")}...
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <AdminCategoriesTherapiesAbmPanel
+          pendingAdminAlerts={pendingAdminAlerts}
+          approvedCustomOptions={approvedCustomOptions}
+          adminFeedback={adminFeedback}
+          onApproveAlert={onApproveAlert}
+          onDismissAlert={onDismissAlert}
+          onRemoveCustomOption={onRemoveCustomOption}
+        />
       )}
 
       {/* =====================================================================

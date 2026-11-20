@@ -957,9 +957,6 @@ export default function AdminErpPortalPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] shadow-2xs">
                   <Users className="h-5 w-5" />
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-[#836DAD]/30 bg-[#F6F3FA] px-2.5 py-0.5 text-[0.72rem] font-bold text-[#836DAD]">
-                  {metrics.totalUsers} perfiles
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   Consultantes y Terapeutas
                 </h3>
@@ -983,11 +980,6 @@ export default function AdminErpPortalPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] shadow-2xs">
                   <Sparkles className="h-5 w-5" />
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-[#836DAD]/30 bg-[#F3D791]/40 px-2.5 py-0.5 text-[0.72rem] font-bold text-[#2B1F42]">
-                  {pendingAdminAlerts.length > 0
-                    ? `${pendingAdminAlerts.length} pendientes`
-                    : "6 categorías"}
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   Terapias y Categorías Propuestas
                 </h3>
@@ -1011,9 +1003,6 @@ export default function AdminErpPortalPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] shadow-2xs">
                   <Wallet className="h-5 w-5" />
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[0.72rem] font-bold text-emerald-800">
-                  Split 1:1 MP
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   Comisiones y Pagos Split 1:1
                 </h3>
@@ -1037,9 +1026,6 @@ export default function AdminErpPortalPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] shadow-2xs">
                   <GraduationCap className="h-5 w-5" />
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-[#836DAD]/30 bg-[#F6F3FA] px-2.5 py-0.5 text-[0.72rem] font-bold text-[#836DAD]">
-                  {metrics.coursesCount} cursos
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   Academia y Capacitaciones
                 </h3>
@@ -1063,9 +1049,6 @@ export default function AdminErpPortalPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] shadow-2xs">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[0.72rem] font-bold text-emerald-800">
-                  {metrics.bioVerificados} verificados
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   Verificación Biométrica e Identidad
                 </h3>
@@ -1089,9 +1072,6 @@ export default function AdminErpPortalPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] shadow-2xs">
                   <Video className="h-5 w-5" />
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-[#836DAD]/30 bg-[#F6F3FA] px-2.5 py-0.5 text-[0.72rem] font-bold text-[#836DAD]">
-                  Daily.co 1:1
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   Videollamadas y Turnos
                 </h3>
@@ -1115,9 +1095,6 @@ export default function AdminErpPortalPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] shadow-2xs">
                   <MessageSquare className="h-5 w-5" />
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[0.72rem] font-bold text-emerald-800">
-                  E.164 Activo
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   WhatsApp Oficial
                 </h3>
@@ -1167,9 +1144,6 @@ export default function AdminErpPortalPage() {
                     <Sun className="h-5 w-5" />
                   )}
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-[#836DAD]/30 bg-[#F6F3FA] px-2.5 py-0.5 text-[0.72rem] font-bold text-[#836DAD]">
-                  {isDark ? "Modo Oscuro" : "Modo Claro"}
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   Fondo Claro / Fondo Oscuro
                 </h3>
@@ -1193,9 +1167,6 @@ export default function AdminErpPortalPage() {
                 <div className="inline-flex h-11 w-11 items-center justify-center rounded-[11px] border border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] shadow-2xs">
                   <User className="h-5 w-5" />
                 </div>
-                <span className="absolute top-4 right-4 rounded-full border border-[#836DAD]/30 bg-[#F6F3FA] px-2.5 py-0.5 text-[0.72rem] font-bold text-[#836DAD]">
-                  @{activeAdmin.username}
-                </span>
                 <h3 className="m-0 text-[1.05rem] font-extrabold">
                   Perfil de Usuario
                 </h3>
