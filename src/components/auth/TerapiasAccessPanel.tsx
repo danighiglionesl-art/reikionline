@@ -141,18 +141,92 @@ const SELECTED_ROLE_STORAGE_KEY = "reiki_online_selected_role_v1";
 const PROFILES_STORAGE_KEY = "reiki_online_user_profiles_v1";
 const SYNC_EVENT_NAME = "reiki-online-catalog-sync";
 
+interface AdminAccountConfig {
+  username: string;
+  email: string;
+  password: string;
+  nombre: string;
+  apellido: string;
+  nickname: string;
+}
+
+const ADMIN_ACCOUNTS: AdminAccountConfig[] = [
+  {
+    username: "reikionline",
+    email: "admin@reikionline.com.ar",
+    password: "Reiki2026",
+    nombre: "Daniel Alejandro",
+    apellido: "Ghiglione",
+    nickname: "danielghiglione",
+  },
+  {
+    username: "danielg",
+    email: "danielg@reikionline.com.ar",
+    password: "Dani1926",
+    nombre: "Daniel Alejandro",
+    apellido: "Ghiglione",
+    nickname: "danielghiglione",
+  },
+  {
+    username: "federicod",
+    email: "federicod@reikionline.com.ar",
+    password: "Fede2026",
+    nombre: "Federico",
+    apellido: "D.",
+    nickname: "federicod",
+  },
+  {
+    username: "josem",
+    email: "josem@reikionline.com.ar",
+    password: "Jose2026",
+    nombre: "José",
+    apellido: "M.",
+    nickname: "josem",
+  },
+  {
+    username: "miltonv",
+    email: "miltonv@reikionline.com.ar",
+    password: "Milton2026",
+    nombre: "Milton",
+    apellido: "V.",
+    nickname: "miltonv",
+  },
+];
+
+function findAdminAccountByIdentifier(identifier?: string): AdminAccountConfig | undefined {
+  const lower = (identifier || "").trim().toLowerCase();
+  if (!lower) return undefined;
+  return ADMIN_ACCOUNTS.find(
+    (acc) => acc.username === lower || acc.email === lower
+  );
+}
+
 function isAdminIdentity(email?: string, isAdminFlag?: boolean): boolean {
   const lower = (email || "").trim().toLowerCase();
   return Boolean(
     isAdminFlag ||
-      lower === "reikionline" ||
       lower === "danighiglione@gmail.com" ||
-      lower === "admin@reikionline.com.ar"
+      findAdminAccountByIdentifier(lower)
   );
 }
 
 function buildDefaultProfileForUser(user: AuthenticatedUser): ReikiUserProfile {
   const lowerEmail = user.email.trim().toLowerCase();
+  const matchedAdmin = findAdminAccountByIdentifier(lowerEmail);
+  if (matchedAdmin && matchedAdmin.nickname !== "danielghiglione") {
+    return {
+      ...DEFAULT_ADMIN_PROFILE,
+      id: `admin-${matchedAdmin.username}`,
+      username: matchedAdmin.nickname,
+      nickname: matchedAdmin.nickname,
+      nombre: matchedAdmin.nombre,
+      apellido: matchedAdmin.apellido,
+      email: matchedAdmin.email,
+      fotoUrl: user.picture || "",
+      isAdmin: true,
+      whatsappVerified: true,
+    };
+  }
   if (isAdminIdentity(lowerEmail, user.isAdmin)) {
     return {
       ...DEFAULT_ADMIN_PROFILE,
@@ -661,28 +735,36 @@ export function TerapiasAccessPanel({
 
   const handleLoginSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setAuthError(null);
     const cleanEmail = email.trim();
     if (!cleanEmail) return;
 
-    const isExplicitAdminLogin =
-      (cleanEmail.toLowerCase() === "reikionline" ||
-        cleanEmail.toLowerCase() === "admin@reikionline.com.ar") &&
-      password === "Reiki2026";
+    const matchedAdminAccount = findAdminAccountByIdentifier(cleanEmail);
+    if (matchedAdminAccount && password !== matchedAdminAccount.password) {
+      setAuthError(
+        "Contraseña de administrador incorrecta. Verificá las mayúsculas y números."
+      );
+      return;
+    }
+
+    const isExplicitAdminLogin = Boolean(
+      matchedAdminAccount && password === matchedAdminAccount.password
+    );
 
     const isDanielEmail =
       cleanEmail.toLowerCase() === "danighiglione@gmail.com";
 
     const derivedName =
-      isExplicitAdminLogin || isDanielEmail
+      matchedAdminAccount
+        ? `${matchedAdminAccount.nombre} ${matchedAdminAccount.apellido}`.trim()
+        : isDanielEmail
         ? "Daniel Alejandro Ghiglione"
         : cleanEmail.split("@")[0].replace(/[._-]/g, " ");
 
     persistUserSession(
       {
         name: derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
-        email: isExplicitAdminLogin
-          ? "admin@reikionline.com.ar"
-          : cleanEmail,
+        email: matchedAdminAccount ? matchedAdminAccount.email : cleanEmail,
         provider: "Correo",
         isAdmin: isExplicitAdminLogin,
       },
