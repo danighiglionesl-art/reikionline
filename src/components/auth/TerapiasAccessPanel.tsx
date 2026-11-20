@@ -141,7 +141,7 @@ const SELECTED_ROLE_STORAGE_KEY = "reiki_online_selected_role_v1";
 const PROFILES_STORAGE_KEY = "reiki_online_user_profiles_v1";
 const SYNC_EVENT_NAME = "reiki-online-catalog-sync";
 
-interface AdminAccountConfig {
+export interface AdminAccountConfig {
   username: string;
   email: string;
   password: string;
@@ -150,7 +150,7 @@ interface AdminAccountConfig {
   nickname: string;
 }
 
-const ADMIN_ACCOUNTS: AdminAccountConfig[] = [
+export const ADMIN_ACCOUNTS: AdminAccountConfig[] = [
   {
     username: "reikionline",
     email: "admin@reikionline.com.ar",
@@ -193,7 +193,7 @@ const ADMIN_ACCOUNTS: AdminAccountConfig[] = [
   },
 ];
 
-function findAdminAccountByIdentifier(identifier?: string): AdminAccountConfig | undefined {
+export function findAdminAccountByIdentifier(identifier?: string): AdminAccountConfig | undefined {
   const lower = (identifier || "").trim().toLowerCase();
   if (!lower) return undefined;
   return ADMIN_ACCOUNTS.find(
@@ -761,6 +761,20 @@ export function TerapiasAccessPanel({
         ? "Daniel Alejandro Ghiglione"
         : cleanEmail.split("@")[0].replace(/[._-]/g, " ");
 
+    if (matchedAdminAccount && isExplicitAdminLogin) {
+      try {
+        const erpPayload = JSON.stringify({
+          username: matchedAdminAccount.username,
+          email: matchedAdminAccount.email,
+          loggedAt: new Date().toISOString(),
+        });
+        window.sessionStorage.setItem("ro_erp_active_admin_v1", erpPayload);
+        window.localStorage.setItem("ro_erp_active_admin_v1", erpPayload);
+      } catch {
+        // Ignore
+      }
+    }
+
     persistUserSession(
       {
         name: derivedName.charAt(0).toUpperCase() + derivedName.slice(1),
@@ -1247,33 +1261,21 @@ export function TerapiasAccessPanel({
                 </button>
               )}
 
-            {/* Botón para alternar entre Pantalla de Administrador y Modo Consultante/Terapeuta */}
+            {/* Acceso rápido al Portal ERP exclusivo /admin para Administradores */}
             {authenticatedUser?.isAdmin && (
-              <button
-                type="button"
-                onClick={() => setShowAdminPanel((prev) => !prev)}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold transition-all ${
-                  isAdminViewActive
-                    ? "border-[#836DAD] bg-[#836DAD] text-white shadow-sm"
-                    : "border-[#836DAD]/30 bg-[#F6F3FA] text-[#836DAD] hover:bg-[#836DAD] hover:text-white"
-                }`}
-                title={
-                  isAdminViewActive
-                    ? "Cerrar panel Admin y volver a mi vista"
-                    : "Abrir panel de Administrador"
-                }
+              <a
+                href="/admin"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD] bg-[#F3D791] px-3.5 py-2 text-xs font-bold text-[#2B1F42] shadow-sm transition-all hover:bg-[#836DAD] hover:text-white"
+                title="Abrir Portal ERP exclusivo de Administradores (/admin)"
               >
                 <BellRing className="h-3.5 w-3.5" />
                 <span>
-                  {isAdminViewActive
-                    ? "Cerrar Admin"
-                    : `Admin${
-                        pendingAdminAlerts.length > 0
-                          ? ` (${pendingAdminAlerts.length})`
-                          : ""
-                      }`}
+                  Portal ERP /admin
+                  {pendingAdminAlerts.length > 0
+                    ? ` (${pendingAdminAlerts.length})`
+                    : ""}
                 </span>
-              </button>
+              </a>
             )}
 
             {authenticatedUser && (

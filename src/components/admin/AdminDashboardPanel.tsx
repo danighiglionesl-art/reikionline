@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Users,
   UserCheck,
@@ -44,6 +44,8 @@ interface AdminDashboardPanelProps {
   onApproveAlert: (alertItem: PendingAdminCategoryAlert) => void;
   onDismissAlert: (alertId: string) => void;
   onRemoveCustomOption?: (categoryId: string, optionLabel: string) => void;
+  initialTab?: AdminSectionTab;
+  hideTopTabSelector?: boolean;
 }
 
 type AdminSectionTab = "usuarios" | "terapias" | "comisiones";
@@ -77,8 +79,14 @@ export default function AdminDashboardPanel({
   onApproveAlert,
   onDismissAlert,
   onRemoveCustomOption,
+  initialTab = "usuarios",
+  hideTopTabSelector = false,
 }: AdminDashboardPanelProps) {
-  const [activeTab, setActiveTab] = useState<AdminSectionTab>("usuarios");
+  const [activeTab, setActiveTab] = useState<AdminSectionTab>(initialTab);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("todos");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
@@ -377,6 +385,7 @@ export default function AdminDashboardPanel({
   return (
     <div className="space-y-6">
       {/* Navegación principal exclusiva del Administrador (3 funciones centrales) */}
+      {!hideTopTabSelector && (
       <div className="grid grid-cols-1 gap-2.5 rounded-2xl bg-[#F6F3FA] p-2 sm:grid-cols-3">
         <button
           type="button"
@@ -422,6 +431,7 @@ export default function AdminDashboardPanel({
           <span>3. Comisiones y Pagos Split</span>
         </button>
       </div>
+      )}
 
       {(noticeMsg || adminFeedback) && (
         <div className="flex items-center gap-2 rounded-2xl border border-[#836DAD]/35 bg-[#F6F3FA] px-4 py-3 text-xs font-bold text-[#836DAD]">
