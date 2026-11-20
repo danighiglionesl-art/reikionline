@@ -29,6 +29,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import {
+  loadManagedRoleCategories,
   ROLE_THERAPY_CATEGORIES,
   RoleTherapyCategory,
 } from "@/lib/reiki-data";
@@ -773,6 +774,10 @@ export function TerapiasAccessPanel({
       } catch {
         // Ignore
       }
+      if (typeof window !== "undefined") {
+        window.location.href = "/sistema";
+        return;
+      }
     }
 
     persistUserSession(
@@ -782,7 +787,7 @@ export function TerapiasAccessPanel({
         provider: "Correo",
         isAdmin: isExplicitAdminLogin,
       },
-      isExplicitAdminLogin
+      false
     );
   };
 
@@ -1168,13 +1173,9 @@ export function TerapiasAccessPanel({
       (selectedRole === "Consultante" && consultanteRisk.requiresBiometric)
   );
 
-  const isAdminViewActive = Boolean(
-    authenticatedUser?.isAdmin && showAdminPanel
-  );
+  const isAdminViewActive = false;
   const isCurrentUserSuspended = Boolean(
-    activeUserProfile &&
-      !isAdminViewActive &&
-      isProfileCurrentlySuspended(activeUserProfile)
+    activeUserProfile && isProfileCurrentlySuspended(activeUserProfile)
   );
 
   return (
@@ -1249,7 +1250,7 @@ export function TerapiasAccessPanel({
             {authenticatedUser &&
               isWhatsAppVerified &&
               !isCurrentUserSuspended &&
-              (selectedRole || activeSection || isAdminViewActive) && (
+              (selectedRole || activeSection) && (
                 <button
                   type="button"
                   onClick={handleBackToRoleSelect}
@@ -1260,23 +1261,6 @@ export function TerapiasAccessPanel({
                   <span>Volver atrás</span>
                 </button>
               )}
-
-            {/* Acceso rápido al Portal ERP exclusivo /admin para Administradores */}
-            {authenticatedUser?.isAdmin && (
-              <a
-                href="/admin"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[#836DAD] bg-[#F3D791] px-3.5 py-2 text-xs font-bold text-[#2B1F42] shadow-sm transition-all hover:bg-[#836DAD] hover:text-white"
-                title="Abrir Portal ERP exclusivo de Administradores (/admin)"
-              >
-                <BellRing className="h-3.5 w-3.5" />
-                <span>
-                  Portal ERP /admin
-                  {pendingAdminAlerts.length > 0
-                    ? ` (${pendingAdminAlerts.length})`
-                    : ""}
-                </span>
-              </a>
-            )}
 
             {authenticatedUser && (
               <button

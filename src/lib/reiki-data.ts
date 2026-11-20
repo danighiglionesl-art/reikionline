@@ -55,7 +55,17 @@ export interface RoleTherapyCategory {
   number: number;
   title: string;
   options: string[];
+  shortSubtitle?: string;
+  description?: string;
+  image?: string;
+  galleryImage?: string;
 }
+
+export const MANAGED_CATEGORIES_STORAGE_KEY =
+  "reiki_online_managed_categories_v1";
+export const CUSTOM_OPTIONS_STORAGE_KEY =
+  "reiki_online_custom_therapy_options_v1";
+export const CATALOG_SYNC_EVENT_NAME = "reiki-online-catalog-sync";
 
 export const ROLE_THERAPY_CATEGORIES: RoleTherapyCategory[] = [
   {
@@ -244,31 +254,142 @@ const CATEGORY_VISUAL_META: Record<
   },
 };
 
-export const THERAPY_CATEGORIES: TherapyCategory[] = ROLE_THERAPY_CATEGORIES.map(
-  (roleCat) => {
+export function buildPublicTherapyCategories(
+  roleCategories: RoleTherapyCategory[],
+  customOptions?: Record<string, string[]>
+): TherapyCategory[] {
+  return roleCategories.map((roleCat) => {
     const meta = CATEGORY_VISUAL_META[roleCat.id] ?? {
-      shortSubtitle: roleCat.options.slice(0, 4).join(", "),
-      image: "/images/cat-energia-armonizacion.png",
-      galleryImage: "/images/galeria-cristales.png",
-      description: `Especialidades de ${roleCat.title} disponibles de forma online a distancia y presencial.`,
+      shortSubtitle:
+        roleCat.shortSubtitle ||
+        roleCat.options.slice(0, 4).join(", ") ||
+        roleCat.title,
+      image: roleCat.image || "/images/cat-energia-armonizacion.png",
+      galleryImage: roleCat.galleryImage || "/images/galeria-cristales.png",
+      description:
+        roleCat.description ||
+        `Especialidades de ${roleCat.title} disponibles de forma online a distancia y presencial.`,
     };
+
+    const extraOpts = customOptions?.[roleCat.id] || [];
+    const mergedOptions = Array.from(new Set([...roleCat.options, ...extraOpts]));
 
     return {
       id: roleCat.id,
       title: roleCat.title,
-      shortSubtitle: meta.shortSubtitle,
-      image: meta.image,
-      galleryImage: meta.galleryImage,
-      description: meta.description,
-      specialties: roleCat.options.map((optionName) => ({
+      shortSubtitle: roleCat.shortSubtitle || meta.shortSubtitle,
+      image: roleCat.image || meta.image,
+      galleryImage: roleCat.galleryImage || meta.galleryImage,
+      description: roleCat.description || meta.description,
+      specialties: mergedOptions.map((optionName) => ({
         name: optionName,
         modality: "Presencial y Online",
         duration: "45 a 60 min",
         summary: `Sesión personalizada de ${optionName} dentro de ${roleCat.title}, disponible en modalidad online a distancia o presencial.`,
       })),
     };
+  });
+}
+
+export const THERAPY_CATEGORIES: TherapyCategory[] =
+  buildPublicTherapyCategories(ROLE_THERAPY_CATEGORIES);
+
+export function loadManagedRoleCategories(): RoleTherapyCategory[] {
+  const defaultCloned = ROLE_THERAPY_CATEGORIES.map((cat, idx) => ({
+    ...cat,
+    number: idx + 1,
+    options: [...cat.options],
+    shortSubtitle: CATEGORY_VISUAL_META[cat.id]?.shortSubtitle,
+    description: CATEGORY_VISUAL_META[cat.id]?.description,
+    image: CATEGORY_VISUAL_META[cat.id]?.image,
+    galleryImage: CATEGORY_VISUAL_META[cat.id]?.galleryImage,
+  }));
+
+  if (typeof window === "undefined") {
+    return defaultCloned;
   }
-);
+
+  let baseList = defaultCloned;
+  try {
+    const raw = window.localStorage.getItem(MANAGED_CATEGORIES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as RoleTherapyCategory[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        baseList = parsed.map((cat, idx) => ({
+          ...cat,
+          number: idx + 1,
+          options: Array.isArray(cat.options) ? cat.options : [],
+          shortSubtitle:
+            cat.shortSubtitle || CATEGORY_VISUAL_META[cat.id]?.shortSubtitle,
+          description:
+            cat.description || CATEGORY_VISUAL_META[cat.id]?.description,
+          image: cat.image || CATEGORY_VISUAL_META[cat.id]?.image,
+          galleryImage:
+            cat.galleryImage || CATEGORY_VISUAL_META[cat.id]?.galleryImage,
+        }));
+      }
+    }
+  } catch {
+    // Fallback to defaults
+  }
+
+  // Merge any legacy custom options stored in CUSTOM_OPTIONS_STORAGE_KEY so they stay linked
+  try {
+    const rawCustom = window.localStorage.getItem(CUSTOM_OPTIONS_STORAGE_KEY);
+    if (rawCustom) {
+      const parsedCustom = JSON.parse(rawCustom) as Record<string, string[]>;
+      baseList = baseList.map((cat) => {
+        const extras = parsedCustom[cat.id] || [];
+        if (extras.length === 0) return cat;
+        const merged = Array.from(new Set([...cat.options, ...extras]));
+        return { ...cat, options: merged };
+      });
+    }
+  } catch {
+    // Ignore
+  }
+
+  return baseList;
+}
+
+export function saveManagedRoleCategories(
+  categories: RoleTherapyCategory[]
+): RoleTherapyCategory[] {
+  const normalized = categories.map((cat, idx) => ({
+    ...cat,
+    number: idx + 1,
+    title: cat.title.trim(),
+    options: Array.from(
+      new Set(cat.options.map((o) => o.trim()).filter(Boolean))
+    ),
+  }));
+
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(
+        MANAGED_CATEGORIES_STORAGE_KEY,
+        JSON.stringify(normalized)
+      );
+      window.dispatchEvent(new Event(CATALOG_SYNC_EVENT_NAME));
+    } catch {
+      // Ignore storage errors
+    }
+  }
+  return normalized;
+}
+
+export function resetManagedRoleCategoriesToDefaults(): RoleTherapyCategory[] {
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(MANAGED_CATEGORIES_STORAGE_KEY);
+      window.localStorage.removeItem(CUSTOM_OPTIONS_STORAGE_KEY);
+      window.dispatchEvent(new Event(CATALOG_SYNC_EVENT_NAME));
+    } catch {
+      // Ignore
+    }
+  }
+  return loadManagedRoleCategories();
+}
 
 export const ILLUSTRATIVE_PROFESSIONALS: IllustrativeProfessional[] = [
   {

@@ -1,11 +1,16 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { THERAPY_CATEGORIES, TherapyCategory, TherapySpecialty } from "@/lib/reiki-data";
+import {
+  buildPublicTherapyCategories,
+  CATALOG_SYNC_EVENT_NAME,
+  CUSTOM_OPTIONS_STORAGE_KEY,
+  loadManagedRoleCategories,
+  ROLE_THERAPY_CATEGORIES,
+  RoleTherapyCategory,
+  TherapyCategory,
+} from "@/lib/reiki-data";
 import { Sparkles, ChevronRight, Clock, Globe2, CalendarCheck, X } from "lucide-react";
-
-const CUSTOM_OPTIONS_STORAGE_KEY = "reiki_online_custom_therapy_options_v1";
-const SYNC_EVENT_NAME = "reiki-online-catalog-sync";
 
 interface TherapiesSectionProps {
   onRequestBooking: (specialtyLabel: string) => void;
@@ -14,53 +19,41 @@ interface TherapiesSectionProps {
 export function TherapiesSection({ onRequestBooking }: TherapiesSectionProps) {
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [showAllExplorer, setShowAllExplorer] = useState(false);
+  const [managedCategories, setManagedCategories] = useState<
+    RoleTherapyCategory[]
+  >(ROLE_THERAPY_CATEGORIES);
   const [approvedCustomOptions, setApprovedCustomOptions] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const loadCustomOptions = () => {
+    const loadCatalogState = () => {
+      setManagedCategories(loadManagedRoleCategories());
       try {
         const saved = window.localStorage.getItem(CUSTOM_OPTIONS_STORAGE_KEY);
         if (saved) {
           setApprovedCustomOptions(JSON.parse(saved) as Record<string, string[]>);
+        } else {
+          setApprovedCustomOptions({});
         }
       } catch {
         // Ignore storage read errors
       }
     };
 
-    loadCustomOptions();
-    window.addEventListener(SYNC_EVENT_NAME, loadCustomOptions);
-    window.addEventListener("storage", loadCustomOptions);
+    loadCatalogState();
+    window.addEventListener(CATALOG_SYNC_EVENT_NAME, loadCatalogState);
+    window.addEventListener("storage", loadCatalogState);
 
     return () => {
-      window.removeEventListener(SYNC_EVENT_NAME, loadCustomOptions);
-      window.removeEventListener("storage", loadCustomOptions);
+      window.removeEventListener(CATALOG_SYNC_EVENT_NAME, loadCatalogState);
+      window.removeEventListener("storage", loadCatalogState);
     };
   }, []);
 
   const categoriesWithCustom: TherapyCategory[] = useMemo(() => {
-    return THERAPY_CATEGORIES.map((cat) => {
-      const extraNames = approvedCustomOptions[cat.id] ?? [];
-      if (extraNames.length === 0) return cat;
-
-      const existingSet = new Set(cat.specialties.map((s) => s.name));
-      const extraSpecialties: TherapySpecialty[] = extraNames
-        .filter((name) => !existingSet.has(name))
-        .map((name) => ({
-          name,
-          modality: "Presencial y Online",
-          duration: "45 a 60 min",
-          summary: `Sesión personalizada de ${name} disponible en modalidad online a distancia o presencial.`,
-        }));
-
-      return {
-        ...cat,
-        specialties: [...cat.specialties, ...extraSpecialties],
-      };
-    });
-  }, [approvedCustomOptions]);
+    return buildPublicTherapyCategories(managedCategories, approvedCustomOptions);
+  }, [managedCategories, approvedCustomOptions]);
 
   const activeCategory = useMemo(
     () => categoriesWithCustom.find((c) => c.id === activeCategoryId) ?? null,

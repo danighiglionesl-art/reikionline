@@ -1667,7 +1667,7 @@ export default function AdminErpPortalPage() {
             <div>
               <h3 className="mb-3 text-sm font-extrabold text-[#2B1F42]">
                 Nómina de Usuarios de Administración Habilitados en{" "}
-                <code>/admin</code>
+                <code>/sistema</code>
               </h3>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {ADMIN_ACCOUNTS.map((acc) => {
